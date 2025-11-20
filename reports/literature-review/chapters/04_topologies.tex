@@ -1,0 +1,51 @@
+\chapter{MIMO array topologies}
+\todo{Add sources\ldots}
+Existing MIMO array designs for automotive radar predominantly use linear or planar sparse layouts optimized for angular resolution and cost-efficient implementation. TDM-MIMO architectures dominate current commercial systems, typically leveraging 3--4 transmitters with 4--8 receivers to synthesize virtual arrays of 12--48 channels. Recent research explores 2D MIMO arrays, co-prime and nested sparse layouts, and wide-aperture imaging arrays. However, most published designs assume a single polarization, leaving the interaction between sparsity and polarization purity largely unexplored. Only a few prototypes integrate dual-polarization at W-band, and these often suffer from phase-centre mismatches, reduced aperture efficiency and severe cross-polar coupling. As a result, no established array topology exists that simultaneously optimizes spatial resolution, polarization isolation and multiplexing feasibility for a fully polarimetric automotive radar.
+
+\section{MIMO fundamentals}
+
+The concept of MIMO antenna systems is a well-established and extensively published area within telecommunications, where transmitting data over multiple uncorrelated signals results in additional information about the state of the communication channel, aggregating effects like multipath propagation and other types of signal fading or delays. This information is leveraged to estimate the channel matrix which is then used to compensate for propagation effects to recover the transmitted data.
+
+While the foundational idea of MIMO has been successfully carried over to radar technology, the problem formulation is adapted: the primary goal of radar is the precise estimation of the channel matrix, which encapsulates information about propagation effects, including time delay, Doppler shift, and angle of arrival~\parencite{blissMultipleinputMultipleoutputMIMO2003,forsytheMultipleinputMultipleoutputMIMO2004}. The success of this communications-to-radar transformation has inspired extensive research, leading to key advancements and further classifications, such as the division of the general array concept into colocated and distributed MIMO~\parencite{fishlerMIMORadarIdea2004,fishlerSpatialDiversityRadars2006}. However, this concept transfer must be undertaken with care, respecting and integrating the existing knowledge of traditional radar technology, as a direct, uncritical adaptation can lead to flawed conclusions, occurrences of which were found mainly in the case of distributed MIMO, where some contributions transpired to be either redundant re-discoveries of concepts from multistatic radar, or simply incorrect statements~\parencite{chernyakConceptMIMORadar2010}.
+
+In the realm of automotive applications, the use of MIMO systems is inherently limited to colocated MIMO arrays due to space and geometric constraints. From a signal processing perspective, this topic is now well-studied, and the benefits the concept brings -- such as increased virtual array size, improved angular resolution, and enabled adaptive processing -- are well-understood and documented~\parencite{liMIMORadarColocated2007}. This comprehensive understanding is evident in the detailed literature, defining concepts like parameter identifiability~\parencite{liParameterIdentifiabilityMIMO2007} to showcase the merits of MIMO radar. The maturity of the field is further highlighted by the existence of specialized reference books dedicated entirely to the topic of MIMO radar~\parencite{liMIMORadarSignal2025}.
+
+\begin{colourbox}[orange]{Notes}
+\begin{itemize}
+    \item Double down on the distinction between colocated and distributed MIMO, highlighting that colocated configurations enable coherent transmission and detection, whereas distributed MIMO brings spacial diversity gain to the table.
+
+    \item Mention papers combining the benefits of both:~\parencite{hassanienPhasedMIMORadarTradeoff2010,xuIterativeGeneralizedLikelihoodRatio2007} and others.
+
+    \item Advantages~\parencite{xuIterativeGeneralizedLikelihoodRatio2007}:
+    \begin{itemize}
+        \item Widely-separated antennas (distributed MIMO) can help overcome target scintillation (i.e., RCS fluctuation).
+        \item Flexible transmit beampattern design of a colocated MIMO, based on covariance matrix optimization, can help maximize power in directions of interest while minimizing backscattered signals correlation. → Significant improvement of adaptive techniques
+        \item MIMO radar scheme can achieve higher resolution and improve clutter rejection capabilities.
+    \end{itemize}
+
+    \item Why MIMO radar (TBD)
+    \begin{itemize}
+        \item Concept of virtual array → larger effective array → better angular resolution
+        \item Diversity gains, increased SNR
+        \item 2D MIMO radar enables shaping the elevation pattern
+    \end{itemize}
+
+    \item Major challenges:
+    \begin{itemize}
+        \item Not enough analytical work in virtual array synthesis, especially 2D
+        \item EM-informed design and signal processing, such as missing links between parasitic physical phenomena like antenna element coupling and errors in processing algorithms
+    \end{itemize}
+\end{itemize}
+\end{colourbox}
+
+\section{Sparse and 2D MIMO arrays}
+
+\section{Polarimetric MIMO designs}
+
+\begin{colourbox}[orange]{Notes}
+\begin{itemize}
+    \item Only consider fully polarimetric radar?
+    \item ``Constructing an interleaved transmit array of single-polarized elements, e.g., even and odd-numbered elements radiating horizontal and vertical polarizations, respectively, results in different phase centres for each polarization, and hence in “polarization squint”. Dual-polarized elements completely avoid this problem but require an OMT for each element.''
+    \item Is the hardware overhead of dual-polarized elements worth it in case the squint can be calibrated for?
+\end{itemize}
+\end{colourbox}

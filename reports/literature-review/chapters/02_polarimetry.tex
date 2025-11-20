@@ -1,0 +1,76 @@
+\chapter{Radar polarimetry}
+Although the foundational ideas of radar polarimetry date back to the 1970s and can be considered a mature concept, with the 1980s and 1990s representing a golden period of theoretical and experimental development,~\parencite{leePolarimetricRadarImaging2017} its application potential in the automotive industry began to emerge only in the previous decade. Consequently, the field of polarimetric automotive radar is still very much in its infancy; nonetheless, it holds a compelling promise for achieving higher reliability and sophistication in sensors for ADAS and autonomous driving. This promise has already captured the attention of major automotive companies and research institutes, prompting them to provide viability confirmations~\parencite{tillyRoadUserClassification2021}. A handful of publications has pioneered the proof of concept through complete system implementations~\parencite{tintiFullyPolarimetricAutomotive2024}. Furthermore, the rapidly increasing interest and innovation in this area are evidenced by the recent emergence of longer monographs focusing specifically on the topics and advancements of polarimetric radar for automotive applications~\parencite{visentinPolarimetricRadarAutomotive2019}.
+
+\section{Electromagnetic polarization fundamentals}
+Electromagnetic waves can be decomposed into orthogonal linear, circular or elliptical polarization states, each associated with a specific temporal evolution of the electric field vector. In radar applications, polarization serves as an additional dimension for characterizing scattering mechanisms: targets may preserve, transform or depolarize the incident wave depending on their geometry, surface material, roughness and orientation. These transformations provide valuable classification features that are absent in scalar radar measurements~\parencite{leePolarimetricRadarImaging2017}.
+
+The description of polarization typically relies on the Jones vector for coherent fields and the Stokes vector or coherency matrix for partially coherent and incoherent fields. At automotive millimetre-wave frequencies, high coherence of FMCW radars allows Jones and coherency representations to remain applicable. The polarization purity of the transmitted and received waves, however, is strongly influenced by antenna cross-polarization discrimination (XPD), PCB anisotropies, and mutual coupling -- highlighting the need for careful array design.
+
+\section{The scattering matrix and polarimetric models}
+The basic mathematical representation of polarimetric radar interaction is the $2\times 2$ Sinclair scattering matrix
+\begin{align}
+    \vec S = \begin{pmatrix}
+        S_{\mathrm{HH}} & S_{\mathrm{HV}} \\
+        S_{\mathrm{VH}} & S_{\mathrm{VV}}
+    \end{pmatrix},
+\end{align}
+where the indices denote the transmit and receive polarization. This matrix captures the target's ability to preserve or convert polarization states. Under the monostatic assumption, reciprocity often implies $S_{\mathrm{HV}} = S_{\mathrm{VH}}$, though this is not always valid in near-field or rapidly varying scenarios typical for automotive radar.
+
+\todo{Add sources\ldots}
+Depending on the target category, different scattering behaviours dominate:
+\begin{itemize}
+    \item Smooth metallic surfaces: dominant co-polarization terms, low depolarization.
+    \item Pedestrians/cyclists: complex polarimetric signatures due to limbs, moving
+    parts, and heterogeneous materials.
+    \item Road infrastructure: specular reflections with limited cross-polarization except under
+    oblique incidence.
+\end{itemize}
+These behaviours motivate polarimetry for VRU classification, but also complicate measurement interpretation at short ranges.
+
+\section{Polarimetric decomposition techniques}
+A variety of decomposition methods allow interpretation of the scattering matrix. Classical approaches include:
+
+\begin{itemize}
+    \item Pauli decomposition (surface, dihedral, and helix scattering components),
+    \item Krogager's decomposition,
+    \item Cloude-Pottier eigenvalue/eigenvector analysis (entropy, anisotropy, alpha angle),
+    \item Huynen parameters (geometric and physical attributes of the scatterer).
+\end{itemize}
+
+These methods were historically developed for \emph{far-field SAR or remote sensing scenarios} with static or slowly varying targets. Automotive radar challenges these assumptions due to:
+\begin{itemize}
+    \item rapidly moving targets,
+    \item near-field or intermediate-field operation,
+    \item FMCW sweep time constraints,
+    \item multipath on reflective ground surfaces,
+    \item limited number of polarization channels (often dual-polarization or hybrid-polarization).
+\end{itemize}
+Thus, while classical decomposition techniques provide conceptual grounding, they cannot be directly applied to automotive scenarios without new theoretical extensions.
+
+\section{Suitability for automotive radar}
+Automotive scenes differ fundamentally from the operating conditions assumed in polarimetric radar theory:
+\begin{itemize}
+    \item Short range (5--60 m): transition region between near-field and far-field, invalidating plane-wave assumptions.
+    \item High dynamics: scattering matrices evolve on millisecond timescales due to limb motion and ego-vehicle motion.
+    \item Multipath dominance: ground reflections and vehicle surfaces introduce depolarization not predicted by classical models.
+    \item Multiplexing constraints: sequential polarimetric switching increases Doppler ambiguity when combined with TDM-MIMO.
+\end{itemize}
+These discrepancies justify the development of \emph{new polarimetric methods}, potentially including Doppler-resolved polarimetric processing and joint spatial-polarimetric feature extraction.
+
+\begin{colourbox}[orange]{Notes}
+\begin{itemize}
+    \item Why polarimetric radar?
+    \begin{itemize}
+        \item Weishaupt et al.~\parencite{weishauptCalibrationSignalProcessing2022}: ``In automotive applications, the additional information on the scattering process derived from polarimetry can be used for an improved classification of other road users [1], [2] or the enhanced perception of the static environment for localization purposes [3]. A typical new result through applying polarimetry is an estimate of whether an even or odd number of reflections occurred at a scatterer. This allows drawing conclusions on the object's geometries.''
+        \item \ldots
+    \end{itemize}
+
+    \item Major challenges~\parencite{zhaoOverviewPolarimetryApplication2025}:
+    \begin{itemize}
+        \item Increment of the cross-polarization level of the radiation pattern in off-broadside measurement
+        \item Varying antenna phase centres in MIMO polarimetric radar
+        \item Complexity of polarimetric radar calibration
+        \item Lack of comprehensive system model for joint development of antennas and calibration strategies
+    \end{itemize}
+\end{itemize}
+\end{colourbox}[orange]{Notes}

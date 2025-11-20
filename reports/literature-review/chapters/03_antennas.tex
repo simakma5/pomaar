@@ -1,0 +1,120 @@
+\chapter{Antenna types for polarimetric MIMO automotive radar}
+\label{chap:antennas}
+Automotive radar systems operating in the 77--81~GHz band demand compact, highly integrated antennas that offer robust dual-polarization capabilities for polarimetric sensing. Achieving high cross-polarization discrimination (XPD), wide field-of-view (FoV), and manufacturability within stringent size and cost constraints presents significant design challenges. The radar antennas must balance beam shaping, mutual coupling suppression, and thermal/mechanical stability to enable accurate object classification in advanced driver assistance systems (ADAS). This review critically evaluates existing antenna technologies recognized for their suitability and limitations in this application domain.
+
+% ============================================================================
+\section{Scope and requirements}
+\label{sec:ant_scope}
+\todo{Blend this in with the introduction\ldots}
+Automotive radar imposes several constraints on antenna performance, guiding the interpretation of the state of the art:
+\begin{itemize}
+    \item \emph{Polarization purity:} Cross-polar discrimination (XPD) of $>20\ \mathrm{dB}$ across $\pm 60^\circ$ field-of-view (FoV).
+    \item \emph{Integration:} Compatibility with compact radar front-ends, low-profile PCB or package-level integration.
+    \item \emph{Mutual coupling:} Sufficient isolation between MIMO elements to enable virtual aperture synthesis.
+    \item \emph{Manufacturability and cost:} Feasible process for high-volume production.
+    \item \emph{Thermal stability:} Minimal gain/phase drift under automotive temperature cycles.
+\end{itemize}
+
+% ============================================================================
+\section{Overview of radar front-end technology}
+\label{sec:ant_overview}
+\todo{Improve flow or remove this section\ldots}
+\todo{Add sources\ldots}
+This section introduces the principal antenna families explored in recent literature, organized by structural and electromagnetic characteristics relevant to polarimetric performance.
+
+\textbf{Microstrip patch antennas} are extensively used in commercial 77~GHz radar due to their compatibility with multilayer PCB manufacturing. Dual-polarized versions are achieved using orthogonal feeds (probe, aperture, or proximity-coupled). Their main drawbacks are limited bandwidth and sensitivity to fabrication tolerances, which directly degrade polarization purity.
+
+\textbf{Substrate integrated waveguide} (SIW) and \textbf{LTCC waveguide}-based antennas exhibit low loss and excellent XPD. Their robustness against temperature-induced deformations makes them suitable for high-frequency radars. However, their increased process complexity may be undesirable for large MIMO arrays unless the design is highly modular.
+
+\textbf{Gap waveguide} (GW) and \textbf{ridge gap waveguide} (RGW) technology provides low loss, high isolation, and excellent dual-polarization characteristics. It avoids the need for electrical contact between layers, which eases millimetre-wave fabrication. This class currently represents one of the most promising platforms for dual-polarized MIMO.
+
+\textbf{Slot-based antennas} (cavity-backed slots, CP-slots, and slanted slot arrays) offer naturally high polarization purity and robustness. Their main challenges relate to bandwidth and integration complexity when a wide field of view is required.
+
+\textbf{Horn and horn-like antennas} exhibit outstanding gain and polarization purity but are impractical for system-level automotive integration. They are most relevant as reference antennas or measurement standards.
+
+\textbf{Dielectric resonator and rod antennas} (DRAs) and rod antennas offer wide bandwidth and high radiation efficiency. The main challenges remain mechanical robustness and integration in thin radar package stacks.
+
+% ============================================================================
+\section{Comparative analysis of antenna technologies}
+\label{sec:ant_table}
+The following table summarizes representative antenna types found in the literature and highlights key parameters that influence their suitability for polarimetric automotive MIMO arrays.
+
+\begin{landscape}
+\begin{longtable}{p{4.8cm} p{1cm} p{1.6cm} p{1.6cm} p{1.6cm} p{1.6cm} p{1.8cm} p{1.8cm} p{5.4cm} }
+\caption{\label{tab:antenna_comparison}Comparison of antenna types for 77--81~GHz polarimetric MIMO radar}\\
+\toprule
+\textbf{Antenna type} & \textbf{DP} & \textbf{BW} & \textbf{Loss} & \textbf{XPD} & \textbf{SLL} & \textbf{Isolation} & \textbf{Compact} & \textbf{Other considerations} \\
+\midrule
+\endfirsthead
+
+\toprule
+\textbf{Antenna type} & \textbf{DP} & \textbf{BW} & \textbf{Loss} & \textbf{XPD} & \textbf{SLL} & \textbf{Isolation} & \textbf{Compact} & \textbf{Other considerations} \\
+\midrule
+\endhead
+
+\midrule
+\multicolumn{9}{r}{Continued on next page}\\
+\endfoot
+
+\bottomrule
+\endlastfoot
+
+SIW-aperture-coupled microstrip patch antenna~\parencite{puskely5GSIWBasedPhased2022,animHighGainMillimeterWavePatch2021,karamiDevelopingBroadbandMicrostrip2022a} & Yes & Narrow & Low & High & Moderate & Moderate & Yes & PCB-compatible, tight spacing, thermal concerns \\
+\hline
+Series-fed patch antenna array~\parencite{baur77GHzAutomotive2013} & Yes & Narrow & High & Moderate & High & Moderate & Yes & Cost-effective, beam squint at wide scan \\
+\hline
+Series-parallel-fed square patches~\parencite{hambergerMixedCircularLinear2019} & Yes & Moderate & High & High & Moderate & Moderate & Yes & TMD-MIMO, single CP or dual LP capabilities \\
+\hline
+Series-fed aperture-coupled patches~\parencite{vallecchiDesignDualpolarizedSeriesfed2005} & Yes & Narrow & Low & Very high & Low & High & Yes & -- \\
+\hline
+Series-fed vertically-loaded multi-layer patch array~\parencite{aliakbari79GHzMultilayer2022} & Yes & Wide & Moderate & High & Moderate & High & Yes & Stacked vias reduce surface wave and widen BW \\
+\hline
+Corrugated sectoral horn antenna array~\parencite{trummerPerformanceAnalysis792017,tintiFullyPolarimetricAutomotive2024} & No & Wide & Low & Very high & Very low & Very high & No & Bulky, high cost, integration challenges \\
+\hline
+Ridge gap-waveguide polarimetric antennas~\parencite{zang77GHzFully2024,renAutomotivePolarimetricRadar2024} & Yes & Moderate & Low & Very high & Low & Very high & Yes & Excellent PCB integration, good FoV \\
+\hline
+Mixed edge- and aperture-fed multi-layer patch antenna~\parencite{acimovicDualPolarizedMicrostripPatch2008} & Yes & Narrow & High & High & Moderate & High & Yes & Complex feeding \\
+\hline
+L-shaped horn antenna array~\parencite{schulwitzMillimeterWaveDualPolarized2006} & Yes & Wide & Low & Very high & Moderate & High & No & Good PCB integration, lower gain \\
+\hline
+Cavity-backed ring-slot slot planar antenna~\parencite{ferreiraCompactDualCircularlyPolarized2017} & Yes & Narrow & Moderate & Very high & Moderate & Moderate & Yes & High F/B ratio, circular polarization \\
+\hline
+Cavity-slotted waveguide antenna~\parencite{sunWidebandCavitySlottedWaveguide2024} & No & Wide & Low & Very high & Low & High & Yes & -- \\
+\hline
+Dielectric rod antenna~\parencite{guoDualpolarizedDielectricResonator2003,kishkWidebandTruncatedTetrahedron2003} & Yes & Wide & Low & High & Moderate & Moderate & No & Robust design \\
+\hline
+Hybrid thin-film multi-layer antenna~\parencite{khanHybridThinFilm2017} & No & Wide & Very high & Low & High & Low & Yes & Poor efficiency ($<40\%$), limited beamwidth \\
+\hline
+LP comb-line microstrip stub array~\parencite{tintiFullPolarimetricAntenna2023} & No & Narrow & High & Limited & Moderate & Moderate & Yes & Decent XPD only near boresight \\
+\hline
+Slotted SIW array with bent slots~\parencite{bauer79GHzResonantLaminated2013} & No & Narrow & Low & Very high & Low & High & No & Minor beam squint, LTCC \\
+\hline
+Stepped SIW quasi-pyramid horn antenna~\parencite{zhaoSIWQuasiPyramidHorn2024} & Yes & Wide & Low & Very high & Low & High & Yes & High gain, emerging design \\
+\hline
+Cavity-backed bow-tie patches~\parencite{mosalanejadMultiLayerPCBBowTie2020} & Yes & Moderate & Moderate & High & Moderate & Moderate & Yes & Good FoV \\
+\hline
+Spline-shaped microstrip edge-fed antennas~\parencite{salucciSplineShapedMicrostripEdgeFed2024} & Yes & Narrow & Moderate & Moderate & Moderate & Moderate & Yes & Simple structure, easy fabrication \\
+\bottomrule
+\end{longtable}
+\end{landscape}
+
+% ............................................................................
+\paragraph{Insights.} Based on the literature survey and the quantitative comparison in Table~\ref{tab:antenna_comparison}, several conclusions can be drawn for the design of a polarimetric MIMO array:
+\begin{enumerate}
+    \item \emph{Gap waveguide antennas provide the best balance of XPD, mutual coupling, and thermal stability}, making them strong candidates for dual-polarization MIMO demonstrators.
+    \item \emph{Microstrip patches remain attractive for prototyping} due to ease of fabrication, but their limited polarization purity and sensitivity to tolerances make them challenging for high-fidelity polarimetry.
+    \item \emph{SIW/LTCC designs offer excellent isolation} and are compatible with module-level integration, though process complexity must be managed.
+    \item \emph{Slot antennas exhibit robust polarization purity}, but may require careful bandwidth enhancement for wide FoV radar.
+\end{enumerate}
+
+\begin{colourbox}[orange]{Additional notable technology platforms}
+\begin{itemize}
+    \item Metasurface/metamaterial antennas: Antennas leveraging metasurfaces can offer tailored polarization control and mutual coupling reduction. This technology is promising for miniaturization and XPD enhancement though requires further experimental validation in automotive radar contexts.
+    \item Reconfigurable antennas: Utilizing tunable materials or MEMS can enable adaptive polarization states and beam steering, potentially benefiting polarimetric MIMO performance and multifunctionality.
+    \item Low noise and active antennas: Integration with active circuitry (LNA or phase shifters) at the antenna element level improves noise figure and overall system sensitivity but complicates design and thermal management.
+    \item 3D-printed antennas for millimetre-wave: Emerging additive manufacturing allows complex geometries with lightweight materials, which might open new design spaces for compact, high-performance antennas suitable for radar demonstrators.
+\end{itemize}    
+\end{colourbox}
+
+% ............................................................................
+\paragraph{Implications.} The findings guide the selection of antenna elements for the polarimetric MIMO demonstrator developed in this project. High-XPD, low-coupling technologies such as SIW and gap-waveguide antennas appear most capable of supporting robust polarimetric measurements and scalable sparse-MIMO topologies. Practical aspects such as manufacturability, integration with the transceiver front-end, and thermal robustness further influence the final choice.
