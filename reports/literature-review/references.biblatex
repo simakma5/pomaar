@@ -564,8 +564,23 @@
   urldate = {2025-11-03},
   abstract = {In this paper, we study the integration effects of a 2D MIMO RADAR antenna for automotive applications, placed behind a painted bumper. First, a 3Tx-4Rx 2D-MIMO RADAR antenna system is designed, where the individual Tx/Rx antenna is a seven-element series-fed modified binomial array configuration having side-lobe level less than 16 dB and 80° azimuth field-of-view (FoV). Then the 2D MIMO RADAR antenna is placed behind a simplified curved bumper having two paint layers, and the antenna-painted bumper integration effects are studied via the S-parameter response and antenna array ambiguity function (AAAF) model. Both the AAAF and S-parameter analysis provide key insights into the comparative performance of 1D and 2D MIMO RADARs integrated with bumpers, which can help determine possible corrective measures in real-time applications.},
   eventtitle = {2022 {{URSI Regional Conference}} on {{Radio Science}} ({{USRI-RCRS}})},
-  keywords = {Automotive applications,Azimuth,Industries,MIMO radar,Radar,Radar antennas,Real-time systems,Sequentially-fed patch array},
+  keywords = {Automotive applications,Azimuth,Industries,MIMO radar,Modelling-ready,Radar,Radar antennas,Real-time systems,Sequentially-fed patch array},
   file = {/home/martin/Zotero/storage/WPUDP57V/Dash and Sarkar - 2022 - Antenna Array Ambiguity Function Based Study of Integration Effect on a 2D Automotive MIMO RADAR Ant.pdf}
+}
+
+@inproceedings{dashDesignSeriesFed2021,
+  title = {Design of {{Series-}} Fed {{Patch Array}} with {{Modified Binomial Coefficients}} for {{MIMO Radar Application}}},
+  booktitle = {2021 {{IEEE International Symposium}} on {{Antennas}} and {{Propagation}} and {{USNC-URSI Radio Science Meeting}} ({{APS}}/{{URSI}})},
+  author = {Dash, Jogesh Chandra and Sarkar, Debdeep and Antar, Yahia},
+  date = {2021-12},
+  pages = {1027--1028},
+  doi = {10.1109/APS/URSI47566.2021.9704636},
+  url = {https://ieeexplore.ieee.org/document/9704636},
+  urldate = {2025-11-28},
+  abstract = {In this paper, we propose a collocated antenna configuration having three transmitter and five receiver arrays for automotive MIMO Radar application. The individual antenna arrays consist of a seven-element series fed array with the feed provided at the edge. We introduce a modified-binomial coefficient-based excitation scheme to achieve improved side-lobe level (SLL) in series-fed patch arrays with edge feeding. The proposed MIMO configuration exhibits low SLL less than 16 dB and a wide field-of-view (FoV) of about 80° in the azimuth plane, along with satisfactory angular resolution (5.82°) and low cross-polar level (30 dB), rendering it extremely suitable for automotive medium-range radar (MRR) application.},
+  eventtitle = {2021 {{IEEE International Symposium}} on {{Antennas}} and {{Propagation}} and {{USNC-URSI Radio Science Meeting}} ({{APS}}/{{URSI}})},
+  keywords = {MIMO radar,MIMO Radar,Modelling-ready,Radar antennas,Radar applications,Radio transmitters,Receiving antennas,Rendering (computer graphics),Series-fed Array,Transmitting antennas,Unread,Virtual Array},
+  file = {/home/martin/Zotero/storage/DEDKZ4TU/Dash et al. - 2021 - Design of Series- fed Patch Array with Modified Binomial Coefficients for MIMO Radar Application.pdf}
 }
 
 @article{dengSeriesFedDualPolarizedSingleLayer2019,
@@ -934,6 +949,20 @@
   file = {/home/martin/Zotero/storage/TX3RXYT4/Haag et al. - 2018 - Radar and Lidar Target Signatures of Various Object Types and Evaluation of Extended Object Tracking.pdf}
 }
 
+@inproceedings{haddadiGapWaveguideSlot2019,
+  title = {Gap {{Waveguide Slot Array Antenna}} for {{Automotive Applications}} at {{E-Band}}},
+  booktitle = {2019 13th {{European Conference}} on {{Antennas}} and {{Propagation}} ({{EuCAP}})},
+  author = {Haddadi, Abolfazl and Bencivenni, Carlo and Emanuelsson, Thomas},
+  date = {2019-03},
+  pages = {1--4},
+  url = {https://ieeexplore.ieee.org/document/8740043},
+  urldate = {2025-11-20},
+  abstract = {High standards for safety and comfort in the modern vehicles require high precision driving assistance systems. Automotive radars play a key role because they operate also in adverse lighting and climate conditions. Automotive radars operating at mmWave frequencies (76-81 GHz) are particularly attractive because of the small sizes and wide bandwidth. Microstrip patch array antennas are the common solution, however, high dielectric losses degrade the radar's performance. To remove dielectric losses, waveguide slot arrays can be used, but at mmWaves it is hard to ensure a good electrical contact between split-blocks. Gapwaveguide technology solves this issue and the performance and robustness has been already demonstrated in different application at these frequencies. Here, we present a high gain ridge gap waveguide slot array antenna for 77 GHz automotive radar. Its narrow width (half of wavelength) allows the proposed antenna to be used in a compact array configuration to implement a bi-static radar with multiple receivers and transmitters.},
+  eventtitle = {2019 13th {{European Conference}} on {{Antennas}} and {{Propagation}} ({{EuCAP}})},
+  keywords = {Antenna arrays,Automotive engineering,automotive radar,gap waveguide technology,millimeter wave,Modelling-ready,Pins,Radar,Radar antennas,ridge gap waveguide,Single-polarization,Slot antennas,slot array,Unread},
+  file = {/home/martin/Zotero/storage/SRLRLG9B/Haddadi et al. - 2019 - Gap Waveguide Slot Array Antenna for Automotive Applications at E-Band.pdf}
+}
+
 @book{hajnsekPolarimetricSyntheticAperture2021,
   title = {Polarimetric {{Synthetic Aperture Radar}}: {{Principles}} and {{Application}}},
   shorttitle = {Polarimetric {{Synthetic Aperture Radar}}},
@@ -948,7 +977,7 @@
   urldate = {2025-11-06},
   isbn = {978-3-030-56502-2 978-3-030-56504-6},
   langid = {english},
-  keywords = {Earth Remote Sensing,Open Access,PolSARpro,Radar Polarimetry,Radar Polarimetry Toolbox,remote sensing/photogrammetry,Synthetic Aperture Radar,urban geography and urbanism},
+  keywords = {Book,Earth Remote Sensing,Open Access,PolSARpro,Radar Polarimetry,Radar Polarimetry Toolbox,remote sensing/photogrammetry,Synthetic Aperture Radar,urban geography and urbanism},
   file = {/home/martin/Zotero/storage/UY89RSTM/Hajnsek and Desnos - 2021 - Polarimetric Synthetic Aperture Radar Principles and Application.pdf}
 }
 
@@ -1030,8 +1059,28 @@
   urldate = {2025-10-02},
   abstract = {In state-of-the-art frequency-modulated continuous-wave (FMCW) multiple-input multiple-output (MIMO) radar systems, antennas are usually designed based on microstrip technology. They are arranged in uniform arrays such that the synthesized virtual array maximizes the angular resolution. This paper presents the design of a 77-GHz FMCW MIMO radar frontend with antennas and feed structures based on substrate integrated waveguides (SIW) and non-uniform planar arrays optimized for sidelobe suppression. A design procedure for MIMO arrays with particular emphasis on sidelobe level suppression based on convex optimization is presented, and a novel transition from differential microstrip line to SIW is utilized to feed the transmit antennas. Measurements show the successful SIW and antenna design, as well as a sidelobe level of 40 dB within the field of view (FOV) of the radar system.},
   eventtitle = {2020 {{IEEE MTT-S International Conference}} on {{Microwaves}} for {{Intelligent Mobility}} ({{ICMIM}})},
-  keywords = {antenna design,Antenna measurements,Array processing,FMCW radar,Microstrip antenna arrays,Microstrip antennas,Microwave antenna arrays,Microwave measurement,MIMO radar,Radar antennas,radar system,slot array antenna,substrate integrated waveguide (SIW),waveguide transitions},
+  keywords = {antenna design,Antenna measurements,Array processing,FMCW radar,Microstrip antenna arrays,Microstrip antennas,Microwave antenna arrays,Microwave measurement,MIMO radar,Radar antennas,radar system,SIW,slot array antenna,substrate integrated waveguide (SIW),waveguide transitions},
   file = {/home/martin/Zotero/storage/AEITEGEL/Hehenberger et al. - 2020 - A 77-GHz FMCW MIMO Radar Employing a Non-Uniform 2D Antenna Array and Substrate Integrated Waveguide.pdf}
+}
+
+@article{huegel3DWaveguideMetallized2022,
+  title = {{{3D Waveguide Metallized Plastic Antennas Aim}} to {{Revolutionize Automotive Radar}}},
+  author = {Huegel, Ulf and Garcia-Tejero, Alejandro and Glogowski, Rafal and Willmann, Eugen and Pieper, Michael and Merli, Francesco},
+  date = {2022-09},
+  journaltitle = {Microwave Journal, International ed.},
+  volume = {65},
+  number = {9},
+  pages = {32,34,36,38,40,42,44,46,48},
+  publisher = {Horizon House Publications, Inc.},
+  location = {Dedham, United States},
+  issn = {01926225},
+  url = {https://www.proquest.com/docview/2716577264/abstract/B934D9D344644998PQ/1},
+  urldate = {2025-11-25},
+  abstract = {[...]the simultaneous use of several channels called for higher integration between the antenna and the active electronics. The FastEdge(tm) RF product line is designed to be used in a variety of test environments, and suitable for a broad range of uses including: * Clock Timing " Probing * Compliance Testing o Multiplexing * Wireless Communication ¦ Signal Routing Swift Bridge Technologies is pleased to offer the FastEdge(tm) RF product line in standard lengthsofo.5 meter and 1 meter as well as custom lengths upon request. Some advantages of FastEdge(tm) RF cables include: * Low attenuation and low VSWR * Amplitude and phase stable with flexure * Suitable for spectrum analyzers, network analyzers, signal generators, oscilloscopes, production test sets * Molded flex reliefs distribute cable stresses away from the connector and prevent excessive bending of the cable * Suitable for 125*C continuous use tected under confidentiality, this article describes antennas and systems that are the result of internal HUBER+SUHNER development for different radar applications (long-, mid- and short-range, corner and side-looking radars). [...]using a 3D antenna with a large area allows for novel design features to},
+  langid = {english},
+  pagetotal = {32,34,36,38,40,42,44,46,48},
+  keywords = {Antennas,Automotive radar,Bandwidths,Cables,Communication,Design,Flexing,Launcher-in-package,Manufacturing,Metallizing,Multiplexing,Network analysers,OEM,Product development,Product lines,Radar,Radiation,Signal generators,Spectrum allocation,Spectrum analysers,Suppliers,Waveguides,Wireless communications},
+  file = {/home/martin/Zotero/storage/TURCPUVH/Huegel et al. - 2022 - 3D Waveguide Metallized Plastic Antennas Aim to Revolutionize Automotive Radar.pdf}
 }
 
 @article{husseinSubstrateIntegrateWaveguide2020,
@@ -1129,6 +1178,37 @@
   eventtitle = {2014 {{IEEE International Conference}} on {{Acoustics}}, {{Speech}} and {{Signal Processing}} ({{ICASSP}})},
   keywords = {Algorithm design and analysis,Clutter,glowworm swarm optimization,MIMO radar,Particle swarm optimization,Polarimetric MIMO radar,polarization waveform design,Radar antennas,Signal processing algorithms,target detection,Transmitting antennas},
   file = {/home/martin/Zotero/storage/Y6YY826L/Jiang and Tang - 2014 - Polarimetric MIMO radar target detection based on glowworm swarm optimization algorithm.pdf}
+}
+
+@inproceedings{jianProcedureDesignSeriesfed2019,
+  title = {Procedure to {{Design}} a {{Series-fed Microstrip Patch Antenna Array}} for 77 {{GHz Automotive Radar}}},
+  booktitle = {2019 {{Cross Strait Quad-Regional Radio Science}} and {{Wireless Technology Conference}} ({{CSQRWC}})},
+  author = {Jian, Baolong and Yuan, Jing and Liu, Qiqin},
+  date = {2019-07},
+  pages = {1--2},
+  issn = {2377-8512},
+  doi = {10.1109/CSQRWC.2019.8799356},
+  url = {https://ieeexplore.ieee.org/abstract/document/8799356},
+  urldate = {2025-11-28},
+  abstract = {In this paper, the procedure to design a series-fed microstrip patch antenna array for 77GHz automotive radar is presented. The simulated antenna is designed with a 1×10 series-fed rectangular microstrip patch, based on transmission-line model analysis method. To satisfy the low sidelobe level (SLL) in E-plane, the 25dB Dolph-Chebyshev distribution is employed to the simulated patch. The current amplitude of each patch is calculated by the field calculator in the full-wave simulation software HFSS. The results of simulated and theoretical analyzed are in a good agreement.},
+  eventtitle = {2019 {{Cross Strait Quad-Regional Radio Science}} and {{Wireless Technology Conference}} ({{CSQRWC}})},
+  keywords = {77GHz automotive radar,Automotive engineering,Dolph-Chebyshev,field calculator,Microstrip,Microstrip antenna arrays,Microstrip antennas,Modelling-ready,Patch antennas,Radar,Radar antennas,series-fed patch antenna array,Unread},
+  file = {/home/martin/Zotero/storage/K65GSCPQ/Jian et al. - 2019 - Procedure to Design a Series-fed Microstrip Patch Antenna Array for 77 GHz Automotive Radar.pdf}
+}
+
+@book{josefssonSlottedWaveguideArray2018,
+  title = {Slotted {{Waveguide Array Antennas}}: {{Theory}}, Analysis and Design},
+  shorttitle = {Slotted {{Waveguide Array Antennas}}},
+  author = {Josefsson, Lars and Rengarajan, Sembiam R.},
+  date = {2018},
+  publisher = {Scitech Publishing},
+  location = {London, United Kingdom},
+  abstract = {Slotted waveguide antenna arrays are used in radar, communication and remote sensing systems for high frequencies. They have linear polarization with low cross-polarization and low losses but can also be designed for dual polarizations and phase steered beams.Slotted Waveguide Array Antennas is the first comprehensive treatment of these antennas from an engineering perspective. It provides readers with a thorough foundation in applicable theories as well as hands-on instruction for practical analysis, design, manufacture and use of important types of waveguide slot arrays. It goes beyond some of the commonly discussed topics and ventures into areas that include higher order mode coupling and edge effects; performance optimisation in terms of bandwidth and pattern performance and manufacturing tolerances.With specific examples of waveguide array designs, accompanied by detailed illustrations and antenna characteristics, the book is a must-have reference for engineers involved in antenna design, development and applications.},
+  isbn = {978-1-61353-189-1},
+  langid = {english},
+  pagetotal = {377},
+  keywords = {Book},
+  file = {/home/martin/Zotero/storage/J9RE3M42/Josefsson and Rengarajan - 2018 - Slotted Waveguide Array Antennas Theory, analysis and design.pdf}
 }
 
 @article{karamiDevelopingBroadbandMicrostrip2022a,
@@ -1283,6 +1363,22 @@
   abstract = {This letter proposes a novel capacitively coupled microstrip comb-line (CCMCA) array antenna for millimeter-wave band applications. The proposed antenna has the advantages of low profile, low cost, and ease of fabrication for the millimeter-wave band. By adjusting the gaps between the radiating strips and feeding line, an antenna with low sidelobe level can easily be designed. To verify the suitability of the proposed antenna for millimeter-wave applications, two arrays (1 × 18 and 4 × 18) were designed and developed at the design frequency of 79 GHz. The measured results show good agreement with the simulated ones in terms of reflection characteristics and radiation patterns. In addition, the CCMCA antenna has stable beam direction even with frequency change, compared to a conventional series-fed microstrip rectangular patch array antenna.},
   keywords = {Antenna array,Antenna measurements,Antenna radiation patterns,capacitive coupling,comb-line antenna,Microstrip,microstrip antenna,Microstrip antenna arrays,Microstrip antennas,millimeter-wave,Unread},
   file = {/home/martin/Zotero/storage/6GDYY7MR/Lee et al. - 2020 - Capacitively Coupled Microstrip Comb-Line Array Antennas for Millimeter-Wave Applications.pdf}
+}
+
+@article{leeDesignCombLineArray2022,
+  title = {Design of {{Comb-Line Array Antenna}} for {{Low Sidelobe Level}} in {{Millimeter-Wave Band}}},
+  author = {Lee, Jae-Ho and Lee, Sang-Hoon and Lee, Hyun Joon and Oh, Jung-Hoon and Kim, Jang-Yeol and Cho, In-Kui and Seo, Dong-Wook},
+  date = {2022},
+  journaltitle = {IEEE Access},
+  volume = {10},
+  pages = {47195--47202},
+  issn = {2169-3536},
+  doi = {10.1109/ACCESS.2022.3169280},
+  url = {https://ieeexplore.ieee.org/document/9761188},
+  urldate = {2025-12-01},
+  abstract = {In this paper, a deformed radiating element is proposed to design a comb-line array antenna for low sidelobe levels in the millimeter-wave band. To design the comb-line array antenna with a low sidelobe level, the use of the wide radiating elements for a relatively large radiation conductance is required. However, the conventional rectangular radiating element has transverse current flows on it, resulting in undesirable transverse radiation conductance for cross-polarization. On the contrary, in the proposed radiating element, which is implemented by cutting obliquely the connection part to the feeding line from a rectangular element, the radiations from the transverse currents cancel each other, and low radiation conductance for cross-polarization and dominant radiation conductance for co-polarization are achieved. A 17-element linear comb-line array antenna with the sidelobe below −20 dB is designed and measured at 79 GHz. Using the proposed radiating elements, we obtained the sidelobe level of −21.9 dB in the array, but the array using the conventional radiating elements shows the sidelobe level of −16.9 dB. This letter demonstrates the availability of the proposed element for the easy and accurate design of the comb-line array antenna with the low sidelobe level.},
+  keywords = {Antenna array,Antenna measurements,Antenna radiation patterns,comb-line antenna,Finite element analysis,Linear antenna arrays,low sidelobe,Microstrip,microstrip antenna,Microstrip antenna arrays,Microstrip antennas,millimeter-wave},
+  file = {/home/martin/Zotero/storage/ZK25E4B5/Lee et al. - 2022 - Design of Comb-Line Array Antenna for Low Sidelobe Level in Millimeter-Wave Band.pdf}
 }
 
 @book{leePolarimetricRadarImaging2017,
@@ -1499,6 +1595,21 @@
   file = {/home/martin/Zotero/storage/N9JU6XYK/Merlo and Nanzer - 2022 - A C-Band Fully Polarimetric Automotive Synthetic Aperture Radar.pdf}
 }
 
+@article{mikulasekMicrostripPatchAntennas2013,
+  title = {Microstrip Patch Antennas Fed by Substrate Integrated Waveguide},
+  author = {Mikulášek, Tomáš},
+  date = {2013},
+  eprint = {11012/25068},
+  eprinttype = {hdl},
+  publisher = {Vysoké učení technické v Brně. Fakulta elektrotechniky a komunikačních technologií},
+  url = {http://hdl.handle.net/11012/25068},
+  urldate = {2025-11-26},
+  abstract = {Dizertační práce je zaměřena na výzkum mikropáskových flíčkových antén a anténních řad napájených vlnovodem integrovaným do substrátu (SIW). Využitím vlnovodu integrovaného do substrátu pro napájení mikropáskové flíčkové antény dochází ke kombinaci výhodných vlastností obou struktur. Výsledkem je kompaktní anténní struktura, jejíž napájecí vedení neprodukuje parazitní záření a neovlivňuje tak vyzařovací charakteristiku antény. Práci lze z věcného hlediska rozdělit do dvou částí. První část práce (kapitola 2) je zaměřena na návrh flíčkových antén a jejich navázání na vlnovod integrovaný do substrátu. První dvě navržené flíčkové antény využívají vlnovod integrovaný do substrátu a štěrbinu nebo koaxiální sondu pro buzení lineárně polarizované vlny. Napájení koaxiální sondou je dále použito pro buzení kruhově polarizované flíčkové antény. Za účelem získání širšího pásma osového poměru je navrženo napájení flíčkové antény ve dvou bodech. Funkčnost všech anténních struktur je popsána pomocí parametrických simulací a ověřena realizací a měřením vyrobených prototypů antén. Prezentované napájecí metody představují nový způsob napájení pro mikropáskové antény využívající technologii SIW. Ve druhé části práce (kapitola 3) je pojednáno o implementaci štěrbinou napájené mikropáskové anténní struktury do malých anténních polí o velikosti 2x2 a 1x4. V případě lineární řady je uvažováno amplitudové rozložení pro optimální potlačení postranních laloků. Obě navržené anténní řady jsou ověřeny měřením a v porovnání s podobnými anténními řadami dostupnými v literatuře dosahují širšího pracovního pásma kmitočtů a vyššího zisku.},
+  langid = {english},
+  keywords = {SIW,Unread},
+  file = {/home/martin/Zotero/storage/R7S3AEBC/Mikulášek - Mikropáskové flíčkové antény napájené vlnovodem integrovaným do substrátu.pdf}
+}
+
 @article{mikulasekTransverseSlotControl2020,
   title = {Transverse Slot with Control of Amplitude and Phase for Travelling-Wave {{SIW}} Antenna Arrays},
   author = {Mikulasek, Tomas and Puskely, Jan and Yarovoy, Alexander G. and Lacik, Jaroslav and Arthaber, Holger},
@@ -1513,8 +1624,18 @@
   urldate = {2025-10-27},
   abstract = {A novel basic antenna element for travelling-wave substrate integrated waveguide (SIW) arrays is proposed in this study. The antenna element is based on a transverse slot and newly complemented by a pair of vias used for matching and a phase shifter. By changing the geometries of the slot and the phase shifter, the amplitude and phase of a radiated wave can be controlled. The proposed approach extends the potential of transverse slots in SIW-based travelling-wave antenna arrays. To verify the capabilities of the antenna element, the authors demonstrate a six-element array with side-lobe suppression, intended for a 24 GHz radar system. The measured results show good agreement with simulations.},
   langid = {english},
-  keywords = {amplitude control,basic antenna element,frequency 24.0 GHz,microwave antenna arrays,microwave phase shifters,phase control,phase shifter,radar antennas,radar system,radiated wave,SIW-based travelling-wave antenna arrays,six-element array,slot antenna arrays,substrate integrated waveguide arrays,substrate integrated waveguides,transverse slot,waveguide antenna arrays},
+  keywords = {amplitude control,basic antenna element,frequency 24.0 GHz,microwave antenna arrays,microwave phase shifters,phase control,phase shifter,radar antennas,radar system,radiated wave,SIW,SIW-based travelling-wave antenna arrays,six-element array,slot antenna arrays,substrate integrated waveguide arrays,substrate integrated waveguides,transverse slot,Unread,waveguide antenna arrays},
   file = {/home/martin/Zotero/storage/STUAY5I4/Mikulasek et al. - 2020 - Transverse slot with control of amplitude and phase for travelling-wave SIW antenna arrays.pdf}
+}
+
+@article{mohammedAdvancementsMmWaveTechnology2024,
+  title = {Advancements in {{mmWave Technology}}: {{Launch}} on {{Package}} for {{Automotive Radars}}},
+  author = {Mohammed, Habeeb Ur Rahman},
+  date = {2024},
+  abstract = {The landscape of automotive radar technology has undergone significant transformation, particularly in the realm of millimeter-wave (mmWave) semiconductor package technology and 3D waveguide antenna. From the initial use of microstrip patch antennas to the evolution towards 3D antennas, the quest for improved performance and efficiency has been relentless. TI’s Launch on Package (LoP) technology enables direct signal transmission from the package radiating element to the 3D antenna through the waveguide within the PCB, thereby enabling efficient electromagnetic signal transfer. In the current era, the spotlight is on LoP technologies, accompanied by sophisticated 3D waveguide antennas for providing better range and object detection.},
+  langid = {english},
+  keywords = {Industry,Launch-on-package,Launcher-in-package,Texas Instruments,Whitepaper},
+  file = {/home/martin/Zotero/storage/HTBZA48K/Mohammed - 2024 - Advancements in mmWave Technology Launch on Package for Automotive Radars.pdf}
 }
 
 @article{mosalanejadMultiLayerPCBBowTie2020,
@@ -1548,6 +1669,21 @@
   abstract = {This article presents a comprehensive technique for calibrating wideband frequency-modulated continuous-wave (FMCW) fully polarimetric radars employing linear FM (LFM) signal chirps. A detailed system distortion model is developed that accounts for both polarimetric distortions and distortions caused by nonlinearities in the transmitted and received radar chirps over multiple polarization channels. Using the radar responses of two point targets at known distances from the radar, the calibration technique is able to estimate the range-dependent nonlinearities in phase and correct them for all targets at all ranges. This allows the radar to achieve its ideal range resolution. In addition, the calibration technique corrects for channel imbalances in the polarimetric radar using a metallic sphere of known diameter and any depolarizing target. Both numeric simulations and actual polarimetric radar measurements using a wideband FMCW radar operating over 76.5–82 GHz were used to validate the calibration technique.},
   keywords = {Calibration technique,Chirp,Distortion,millimeter waves (MMWs),polarimetry,radar,Radar,Radar imaging,Radar measurements,Radar polarimetry,Radar remote sensing,Unread},
   file = {/home/martin/Zotero/storage/IIKJBD23/Nashashibi et al. - 2022 - Calibration of Wideband FMCW Polarimetric Radars Operating at Millimeter-Wave Frequencies.pdf}
+}
+
+@inproceedings{ochScalable77GHz2018,
+  title = {A {{Scalable}} 77 {{GHz Massive MIMO FMCW Radar}} by {{Cascading Fully-Integrated Transceivers}}},
+  booktitle = {2018 {{Asia-Pacific Microwave Conference}} ({{APMC}})},
+  author = {Och, Andreas and Pfeffer, Clemens and Schrattenecker, Jochen and Schuster, Stefan and Weigel, Robert},
+  date = {2018-11},
+  pages = {1235--1237},
+  doi = {10.23919/APMC.2018.8617548},
+  url = {https://ieeexplore.ieee.org/document/8617548},
+  urldate = {2025-11-25},
+  abstract = {Advanced Driver Assistance Systems (ADAS) as well as multiple industrial imaging applications highly benefit from increased angular resolution in millimeter-wave (mmW) phased-array radar systems. To achieve this, future radar systems will need a high amount of transmitter (TX) and receiver (RX) channels while at the same time being suitable for mass-production. Therefore we propose a concept to realize a scalable massive multiple-input-multiple-output (MIMO) radar system by cascading fully-integrated frequency-modulated continuous-wave (FMCW) transceivers, thus reducing system cost and complexity. Prototype hardware with 5 transceivers (TRXs) is built and tested under laboratory and application-near conditions. First results show an angular resolution of 2.4°in azimuth in good accordance to the simulations. Parked cars and their surrounding scenery in front of the radar module can be clearly distinguished.},
+  eventtitle = {2018 {{Asia-Pacific Microwave Conference}} ({{APMC}})},
+  keywords = {Antenna arrays,Azimuth,chirp radar,massive MIMO,millimeter wave radar,MIMO communication,phased array radar,Prototypes,Radar imaging,road vehicle radar,Transceivers},
+  file = {/home/martin/Zotero/storage/U7JAJ9KD/Och et al. - 2018 - A Scalable 77 GHz Massive MIMO FMCW Radar by Cascading Fully-Integrated Transceivers.pdf}
 }
 
 @article{olinPolarizationCharacteristicsCoherent2014,
@@ -1633,7 +1769,7 @@
   url = {https://ieeexplore.ieee.org/document/9496080},
   urldate = {2025-10-22},
   abstract = {In this article, a concept of a phased antenna array based on substrate integrated waveguide (SIW) technology for 5G base stations is proposed. The array has a cosecant radiation pattern in the vertical plane for uniform illumination in a sector area. The array itself consists of 16 SIW traveling wave subarrays of 12 slot-coupled microstrip patch antennas associated with a pair of reflection-canceling vias and phasing elements to get the tapered distribution both in amplitude and phase for the cosecant-shaped radiation pattern. The array is designed to be operational at 28 GHz with a bandwidth of more than 10\%, a candidate mm-wave frequency band for 5G. The phased antenna array supports wide-angle scanning of +/−60° in azimuth and exhibits good active impedance properties. The array design is successfully verified experimentally.},
-  keywords = {5G base station,5G mobile communication,Antenna arrays,Antenna radiation patterns,cosecant-squared radiation pattern,Microstrip,Microstrip antenna arrays,Microstrip antennas,microstrip patch antenna,phased antenna array,Phased arrays,substrate integrated waveguide (SIW)},
+  keywords = {5G base station,5G mobile communication,Antenna arrays,Antenna radiation patterns,cosecant-squared radiation pattern,Microstrip,Microstrip antenna arrays,Microstrip antennas,microstrip patch antenna,phased antenna array,Phased arrays,SIW,substrate integrated waveguide (SIW)},
   file = {/home/martin/Zotero/storage/76FBA6MM/Puskely et al. - 2022 - 5G SIW-Based Phased Antenna Array With Cosecant-Squared Shaped Pattern.pdf}
 }
 
@@ -1652,6 +1788,23 @@
   abstract = {A low profile, high gain 32 × 64-slot array antenna with unequal beamwidths in the E- and H-planes and low sidelobes is proposed for vehicular applications in the 71-81 GHz band. The antenna is composed of 512 (16 × 32) 2 × 2-slot subarrays arranged with equal spacing and excited by a nonuniform corporate-feed-network. A two dimensional amplitude-tapering (complying with Taylor distribution) is used to achieve the low sidelobe levels (SLLs). Combined with the different dimensions of the array, the sidelobes and the beamwidths in the E- and H-planes are independently controlled. A prototype slotted waveguide array is fabricated to verify the array properties. Measurements show that the matching of the array is better than -14 dB over the entire bandwidth. The first SLL is lower than -18.9 dB/-24 dB with the maximum 3-dB beamwidth of 2.3°/1.3° in the E-/H-plane, respectively. The peak gain of over 39.4 dBi and the cross-polarization discrimination (XPD) of below -36.2 dB are also achieved. The demonstrated features of high gain, low SLL, and independent controllability of the beam in the E- and H-planes are most desirable for vehicular communications and radars.},
   keywords = {2-D amplitude-tapering,Antenna arrays,Antenna radiation patterns,Cavity resonators,Feeds,Gain,high gain,low sidelobe,Millimeter wave radar,Slotted waveguide array,Unread},
   file = {/home/martin/Zotero/storage/JT9ELDH7/Qin et al. - 2018 - Millimeter-Wave Slotted Waveguide Array With Unequal Beamwidths and Low Sidelobe Levels for Vehicle.pdf}
+}
+
+@article{rajo-iglesiasGapWaveguideTechnology2018,
+  title = {Gap {{Waveguide Technology}} for {{Millimeter-Wave Antenna Systems}}},
+  author = {Rajo-Iglesias, Eva and Ferrando-Rocher, Miguel and Zaman, Ashraf Uz},
+  date = {2018-07},
+  journaltitle = {IEEE Communications Magazine},
+  volume = {56},
+  number = {7},
+  pages = {14--20},
+  issn = {1558-1896},
+  doi = {10.1109/MCOM.2018.1700998},
+  url = {https://ieeexplore.ieee.org/document/8419172},
+  urldate = {2025-11-20},
+  abstract = {Millimeter-wave communication systems require many innovative antennas adapted for future application scenarios such as the upcoming 5G cellular networks. Due to the strong path loss in free space at the millimeter-wave frequency range, high gain and low-cost antennas are in great demand. Also, advanced features such as multi-beam for multiple user, dual-polarization, or even complete phased arrays with enormous degrees of freedom in beamforming are some of the key research lines for antenna designers nowadays. In this article an overview of a new type of family of low-loss antennas and components based on the recently developed gap waveguide technology is presented. With the advent of new millimeter-wave applications, this low-cost and low-loss waveguide technology can be considered as a good candidate to be used as the core RF building block.},
+  keywords = {Loss measurement,Microstrip,Millimeter wave technology,Radio frequency,Rectangular waveguides,Waveguide discontinuities},
+  file = {/home/martin/Zotero/storage/CYEPGWDS/Rajo-Iglesias et al. - 2018 - Gap Waveguide Technology for Millimeter-Wave Antenna Systems.pdf}
 }
 
 @article{renAutomotivePolarimetricRadar2024,
@@ -1683,7 +1836,7 @@
   url = {https://ieeexplore.ieee.org/document/10101809},
   urldate = {2025-11-04},
   abstract = {A 77 GHz gapwaveguide radar antenna system with launcher-in-package (LiP) technology is presented in this paper for automotive imaging applications. Firstly, state-of-the-art LiP technology integrated with radar transceivers is proposed. The transceivers are equipped with waveguide interfaces for RF connection, enabling direct integration with waveguide antennas. Robust interconnects for coupling transceivers to waveguide antennas with non-galvanic contacts are proposed using gapwaveguide packaging technology. A simultaneous multi-mode imaging radar system using 4 cascaded aforementioned transceivers is introduced. Designated antenna elements of the system are realized by slot arrays with center-fed ridge gapwaveguides. Ultimately, the imaging radar antenna has a top radiating slot layer, a middle distribution layer and a bottom interconnect layer capable of accommodating 4 LiP radar transceivers with considerable assembly tolerance which is really one of the key aspects for commercial automotive radar applications. Input matching and radiation patterns of the antenna are verified by measurement. The results indicate that the proposed gapwaveguide imaging radar antenna in conjunction with the novel LiP packaging is able to serve the radar system properly. To the best of the authors’ knowledge, the proposed gapwaveguide antenna system is the first imaging radar antenna system ever developed for LiP components. This work provides a compact, high-efficiency and cost-effective solution for the integration of complex radar systems with waveguide antennas.},
-  keywords = {automotive,gapwaveguide,Imaging,Imaging radar,launcher-in-package,Radar,Radar antennas,Radar imaging,slot array,transceiver,Transceivers,Unread,Waveguide components},
+  keywords = {automotive,gapwaveguide,Imaging,Imaging radar,Launcher-in-package,Radar,Radar antennas,Radar imaging,slot array,transceiver,Transceivers,Waveguide components},
   file = {/home/martin/Zotero/storage/DXPSVKE6/Ren et al. - 2023 - Gapwaveguide Automotive Imaging Radar Antenna With Launcher in Package Technology.pdf}
 }
 
@@ -1699,7 +1852,7 @@
   isbn = {978-1-891121-53-1},
   langid = {english},
   pagetotal = {872},
-  keywords = {Technology & Engineering / General,TECHNOLOGY & ENGINEERING / Mechanical,Technology & Engineering / Radar},
+  keywords = {Book,Technology & Engineering / General,TECHNOLOGY & ENGINEERING / Mechanical,Technology & Engineering / Radar},
   file = {/home/martin/Zotero/storage/6CMFBCMC/Richards et al. - 2012 - Principles of Modern Radar Advanced Techniques, Volume 2.pdf}
 }
 
@@ -1966,7 +2119,7 @@
   url = {https://ieeexplore.ieee.org/document/10697390},
   urldate = {2025-11-03},
   abstract = {A wideband cavity-slotted waveguide antenna is proposed for millimeter-wave (mm-wave) automotive radar applications. The antenna consists of a rectangular waveguide cavity with four rectangular slots. A TE150 mode and a TE160 mode are excited in the rectangular cavity. A combination of the TE150 mode and the TE160 mode leads to a wideband operation. A radiating layer is introduced above the slotted waveguide cavity to improve the impedance matching and the radiation patterns. The cavity-slotted waveguide antenna is fed by a rectangular waveguide at the bottom center of the cavity for avoiding the main beam squinting. Simulation and measurement results show that the cavity-slotted waveguide antenna achieves a wide bandwidth of 69 GHz to 91 GHz with an antenna gain of 14.5 dBi. A 6-TX/8-RX antenna module is developed to demonstrate the potential for commercial automotive radar sensors. Stable fan-beam radiation patterns and antenna gains are obtained.},
-  keywords = {Antenna feeds,Antenna measurements,Antenna radiation patterns,Automotive engineering,Automotive radar sensor,Broadband antennas,cavity-slotted antenna,Electric fields,Microstrip antenna arrays,millimeter-wave (mm-wave) antenna,Radar antennas,waveguide antenna,Wideband,wideband antenna},
+  keywords = {Antenna feeds,Antenna measurements,Antenna radiation patterns,Automotive engineering,Automotive radar sensor,Broadband antennas,cavity-slotted antenna,Electric fields,Microstrip antenna arrays,millimeter-wave (mm-wave) antenna,Modelling-ready,Radar antennas,waveguide antenna,Wideband,wideband antenna},
   file = {/home/martin/Zotero/storage/7JEL8ZNM/Sun et al. - 2024 - A Wideband Cavity-Slotted Waveguide Antenna for mm-Wave Automotive Radar Sensors.pdf}
 }
 
@@ -1987,6 +2140,23 @@
   langid = {english},
   keywords = {antenna array 1,high-efficiency 2,magneto-electric dipole 4,mm-wave 3,ridge gap waveguide 5,wide-band 6},
   file = {/home/martin/Zotero/storage/RX75I482/Tan et al. - 2021 - A Wide-Band High-Efficiency Hybrid-Feed Antenna Array for mm-Wave Wireless Systems.pdf}
+}
+
+@article{tapiaMillimeterWaveLauncherinPackageConcept2023,
+  title = {Millimeter-{{Wave Launcher-in-Package Concept}} for {{Car Radar Applications}}},
+  author = {Tapia, V. and Molina, R. and Geluk, S. J. and Carluccio, G. and Syed, W. and family=Graauw, given=A., prefix=de, useprefix=false and family=Hon, given=B. P., prefix=de, useprefix=false and Smolders, A. B.},
+  date = {2023-08},
+  journaltitle = {IEEE Microwave and Wireless Technology Letters},
+  volume = {33},
+  number = {8},
+  pages = {1243--1246},
+  issn = {2771-9588},
+  doi = {10.1109/LMWT.2023.3281634},
+  url = {https://ieeexplore.ieee.org/document/10151928},
+  urldate = {2025-11-25},
+  abstract = {Transitions from a millimeter-wave integrated circuit (IC) to waveguides tend to have high losses and are difficult to realize in high-volume manufacturing processes. Based on the requirements of car radar systems, we introduce a low-loss and very compact launcher-in-package (LiP) concept, in which a direct transition from the IC is realized. The optimized design of the complete transition shows a simulated insertion loss below 1 dB and channel isolation higher than 40 dB over a fractional bandwidth of more than 20\% in the frequency band of interest. A demonstrator was manufactured and characterized. Measurements of the demonstrator confirm our approach and accuracy of our models. Using low-loss materials, an insertion loss below 1 dB, and interchannel isolation better than 30 dB over the 76–81 GHz band can be achieved.},
+  keywords = {Antenna transitions,antenna-in-package,Automobiles,car radar,Integrated circuits,Launcher-in-package,Metals,mm-wave integrated circuit (IC) package,Radar antennas,Radar applications,Simulation,waveguide launcher,Waveguide transitions},
+  file = {/home/martin/Zotero/storage/L8IA2IH9/Tapia et al. - 2023 - Millimeter-Wave Launcher-in-Package Concept for Car Radar Applications.pdf}
 }
 
 @inproceedings{thurnBroadbandPolarimetricMmWave2012,
@@ -2079,6 +2249,22 @@
   abstract = {Perceiving the road environment as robust and complete as possible is a fundamental requirement on the way to fully automated driving. Crucial components of perception include detection and classification of road users as well as estimating their extensions and orientation. Using data from a newly available automotive polarimetric radar, this work presents a neural network model using pre-CFAR data as input to detect road users and additionally predict their oriented bounding box. The model is trained to detect static and dynamic road users in diverse urban and rural scenarios on a large data set. A major improvement in detection performance is shown when comparing against CFAR based detection approaches. Additionally, the benefit of polarimetric information is evaluated by optimizing the model on two representations of polarimetric information and comparing it to a model on data without polarimetric information. Results show further promising performance increases when polarimetric information is available.},
   keywords = {Data models,Deep learning methods in robotics and automation,object detection,Point cloud compression,Radar,Radar detection,Radar imaging,Radar polarimetry,Roads,segmentation and categorization,sensor fusion},
   file = {/home/martin/Zotero/storage/D27HLVUI/Tilly et al. - 2023 - Road User Detection on Polarimetric Pre-CFAR Radar Data Level.pdf}
+}
+
+@inproceedings{tinti45degLinearlyPolarized2023,
+  title = {±45° {{Linearly Polarized PCB Antennas}} for {{Polarimetric Automotive Radar}}},
+  booktitle = {2023 {{Photonics}} \& {{Electromagnetics Research Symposium}} ({{PIERS}})},
+  author = {Tinti, Alessandro and Alfageme, Simon Tejero and Biarge, Sergio Duque and Pohl, Nils},
+  date = {2023-07},
+  pages = {571--577},
+  issn = {2831-5804},
+  doi = {10.1109/PIERS59004.2023.10221254},
+  url = {https://ieeexplore.ieee.org/document/10221254},
+  urldate = {2025-11-28},
+  abstract = {Automotive radar is a fast-growing technology that plays a key role in the development of Autonomous Driving. Given the increasing number of channels available in automotive radars, polarimetry for automotive application has lately gained the interest of both, academia and industry. In this paper a 12 transmitters and 16 receivers system made of ±45°. linearly polarized combline antenna arrays working at 79 GHz is presented showing how the use of polarimetry could help improving object classification and ghost target detection in automotive radars.},
+  eventtitle = {2023 {{Photonics}} \& {{Electromagnetics Research Symposium}} ({{PIERS}})},
+  keywords = {Antenna measurements,Prototypes,Radar,Radar detection,Radar measurements,Receiving antennas,Transmitters},
+  file = {/home/martin/Zotero/storage/6PHCTRG6/Tinti et al. - 2023 - ±45° Linearly Polarized PCB Antennas for Polarimetric Automotive Radar.pdf}
 }
 
 @inproceedings{tintiFullPolarimetricAntenna2023,
@@ -2936,4 +3122,271 @@
   abstract = {A novel generic topology for two-dimensional (2-D) sparse multiple-input-multiple-output (MIMO) ultrawideband (UWB) arrays is suggested. Based on the proposed topology, a 2-D MIMO UWB array for high-resolution short-range imaging is developed. The focusing properties of this array are studied both theoretically and experimentally and are shown to be superior to those of arrays with a similar number of antennas and based on known topologies such as Mills Cross, rectangular, and spiral configurations. Decisive impact of a large operational bandwidth and short focusing distance on MIMO array performance is shown. Imaging capabilities of the proposed array are experimentally demonstrated for distributed targets.},
   keywords = {Antenna arrays,Apertures,Bandwidth,Focusing,MIMO,Multiple-input–multiple-output (MIMO),near- field,sparse array,Topology,two-dimensional transducer array,ultrawideband (UWB),Unread,volumetric imaging},
   file = {/home/martin/Zotero/storage/QLP76VTW/Zhuge and Yarovoy - 2012 - Study on Two-Dimensional Sparse MIMO UWB Arrays for High Resolution Near-Field Imaging.pdf}
+}
+
+@inproceedings{bouwmeesterDynamicRoadSurface2022,
+  title = {Dynamic {{Road Surface Signatures}} in {{Automotive Scenarios}}},
+  booktitle = {2021 18th {{European Radar Conference}} ({{EuRAD}})},
+  author = {Bouwmeester, Wietse and Fioranelli, Francesco and Yarovoy, Alexander},
+  date = {2022-04},
+  pages = {285--288},
+  doi = {10.23919/EuRAD50154.2022.9784570},
+  url = {https://ieeexplore.ieee.org/document/9784570},
+  urldate = {2025-12-03},
+  abstract = {A method to compute road surface signatures in the automotive scenario is presented. This method is subsequently applied to a rough asphalt surface without undulations. It is shown that, due to the observation geometry, the road surface signature experiences significant spreading along the Doppler-axis, resulting in a distinct range-Doppler map that could be used for classification purposes. This was also confirmed with an experimental recording from a car driving around the university campus. The variation of Doppler-shift and incident angle within a range bin and over a coherent processing interval is also evaluated.},
+  eventtitle = {2021 18th {{European Radar Conference}} ({{EuRAD}})},
+  keywords = {Advanced driver assistance,Asphalt,Autonomous vehicles,Radar cross-sections,Radar scattering,Roads,Rough surfaces,Rough surfaces scattering,Scattering,Surface roughness,Water},
+  file = {/home/martin/Zotero/storage/62F6ME2F/Bouwmeester et al. - 2022 - Dynamic Road Surface Signatures in Automotive Scenarios.pdf}
+}
+
+@article{bouwmeesterClassificationDynamicVulnerable2025,
+  title = {Classification of {{Dynamic Vulnerable Road Users Using}} a {{Polarimetric}} Mm-{{Wave MIMO Radar}}},
+  author = {Bouwmeester, Wietse and Fioranelli, Francesco and Yarovoy, Alexander G.},
+  date = {2025},
+  journaltitle = {IEEE Transactions on Radar Systems},
+  volume = {3},
+  pages = {203--219},
+  issn = {2832-7357},
+  doi = {10.1109/TRS.2025.3527884},
+  url = {https://ieeexplore.ieee.org/document/10835756},
+  urldate = {2025-12-04},
+  abstract = {In this article, the classification of dynamic vulnerable road users (VRUs) using polarimetric automotive radar is considered. To this end, a signal processing pipeline for polarimetric automotive MIMO radar is proposed, including a method to enhance angular resolution by combining data from all polarimetric channels. The proposed signal processing pipeline is applied to measurement data of three different types of VRUs and a car, collected with a custom automotive polarimetric radar, developed in collaboration with Huber+Suhner AG. Several polarimetric features are estimated from the range-velocity signatures of the measured targets and are subsequently analyzed. A Bayesian classifier and a convolutional neural network (CNN) using these estimated polarimetric features are proposed and their performance is compared against their single-polarized counterparts. It is found that for the Bayesian classifier, a significant increase in classification performance is achieved, compared to the same classifier using single polarized information. For the CNN-based classifier, utilizing the distribution of polarimetric features of the target’s range-velocity signatures also increases classification performance, compared to its single-polarized version. This shows that polarimetric information is valuable for classification of VRUs and objects of interest in automotive radar.},
+  keywords = {Automotive radar,classification,Convolutional neural networks,Pedestrians,polarimetry,Propagation delay,Radar,Radar antennas,Radar measurements,Radar polarimetry,Roads,Sensors,Time-frequency analysis,vulnerable road users (VRUs)},
+  file = {/home/martin/Zotero/storage/TMZDQ7CI/Bouwmeester et al. - 2025 - Classification of Dynamic Vulnerable Road Users Using a Polarimetric mm-Wave MIMO Radar.pdf}
+}
+
+@manual{texasInstrumentsAwr2994EvaluationModule2024,
+  title = {AWR2944 Evaluation Module User's Guide, Rev. C},
+  organization = {Texas Instruments},
+  address = {Dallas, TX, USA},
+  year = {2024},
+  month = {sep},
+  note = {Literature Number SPRUJ22C},
+  url = {https://www.ti.com/lit/ug/spruj22c/spruj22c.pdf},
+  urldate = {2025-12-12},
+}
+
+@manual{texasInstrumentsAwrxCascadedRadar2020,
+  title = {AWRx Cascaded Radar RF Evaluation Module (MMWCAS-RF-EVM) User's Guide},
+  author = {{Texas Instruments}},
+  organization = {Texas Instruments},
+  address = {Dallas, TX, USA},
+  month = {2},
+  year = {2020},
+  note = {Rev. SWRU553A},
+  url = {https://www.ti.com/lit/ug/swru553a/swru553a.pdf}
+}
+
+@online{vazquezRadarAutomotiveWhy2022,
+  title = {Radar For Automotive: Why Do We Need Radar?},
+  author = {Martinez Vazquez, Marta},
+  date = {2022-03-24},
+  organization = {SemiEngineering},
+  url = {https://semiengineering.com/RADAR-for-automotive-why-do-we-need-RADAR/},
+  urldate = {2025-12-15},
+}
+
+@article{holderSystematicMethodsSynthesis2023,
+  title = {Systematic methods for the synthesis of equidistant {MIMO} arrays},
+  author = {Holder, Marvin Alexander Samuel and Eberspächer, Mark},
+  journal = {Advances in Radio Science},
+  volume = {21},
+  pages = {15\textendash 23},
+  year = {2023},
+  doi = {10.5194/ars-21-15-2023},
+  url = {https://ars.copernicus.org/articles/21/15/2023/}
+}
+
+@article{liangCooperativeAutomotiveRadars2022,
+  title = {Cooperative {{Automotive Radars}} with {{Multi-Aperture Multiplexing MIMO Sparse Array Design}}},
+  author = {Liang, Can and Wang, Yanhua and Yang, Zhuxi and Hu, Xueyao and Pei, Qiubo and Gu, Wei and Zhang, Liang},
+  date = {2022-01},
+  journaltitle = {Electronics},
+  volume = {11},
+  number = {8},
+  pages = {1198},
+  publisher = {Multidisciplinary Digital Publishing Institute},
+  issn = {2079-9292},
+  doi = {10.3390/electronics11081198},
+  url = {https://www.mdpi.com/2079-9292/11/8/1198},
+  urldate = {2025-12-16},
+  abstract = {In this paper, a multi-aperture multiplexing multiple-input multiple-output (MAM-MIMO) sparse array is presented for cooperative automotive radars (CARs). The proposed sparse array composed of multiple subarrays can simultaneously cover a wide field-of-view (FOV) and achieve the required azimuth resolution at different ranges. To validate this idea, an optimization model for the MAM-MIMO sparse array is derived based on the example of CARs. This optimization model has been found by combining the peak-to-sidelobe ratio (PSLR) at all beams pointing within the constraints of different detection ranges. In addition, a hierarchical genetic algorithm based on the multi-objective decomposition method has been developed to obtain the optimized sparse array. The proposed method has been evaluated through both simulations and experiments. It is demonstrated that the optimized MAM-MIMO sparse array can effectively suppress sidelobes of its subarrays, yet with reasonably high azimuth resolutions and large FOVs.},
+  langid = {english},
+  keywords = {cooperative automotive radars,hierarchical genetic algorithm,multiple-input multiple-output,peak-to-sidelobe ratio,sparse array}
+}
+
+@book{aminSparseArraysRadar2024,
+  author = {Amin, Moeness G.},
+  title = {Sparse Arrays for Radar, Sonar, and Communications},
+  publisher = {John Wiley \& Sons},
+  location = {Hoboken, NJ},
+  year = {2024},
+  isbn = {9781394191017},
+  doi = {10.1002/9781394191048}
+}
+
+@inproceedings{ericAmbiguityCharacterizationArbitrary1998,
+  title = {Ambiguity Characterization of Arbitrary Antenna Array: Type {{I}} Ambiguity},
+  shorttitle = {Ambiguity Characterization of Arbitrary Antenna Array},
+  booktitle = {1998 {{IEEE}} 5th {{International Symposium}} on {{Spread Spectrum Techniques}} and {{Applications}} - {{Proceedings}}. {{Spread Technology}} to {{Africa}} ({{Cat}}. {{No}}.{{98TH8333}})},
+  author = {Eric, M. and Zejak, A. and Obradovic, M.},
+  date = {1998-09},
+  volume = {2},
+  pages = {399-403 vol.2},
+  doi = {10.1109/ISSSTA.1998.723814},
+  url = {https://ieeexplore.ieee.org/document/723814},
+  urldate = {2026-01-06},
+  abstract = {We propose an approach to ambiguity analysis of arbitrary volume antenna arrays designed for mobile communications, which is based on the antenna array manifold properties analysis. The paper treats a problem of type I ambiguity. We define and propose type I ambiguity function and show that the proposed function is a very effective tool for ambiguity characterization of arbitrary antenna arrays.},
+  eventtitle = {1998 {{IEEE}} 5th {{International Symposium}} on {{Spread Spectrum Techniques}} and {{Applications}} -. {{Spread Technology}} to {{Africa}} ({{Cat}}. {{No}}.{{98TH8333}})},
+  keywords = {Antenna arrays,Antennas and propagation,Aperture antennas,Direction of arrival estimation,Geometry,Linear antenna arrays,Mobile antennas,Mobile communication,Planar arrays,Spatial resolution,Unread},
+  file = {/home/martin/Zotero/storage/QQZM3IGE/Eric et al. - 1998 - Ambiguity characterization of arbitrary antenna array type I ambiguity.pdf}
+}
+
+@article{huanSASASuperResolutionAmbiguityFree2023,
+  title = {{{SASA}}: {{Super-Resolution}} and {{Ambiguity-Free Sparse Array Geometry Optimization With Aperture Size Constraints}} for {{MIMO Radar}}},
+  shorttitle = {{{SASA}}},
+  author = {Huan, Mingsai and Liang, Junli and Wu, Yifan and Li, Yongkang and Liu, Wei},
+  date = {2023-06},
+  journaltitle = {IEEE Transactions on Antennas and Propagation},
+  volume = {71},
+  number = {6},
+  pages = {4941--4954},
+  issn = {1558-2221},
+  doi = {10.1109/TAP.2023.3262157},
+  url = {https://ieeexplore.ieee.org/document/10089394},
+  urldate = {2026-01-06},
+  abstract = {To improve the performance of multiple-input–multiple-output (MIMO) radar, various sparse arrays have been used. However, the angular resolution of existing nonuniform arrays optimized by either combinatorial algorithms or heuristic ones is limited by the Rayleigh criterion, which is strictly related to the aperture size. Based on the angular ambiguity function (AAF) analysis, two new models are established in this work for directly optimizing the sidelobe level (SLL) or the main lobe width (MLW) with the constraints of aperture size and element spacing. The aforementioned designs result in non-convex and nonlinear optimization problems, and solutions are derived via the alternating direction multiplier method (ADMM). Furthermore, considering a parametric tradeoff between SLL and MLW, a hybrid algorithm is proposed to search for the SLL-MLW Pareto front boundary. Finally, simulations are provided to demonstrate the high angular resolution and ambiguity-free properties of the optimized sparse arrays.},
+  keywords = {Angular ambiguity function (AAF),angular resolution,Antenna arrays,Antenna radiation patterns,Direction-of-arrival estimation,Heuristic algorithms,multiple-input–multiple-output (MIMO) radar,non-convex optimization,Optimization,Radar antennas,Radar imaging,sparse array},
+  file = {/home/martin/Zotero/storage/4UWNB7R6/Huan et al. - 2023 - SASA Super-Resolution and Ambiguity-Free Sparse Array Geometry Optimization With Aperture Size Cons.pdf}
+}
+
+@article{arnoldEffectAntennaMutual2019,
+  title = {The {{Effect}} of {{Antenna Mutual Coupling}} on {{MIMO Radar System Performance}}},
+  author = {Arnold, Benjamin T. and Jensen, Michael A.},
+  date = {2019-03},
+  journaltitle = {IEEE Transactions on Antennas and Propagation},
+  volume = {67},
+  number = {3},
+  pages = {1410--1416},
+  issn = {1558-2221},
+  doi = {10.1109/TAP.2018.2888702},
+  url = {https://ieeexplore.ieee.org/document/8581509},
+  urldate = {2026-01-06},
+  abstract = {Multiple-input multiple-output (MIMO) radar systems use orthogonal signaling to enable combined transmit and receive beamforming through signal processing on the received signals. Because of the combined role of transmit and receive arrays in this processing for monostatic MIMO radar, mutual coupling present in these arrays impacts the beamforming in a unique way. This paper presents a mathematical model of a MIMO radar with coupled antennas and appropriate radio frequency circuitry. Application of the model to evaluate radar detection of a single target demonstrates that coupling can result in target detection angles that are in error by as much as 12° and increase beamformer response sidelobe levels by as much as 8 dB. The results also show that a simple matching network can improve detection performance, particularly when array mutual coupling is high.},
+  keywords = {Antenna arrays,Array signal processing,Beam steering,Couplings,MIMO radar,multiple-input multiple-output (MIMO) systems,mutual coupling,radar antennas,Radar antennas,Receiving antennas},
+  file = {/home/martin/Zotero/storage/ZUVTSLVI/Arnold and Jensen - 2019 - The Effect of Antenna Mutual Coupling on MIMO Radar System Performance.pdf}
+}
+
+@article{kildalDesignExperimentalVerification2011,
+  title = {Design and Experimental Verification of Ridge Gap Waveguide in Bed of Nails for Parallel-Plate Mode Suppression},
+  author = {Kildal, P.-S. and Zaman, A.U. and Rajo-Iglesias, E. and Alfonso, E. and Valero-Nogueira, A.},
+  date = {2011-02-21},
+  journaltitle = {IET Microwaves, Antennas \& Propagation},
+  volume = {5},
+  number = {3},
+  pages = {262--270},
+  publisher = {{The Institution of Engineering and Technology}},
+  doi = {10.1049/iet-map.2010.0089},
+  url = {https://digital-library.theiet.org/doi/abs/10.1049/iet-map.2010.0089},
+  urldate = {2026-01-07},
+  abstract = {This study describes the design and experimental verification of the ridge gap waveguide, appearing in the gap between parallel metal plates. One of the plates has a texture in the form of a wave-guiding metal ridge surrounded by metal posts. The latter posts, referred to as a pin surface or bed of nails, are designed to give a stopband for the normal parallel-plate modes between 10 and 23\>GHz. The hardware demonstrator includes two 90° bends and two capacitive coupled coaxial transitions enabling measurements with a vector network analyser (VNA). The measured results verify the large bandwidth and low losses of the quasi-transverse electromagnetic (TEM) mode propagating along the guiding ridge, and that 90° bends can be designed in the same way as for microstrip lines. The demonstrator is designed for use around 15\>GHz. Still, the ridge gap waveguide is more advantageous for frequencies above 30\>GHz, because it can be realised entirely from metal using milling or moulding, and there are no requirements for conducting joints between the two plates that otherwise is a problem when realising conventional hollow waveguides.},
+  keywords = {Unread},
+  file = {/home/martin/Zotero/storage/2W2ZTE4E/Kildal et al. - 2011 - Design and experimental verification of ridge gap waveguide in bed of nails for parallel-plate mode.pdf}
+}
+
+@inproceedings{hartnerReliabilityPerformanceWafer2019,
+  title = {Reliability and {{Performance}} of {{Wafer Level Fan Out Package}} for {{Automotive Radar}}},
+  booktitle = {2019 {{International Wafer Level Packaging Conference}} ({{IWLPC}})},
+  author = {Hartner, W. and Fink, M. and Haubner, G. and Geissler, C. and Lodermeyer, J. and Niessner, M. and Arcioni, F. and Wojnowski, M.},
+  date = {2019-10},
+  pages = {1--11},
+  doi = {10.23919/IWLPC.2019.8914100},
+  url = {https://ieeexplore.ieee.org/document/8914100},
+  urldate = {2026-01-08},
+  abstract = {Embedded wafer level ball grid array (eWLB) or FO-WLP (Fan-out wafer-level packaging) is investigated as a package for MMICs (Monolithic Microwave Integrated Circuit) for automotive radar applications in the 77GHz range. Special focus is put on the thermo-mechanical performance to achieve automotive quality targets. The typical fatigue modes “solder ball fatigue” and “copper fatigue”, evolving during thermo-mechanical stress like cycling on board will be discussed. Simulation as well as experimental preparation results for typical fatigue levels are given. In addition, several influencing parameters are listed and rated regarding their effectiveness. The theoretical framework why solder ball fatigue is the only failure mode causing electrical failure is provided. The impact of different thermo-mechanically driven fatigue modes is discussed. The two important parameters to be considered for the functionality of the Radar system are RF (Radio Frequency) and thermal performance. For elaborating the RF performance with present fatigue modes, the phase shift between different channels and pads is analyzed by full-wave EM (Electromagnetic) simulation. It is found that for fatigue levels up to 90\% the phase shift stays below specification for single fatigue modes and may approach specification only for an unlikely combination of all 90\% fatigue modes. For assessing the thermal performance with present fatigue modes, thermal simulation as well as thermal measurements are used. Assuming 50\% degradation in average for all thermal balls, an increase in RTH of up to about 30\% is seen. On average for all thermal measurements, the deviation between measurement and simulation is within ±1°C.},
+  eventtitle = {2019 {{International Wafer Level Packaging Conference}} ({{IWLPC}})},
+  keywords = {Automotive engineering,Automotive Radar,eWLB,Fatigue,FO-WLP,Loading,MMIC,Radar,Radio frequency,Reliability,Stress,Thermomechanical processes,Unread},
+  file = {/home/martin/Zotero/storage/DUE43VPJ/Hartner et al. - 2019 - Reliability and Performance of Wafer Level Fan Out Package for Automotive Radar.pdf}
+}
+
+@article{yangMillimeterWaveDualPolarizedDifferentially2020,
+  title = {Millimeter-{{Wave Dual-Polarized Differentially Fed}} 2-{{D Multibeam Patch Antenna Array}}},
+  author = {Yang, Qingling and Gao, Steven and Luo, Qi and Wen, Lehu and Ban, Yong-Ling and Ren, Xiaofei and Wu, Jian and Yang, Xuexia and Liu, Ying},
+  date = {2020-10},
+  journaltitle = {IEEE Transactions on Antennas and Propagation},
+  volume = {68},
+  number = {10},
+  pages = {7007--7016},
+  issn = {1558-2221},
+  doi = {10.1109/TAP.2020.2992896},
+  url = {https://ieeexplore.ieee.org/document/9106783},
+  urldate = {2026-01-08},
+  abstract = {In this article, a novel millimeter-wave dual-polarized 2-D multibeam antenna array incorporating differentially fed antenna elements is proposed to achieve high cross-polarization discrimination (XPD) when the beams scan to the maximal pointing angles. The antenna element is composed of an SIW cavity with four shorted patches placed inside, and it is differentially excited for dual-polarization by a pair of feeding strips and transverse slots beneath the patches. Differential excitation is realized by a power divider designed on two laminate layers. Two Butler matrices placed perpendicularly with each other in different laminates are employed to generate four tilted beams with dual-polarization. A 2\textbackslash times 2 dual-polarized 2-D multibeam antenna array working at 28 GHz is designed, fabricated, and measured. The operation bandwidth of the antenna is 26.8-29.2 GHz. The improvement in the XPD is experimentally demonstrated by far-field measurement. When the beams scan to 30° off the boresight, the measured XPDs are 28 dB at the center frequency and higher than 25 dB over the operation bandwidth, which confirms that the cross-polarized radiation in the 2-D multibeam antenna array is suppressed by using the differential-feeding technique. The measured gain is in the range from 7.6 to 10.5 dBi.},
+  keywords = {Antenna arrays,Antenna feeds,Antenna measurements,Butler matrix,cross-polarization,differential feeding,dual-polarization,Laminates,millimeter-wave (mmWave),multibeam antenna,patch antenna,Patch antennas,Two dimensional displays},
+  file = {/home/martin/Zotero/storage/8TE8QHWJ/Yang et al. - 2020 - Millimeter-Wave Dual-Polarized Differentially Fed 2-D Multibeam Patch Antenna Array.pdf}
+}
+
+@inproceedings{bencivenniHighVolumeManufacturingMetallized2023,
+  title = {High-{{Volume Manufacturing}} of {{Metallized Plastic Gapwaves Antennas}} for {{mmWave Applications}}},
+  booktitle = {2023 17th {{European Conference}} on {{Antennas}} and {{Propagation}} ({{EuCAP}})},
+  author = {Bencivenni, Carlo and Haddadi, Abolfazl and Vosoogh, Abbas and Carlsson, Stefan},
+  date = {2023-03},
+  pages = {1--4},
+  doi = {10.23919/EuCAP57121.2023.10133066},
+  url = {https://ieeexplore.ieee.org/document/10133066},
+  urldate = {2026-01-09},
+  abstract = {In this paper we review the state of the art of high-volume production and give an overview of the main manufacturing aspects that are making plastic antennas a real alternative. Waveguide-based antennas are competing to become the technology of choice for a range of high-frequency high-volume products, such as modern telecommunication and radar systems. To reach widespread adoption however, the performance benefits must be supported by low-cost production. Coupled with the relaxed manufacturing and assembly allowed by gapwaveguide technology, metallized plastic injection molded antennas stand as a compelling solution to bring this vision to reality.},
+  eventtitle = {2023 17th {{European Conference}} on {{Antennas}} and {{Propagation}} ({{EuCAP}})},
+  keywords = {antenna,Communications technology,Costs,Europe,gapwaves,industry,Injection molding,injection moulding,manufacturing,Manufacturing,metallization,plastic,Radar,Radar antennas,waveguide},
+  file = {/home/martin/Zotero/storage/MHYNRLBH/Bencivenni et al. - 2023 - High-Volume Manufacturing of Metallized Plastic Gapwaves Antennas for mmWave Applications.pdf}
+}
+
+@article{mohamedPerfectIsolationPerformance2019,
+  title = {Perfect Isolation Performance among Two-Element {{MIMO}} Antennas},
+  author = {Mohamed, Ibrahim and Abdalla, Mahmoud and Mitkees, Abd El-Aziz},
+  date = {2019-07-01},
+  journaltitle = {AEU - International Journal of Electronics and Communications},
+  shortjournal = {AEU - International Journal of Electronics and Communications},
+  volume = {107},
+  pages = {21--31},
+  issn = {1434-8411},
+  doi = {10.1016/j.aeue.2019.05.014},
+  url = {https://www.sciencedirect.com/science/article/pii/S1434841119304352},
+  urldate = {2026-01-09},
+  abstract = {A rectangular microstrip patch (RMSP) antenna is designed to be used in a two-element Multi-Input Multi-Output (MIMO) antennas at which they operate at 5.8\,GHz. The two antennas are positioned opposite to each other with a separation of 10\,mm (0.2 λ0) from their radiating edges. A novel uni-conductor electromagnetic bandgap (UC-EBG) periodic cells are introduced in this paper as effective barriers for surface waves compared to the conventional UC-EBG. Each unit cell has a compact size area 7.3\,×\,5.8\,mm2 where it is 20\% more compact than the conventional cell. Two of the proposed modified EBG periodic cells are placed in-between the two antennas causing an excellent reduction in the coupled power of 46\,dB. This strong isolation definitely enhances the performance of antennas in MIMO communication systems, where 0.0001 and 0.03 values for correlation coefficient have obtained from S-parameters and far-field information, respectively, due to this strong isolation.},
+  keywords = {Correlation enhancement,Coupling reduction,MIMO,Modified EBG},
+  file = {/home/martin/Zotero/storage/MW3CLNBC/Mohamed et al. - 2019 - Perfect isolation performance among two-element MIMO antennas.pdf}
+}
+
+@article{li60GHzDualPolarizedTwoDimensional2016,
+  title = {60-{{GHz Dual-Polarized Two-Dimensional Switch-Beam Wideband Antenna Array}} of {{Aperture-Coupled Magneto-Electric Dipoles}}},
+  author = {Li, Yujian and Luk, Kwai-Man},
+  date = {2016-02},
+  journaltitle = {IEEE Transactions on Antennas and Propagation},
+  volume = {64},
+  number = {2},
+  pages = {554--563},
+  issn = {1558-2221},
+  doi = {10.1109/TAP.2015.2507170},
+  url = {https://ieeexplore.ieee.org/document/7350142},
+  urldate = {2026-01-09},
+  abstract = {A dual-polarized aperture-coupled magneto-electric (ME) dipole antenna is proposed. Two separate substrate-integrated waveguides (SIWs) implemented in two printed circuit board (PCB) laminates are used to feed the antenna. The simulated - 10-dB impedance bandwidth of the antenna is 21\% together with an isolation of over 45 dB between the two input ports. Good radiation characteristics, including almost identical unidirectional radiation patterns in two orthogonal planes, front-to-back ratio larger than 20 dB, cross-polarization levels less than - 23\textbackslash;\textbackslash textdB, and a stable gain around 8 dBi over the operating band, are achieved. By employing the proposed radiating element, a 2 \textbackslash times 2 wideband antenna array working at the 60-GHz band is designed, fabricated, and tested, which can generate two-dimensional (2-D) multiple beams with dual polarization. A measured - 10\textbackslash;\textbackslash textdB impedance bandwidth wider than 22\% and a gain up to 12.5 dBi are obtained. Owing to the superiority of the ME dipole, the radiation pattern of the array is also stable over the operating frequencies and nearly identical in two orthogonal planes for both of the polarizations. With advantages of desirable performance, convenience of fabrication and integration, and low cost, the proposed antenna and array are attractive for millimeter-wave wireless communication systems.},
+  keywords = {60 GHz,Antenna arrays,Antenna radiation patterns,Aperture antennas,Arrays,Dipole antennas,dual-polarized antenn a,Dual-polarized antenna,magneto -electric (ME) dipole,magneto-electric (ME) dipole,multi-beam antenna,multibeam antenna,substrate integrated waveguide (SIW),Substrate integrated waveguide (SIW),Substrates}
+}
+
+@article{choSeriesFedIntegratedLens2024,
+  title = {Series-{{Fed Integrated Lens Antenna}} for {{High Gain}} in {{Millimeter-Wave Band}}},
+  author = {Cho, Hyunyoung and Lee, Ji-Hoon and Kim, Sol and Yu, Jong-Won and Ahn, ByungKuon},
+  date = {2024-05},
+  journaltitle = {IEEE Antennas and Wireless Propagation Letters},
+  volume = {23},
+  number = {5},
+  pages = {1578--1582},
+  issn = {1548-5757},
+  doi = {10.1109/LAWP.2024.3363182},
+  url = {https://ieeexplore.ieee.org/document/10521905},
+  urldate = {2026-01-09},
+  abstract = {This letter proposes an integrated lens antenna (ILA) that uses a patch as a feed structure to achieve high gain in the millimeter-wave (mmWave) band. The proposed ILA consists of a patch for feeding and an elliptical dielectric lens and can be extended from a single antenna to an array antenna. This letter covers the implementation of single ILA, 2 \textbackslash boldsymbol\textbackslash times 1 ILA array, and 4 \textbackslash boldsymbol\textbackslash times 1 ILA array. A series-fed network was applied for patches for low loss and small size. The proposed antenna can reduce the overall volume because it has an integrated structure without separating the lens and series-fed patch. The dielectric lens was fabricated using a 3-D printer and integrated with the printed circuit board, on which the series-fed patch was printed to implement the ILA. The simulated peak gains of single ILA, 2 \textbackslash boldsymbol\textbackslash times 1 ILA array, and 4 \textbackslash boldsymbol\textbackslash times 1 ILA array are 15.1, 16.6, and 18.1 dBi, respectively, while measured peak gains are 14.0, 15.3, and 16.8 dBi, respectively. The proposed 4 × 1 ILA array has a small size of \textbackslash text1.8łambda \_0\textbackslash times \textbackslash text5.1łambda \_0\textbackslash times \textbackslash text1.6łambda \_0 due to the integrated lens design and is suitable for high frequency wireless applications as it can be easily integrated with radio frequency systems.},
+  keywords = {3-D printing,Antenna feeds,dielectric lens,Gain measurement,high gain,integrated lens antenna (ILA),Millimeter wave technology,Printed circuits,Printers,series-fed,System integration,Wireless communication},
+  file = {/home/martin/Zotero/storage/2HTB5RMI/Cho et al. - 2024 - Series-Fed Integrated Lens Antenna for High Gain in Millimeter-Wave Band.pdf}
 }

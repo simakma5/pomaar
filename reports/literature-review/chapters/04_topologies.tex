@@ -1,51 +1,113 @@
-\chapter{MIMO array topologies}
-\todo{Add sources\ldots}
-Existing MIMO array designs for automotive radar predominantly use linear or planar sparse layouts optimized for angular resolution and cost-efficient implementation. TDM-MIMO architectures dominate current commercial systems, typically leveraging 3--4 transmitters with 4--8 receivers to synthesize virtual arrays of 12--48 channels. Recent research explores 2D MIMO arrays, co-prime and nested sparse layouts, and wide-aperture imaging arrays. However, most published designs assume a single polarization, leaving the interaction between sparsity and polarization purity largely unexplored. Only a few prototypes integrate dual-polarization at W-band, and these often suffer from phase-centre mismatches, reduced aperture efficiency and severe cross-polar coupling. As a result, no established array topology exists that simultaneously optimizes spatial resolution, polarization isolation and multiplexing feasibility for a fully polarimetric automotive radar.
+\chapter{MIMO array design}
+
+Existing MIMO array designs for automotive radar predominantly use linear or planar layouts optimized for angular resolution and cost-efficient implementation~\parencite{texasInstrumentsAwr2994EvaluationModule2024}. TDM-MIMO architectures dominate current commercial systems, typically leveraging 3--4 transmitters with 4--8 receivers to synthesize virtual arrays of 12--32 channels, possibly cascading multiple such modules~\parencite{texasInstrumentsAwrxCascadedRadar2020}. Recent research explores sparse 2D MIMO arrays, co-prime and nested sparse layouts, and wide-aperture imaging arrays. However, most published designs assume a single polarization, leaving the interaction between sparsity and polarization purity largely unexplored. Only a few prototypes integrate dual-polarization at W-band, and these often suffer from phase-centre mismatches, reduced aperture efficiency and severe cross-polar coupling. As a result, no established array topology exists that simultaneously optimizes spatial resolution, polarization isolation and multiplexing feasibility for a fully polarimetric automotive radar.
 
 \section{MIMO fundamentals}
 
 The concept of MIMO antenna systems is a well-established and extensively published area within telecommunications, where transmitting data over multiple uncorrelated signals results in additional information about the state of the communication channel, aggregating effects like multipath propagation and other types of signal fading or delays. This information is leveraged to estimate the channel matrix which is then used to compensate for propagation effects to recover the transmitted data.
 
-While the foundational idea of MIMO has been successfully carried over to radar technology, the problem formulation is adapted: the primary goal of radar is the precise estimation of the channel matrix, which encapsulates information about propagation effects, including time delay, Doppler shift, and angle of arrival~\parencite{blissMultipleinputMultipleoutputMIMO2003,forsytheMultipleinputMultipleoutputMIMO2004}. The success of this communications-to-radar transformation has inspired extensive research, leading to key advancements and further classifications, such as the division of the general array concept into colocated and distributed MIMO~\parencite{fishlerMIMORadarIdea2004,fishlerSpatialDiversityRadars2006}. However, this concept transfer must be undertaken with care, respecting and integrating the existing knowledge of traditional radar technology, as a direct, uncritical adaptation can lead to flawed conclusions, occurrences of which were found mainly in the case of distributed MIMO, where some contributions transpired to be either redundant re-discoveries of concepts from multistatic radar, or simply incorrect statements~\parencite{chernyakConceptMIMORadar2010}.
+While the foundational idea of MIMO systems has been successfully carried over to radar technology, the problem formulation is adapted: in telecommunications jargon, the primary goal of radar is to precise estimate the channel matrix, which encapsulates the desired information about propagation effects, such as time delay, Doppler shift, and angle of arrival, allowing for extraction of target range, velocity, azimuth, and angular position~\parencite{blissMultipleinputMultipleoutputMIMO2003,forsytheMultipleinputMultipleoutputMIMO2004}. The success of this communications-to-radar transformation has inspired extensive research, leading to key advancements and further classifications, such as the division of the general array concept into \emph{co-located} and \emph{distributed} MIMO, as extensively discussed in~\parencite{fishlerMIMORadarIdea2004,fishlerSpatialDiversityRadars2006}.
 
-In the realm of automotive applications, the use of MIMO systems is inherently limited to colocated MIMO arrays due to space and geometric constraints. From a signal processing perspective, this topic is now well-studied, and the benefits the concept brings -- such as increased virtual array size, improved angular resolution, and enabled adaptive processing -- are well-understood and documented~\parencite{liMIMORadarColocated2007}. This comprehensive understanding is evident in the detailed literature, defining concepts like parameter identifiability~\parencite{liParameterIdentifiabilityMIMO2007} to showcase the merits of MIMO radar. The maturity of the field is further highlighted by the existence of specialized reference books dedicated entirely to the topic of MIMO radar~\parencite{liMIMORadarSignal2025}.
+Lastly, it should be noted that the transfer of MIMO concepts from communications to radar must be undertaken with care, respecting and integrating the existing knowledge of traditional radar technology. Uncritical adaptation can lead to flawed conclusions, as seen in some early distributed MIMO literature, where certain contributions were either redundant rediscoveries of multistatic radar concepts or contained incorrect statements, as notes by \textcite{chernyakConceptMIMORadar2010}.
 
-\begin{colourbox}[orange]{Notes}
+From the standpoint of antenna array design, the key feature of MIMO radar is the creation of a \emph{virtual array} through the combination of multiple transmit and receive antennas. Mathematically, if an array has $N_\mathrm{TX}$ transmitters and $N_\mathrm{RX}$ receivers, and each transmitter emits an orthogonal waveform, the received signals can be separated and associated with each transmit-receive pair. This effectively synthesizes $N_\mathrm{TX} \times N_\mathrm{RX}$ virtual elements, whose positions are determined by the sum (or, in some cases, the difference) of the physical locations of the transmit and receive antennas~\parencite{holderSystematicMethodsSynthesis2023}. The resulting virtual array, which can be obtained as a convolution of the physical transmit and receive element positions, can have a larger aperture and finer angular resolution than the physical arrays alone, but the spatial distribution of these virtual elements depends on both the physical layout and the multiplexing scheme.
+
+\paragraph{Co-located and distributed MIMO radar.} A crucial distinction exists between these two configurations. co-located MIMO radar systems feature transmit and receive antennas placed in proximity, enabling coherent transmission and detection. This coherence allows for the formation of a virtual array with enhanced angular resolution and supports advanced adaptive processing techniques. In contrast, distributed MIMO radar systems employ widely separated antennas, a technique known from multi-static radar, emphasizing on spatial diversity gain. This diversity is particularly beneficial for overcoming target scintillation (i.e. fluctuations in radar cross-section) and for improving detection performance in complex environments.
+
+Notably, research was carried out to also explore hybrid approaches that combine the benefits of both co-located and distributed MIMO. For example, \textcite{xuIterativeGeneralizedLikelihoodRatio2007} discuss systems that leverage both coherent processing and spatial diversity, highlighting the following advantages:
 \begin{itemize}
-    \item Double down on the distinction between colocated and distributed MIMO, highlighting that colocated configurations enable coherent transmission and detection, whereas distributed MIMO brings spacial diversity gain to the table.
-
-    \item Mention papers combining the benefits of both:~\parencite{hassanienPhasedMIMORadarTradeoff2010,xuIterativeGeneralizedLikelihoodRatio2007} and others.
-
-    \item Advantages~\parencite{xuIterativeGeneralizedLikelihoodRatio2007}:
-    \begin{itemize}
-        \item Widely-separated antennas (distributed MIMO) can help overcome target scintillation (i.e., RCS fluctuation).
-        \item Flexible transmit beampattern design of a colocated MIMO, based on covariance matrix optimization, can help maximize power in directions of interest while minimizing backscattered signals correlation. → Significant improvement of adaptive techniques
-        \item MIMO radar scheme can achieve higher resolution and improve clutter rejection capabilities.
-    \end{itemize}
-
-    \item Why MIMO radar (TBD)
-    \begin{itemize}
-        \item Concept of virtual array → larger effective array → better angular resolution
-        \item Diversity gains, increased SNR
-        \item 2D MIMO radar enables shaping the elevation pattern
-    \end{itemize}
-
-    \item Major challenges:
-    \begin{itemize}
-        \item Not enough analytical work in virtual array synthesis, especially 2D
-        \item EM-informed design and signal processing, such as missing links between parasitic physical phenomena like antenna element coupling and errors in processing algorithms
-    \end{itemize}
+    \item \emph{Spatial diversity:} Widely-separated antennas in distributed MIMO configurations help mitigate target scintillation and improve detection reliability.
+    \item \emph{Flexible transmit beampattern design:} co-located MIMO enables optimization of the transmit covariance matrix, allowing power to be focused in directions of interest while minimizing correlation of backscattered signals. This leads to significant improvements in adaptive processing techniques.
+    \item \emph{Enhanced resolution and clutter rejection:} The MIMO radar scheme can achieve higher spatial resolution and improved clutter suppression compared to conventional radar systems.
 \end{itemize}
-\end{colourbox}
 
-\section{Sparse and 2D MIMO arrays}
+The concept of combining several widely separated subarrays with each subarray containing closely spaced antennas is nowadays often implemented via \emph{multi-aperture multiplexing} and has been successfully applied in \emph{cooperative automotive radars}, improving angular resolution and field of view~\parencite{liangCooperativeAutomotiveRadars2022}.
 
-\section{Polarimetric MIMO designs}
+\paragraph{Array architectures.} A central theme in MIMO radar design is the trade-off between spatial diversity, coherent processing gain, and hardware complexity, which is reflected in the three principal array architectures: fully diverse MIMO, phased arrays, and hybrid MIMO topologies.
 
-\begin{colourbox}[orange]{Notes}
+In a fully diverse MIMO configuration, each antenna element operates independently, transmitting and receiving orthogonal waveforms. This maximizes spatial diversity and enables robust target detection in complex environments. Mathematically, the transmit covariance matrix in this case is full-rank, reflecting the linear independence of the transmitted signals. However, this requires a separate RF processing chain for each element, increasing hardware cost and complexity.
+
+Phased arrays, in contrast, employ coherent waveforms across all elements, with a common signal distributed via a beamforming network. This approach enables electronic beam steering and coherent processing gain, but sacrifices spatial diversity since all elements transmit the same signal. The transmit covariance matrix is fully degenerate (rank 1), as all signals are linearly dependent.
+
+Many modern systems adopt a hybrid approach, first introduced and called \enquote{phased-MIMO radar} by~\textcite{hassanienPhasedMIMORadarTradeoff2010}, which combines aspects of both fully diverse MIMO and phased arrays. In these systems, groups of antenna elements form subarrays that transmit coherent waveforms, while different subarrays operate independently with orthogonal signals. The resulting transmit covariance matrix has rank between 1 and full, depending on the degree of the so-called \emph{waveform diversity}. This design balances the benefits of spatial diversity and coherent processing, while managing hardware complexity. The optimization of subarray partitioning and waveform assignment typically leads to a difficult, non-convex optimization problem, as discussed in the research area of \emph{beampattern synthesis}.
+
+\section{MIMO topologies}
+
+The concept of \emph{MIMO topology} can be defined as a mapping from the physical arrangement of transmit and receive antennas, together with the chosen multiplexing scheme, such as time-, frequency-, and code-division, onto the resulting virtual array. This mapping determines the positions and spacings of the virtual elements, which can be uniform or non-uniform depending on the physical geometry and the multiplexing strategy. Non-uniform virtual element spacing can lead to grating lobes, ambiguities, or degraded performance, making the design of the physical and virtual topology a critical aspect of MIMO radar engineering.
+
+\paragraph{Definitions \& figures of merit.} The MIMO design problem can be formalized as follows: given a desired virtual array configuration (e.g. uniform linear array with specific aperture and element spacing), determine the physical transmit and receive antenna placements and the multiplexing scheme that will synthesize this virtual array. Key figures of merit for evaluating MIMO topologies include:
 \begin{itemize}
-    \item Only consider fully polarimetric radar?
-    \item ``Constructing an interleaved transmit array of single-polarized elements, e.g., even and odd-numbered elements radiating horizontal and vertical polarizations, respectively, results in different phase centres for each polarization, and hence in “polarization squint”. Dual-polarized elements completely avoid this problem but require an OMT for each element.''
-    \item Is the hardware overhead of dual-polarized elements worth it in case the squint can be calibrated for?
+    \item \emph{Virtual aperture:} Set of unique transmitter-receiver channels in the resulting virtual array. The aperture is often evaluated as the overall size of the virtual array, corresponding directly to the resulting \emph{angular resolution}.
+    \item \emph{Field of view (FOV):} The angular region over which the array can reliably detect and resolve targets, determined by the physical and virtual array geometry and element spacing.
+    \item \emph{Degrees of freedom:} The number of independent channels available for signal processing, which influences the ability to perform tasks like \emph{direction-of-arrival estimation} and \emph{parameter identifiability}.
+    \item \emph{Element spacing:} The spacing between virtual elements, affecting \emph{grating lobes} and \emph{ambiguity}, especially in sparse layout, where the Shannon-Nyquist spatial sampling criterion is deliberately violated.
+    \item \emph{Side-lobe level (SLL):} The level of side-lobes in the virtual array's beampattern, impacting \emph{clutter rejection} and \emph{target detection}.
+    \item \emph{Mutual coupling:} The interaction between physical elements, which can distort the intended virtual array response, leading to \emph{errors in angle estimation} or \emph{degraded detection performance}.
+    \item \emph{Implementation complexity:} The practical feasibility of the physical layout and multiplexing scheme, considering hardware constraints.
 \end{itemize}
-\end{colourbox}
+
+\subsection{Application requirements}
+
+The synthesis of MIMO topologies is fundamentally dictated by the sensing scenario, making application requirements the primary driver of array design. For automotive radar, the ability to resolve targets in both azimuth and elevation is essential, necessitating two-dimensional (2D) aperture extension. Modern front-looking automotive radar sensors, as described by~\textcite{waldschmidtAutomotiveRadarFirst2021}, require a wide azimuth FOV of approximately $\pm\ang{30}$ to $\pm\ang{60}$ and a moderate elevation FOV of about $\pm\ang{15}$ to $\pm\ang{30}$. These requirements exceed what can be achieved with simple non-uniform elevation extensions of moderate-aperture linear arrays, necessitating employment of either a large element count or sparse array techniques.
+
+However, synthesizing optimal 2D virtual arrays is challenging: the number of possible transmit-receive combinations increases rapidly, and the synthesis remains a non-deterministic optimization problem with no general closed-form solution for constructing a virtual array with ideal properties from a fixed set of physical elements. This combinatorial complexity -- combined with practical constraints such as hardware cost, mutual coupling, and calibration -- makes 2D MIMO topology synthesis a challenging and active research area \parencite{zhugeStudyTwoDimensionalSparse2012}.
+
+In automotive radar, practical constraints such as limited sensor footprint and integration requirements restrict MIMO implementations almost exclusively to co-located array configurations. This spatial constraint is a systemic requirement imposed by the compact form factors and mounting locations typical of automotive platforms. As a result, the theoretical advantages of distributed MIMO -- such as enhanced spatial diversity -- are generally unattainable in this context.
+
+The signal processing benefits of co-located MIMO for automotive radar are now well-established. These include the synthesis of large virtual arrays, improved angular resolution, and the ability to apply advanced adaptive processing techniques. The literature provides a comprehensive treatment of these advantages, with concepts such as parameter identifiability \parencite{liParameterIdentifiabilityMIMO2007} and virtual aperture extension \parencite{liMIMORadarColocated2007} serving as key metrics for system evaluation. The maturity of the field is further underscored by the availability of specialized reference texts dedicated to MIMO radar theory and practice \parencite{liMIMORadarSignal2025}.
+
+Despite significant progress, two major challenges remain. First, the analytical synthesis of optimal 2D virtual arrays is still underdeveloped, leaving most practical designs reliant on numerical optimization or empirical patterns. Second, there is a pressing need to bridge the gap between electromagnetic phenomena—such as mutual coupling and parasitic effects—and signal processing algorithms, as these physical realities can introduce errors that degrade radar performance. Addressing these challenges is essential for advancing both the theoretical and practical capabilities of automotive MIMO radar.
+
+\subsection{Topology synthesis methods}
+
+The synthesis of MIMO array topologies is a mature field offering a spectrum of design methodologies, spanning rigid analytical constructions and flexible numerical optimization techniques. Analytical approaches, particularly those governing uniform linear arrays and uniform planar arrays, provide closed-form solutions and valuable insight into the mapping between physical and virtual array geometries, typically derived using the concept of the \emph{difference co-array}~\parencite{aminSparseArraysRadar2024}. While these deterministic designs offer predictable phase centres and well-characterized point spread functions, they are often limited to specific configurations and may not generalize to constrained automotive scenarios.
+
+For more intricate designs -- such as non-uniform or highly sparse arrays, or when practical constraints like packaging and mutual coupling must be considered -- numerical optimization becomes essential. In these cases, the synthesis problem is formulated using an objective function that encodes key figures of merit, including virtual aperture, side-lobe level, and ambiguity~\parencite{ericAmbiguityCharacterizationArbitrary1998}. Optimization algorithms employed in this context range from evolutionary heuristics (such as genetic algorithms, simulated annealing, and differential evolution) to modern convex relaxation methods, iteratively exploring the design space to reveal Pareto-optimal trade-offs between angular resolution and side-lobe suppression~\parencite{huanSASASuperResolutionAmbiguityFree2023}. However, the resulting \enquote{exotic} geometries often lack translational invariance and introduce significant implementation challenges, particularly in terms of manifold calibration and mutual coupling compensation. These practical difficulties can obscure the validation of novel signal processing chains, as most optimization-driven designs assume idealized, minimum-scattering antennas -- an assumption that does not hold in real-world applications and can lead to degraded processing algorithm performance~\parencite{arnoldEffectAntennaMutual2019}.
+
+\paragraph{Topology classes for automotive radar.} When considering MIMO topologies for automotive applications, it is crucial to recognize the distinction between theoretical sparse concepts and industrially deployable classes.
+
+The most established class is the uniform linear array and its two-dimensional extension, the uniform planar array. These arrays feature regularly spaced elements -- typically at half-wavelength intervals ($d=\lambda/2$) -- resulting in an ambiguity-free field of view and direct compatibility with standard fast Fourier transform (FFT) algorithms. Their regularity is particularly advantageous for polarimetric research; it minimizes phase centre mismatch errors that can otherwise corrupt the delicate phase relationships between horizontal and vertical polarization channels. While the scalability of uniform arrays is limited by the proportional increase in hardware cost, they provide the most controlled environment for isolating and characterizing Doppler-resolved polarimetric signatures.
+
+To address the aperture limitations of uniform arrays, structured sparse arrays have emerged as the current state-of-the-art in deployed automotive imaging radar (e.g. cascaded chipsets). Unlike the random or highly irregular sparse arrays found in theoretical literature, industrially supported sparse designs rely on specific, repeatable patterns to extend the virtual aperture. These designs offer a pragmatic compromise: they achieve the improved angular resolution necessary for modern sensing while maintaining enough structural regularity to be reliably calibrated in mass production.
+
+\paragraph{Selection rationale.} In summary, while the academic literature is rich with novel, optimization-driven antenna concepts, the development of robust polarimetric processing algorithms benefits from a stable hardware baseline. By utilizing established uniform topologies or industry-standard sparse reference designs, system variability is minimized. This ensures that observed anomalies in the Doppler-polarimetric domain can be attributed to target scattering physics rather than artefacts of an experimental antenna array manifold.
+
+\section{Polarimetric MIMO topology}
+
+The integration of polarimetric functionality into MIMO radar introduces a new dimension to topology synthesis: the management of the dual-polarized signal space. Unlike scalar MIMO (one polarization), where the primary goal is maximizing the virtual aperture, polarimetric designs must also ensure the fidelity of the full scattering matrix measurement. Consequently, the design space splits into two fundamental architectural choices: the use of dual-polarized elements sharing a common phase centre versus the spatial interleaving of single-polarized elements.
+
+\paragraph{Dual-polarized architectures.} The most theoretically robust approach involves the use of dual-polarized elements at each array position (see \cref{fig:dual_pol_elements}). In this configuration, orthogonal polarizations (typically horizontal and vertical) share a common phase centre. The primary advantage of this topology is the maximization of the virtual aperture for all polarization channels simultaneously, ensuring that the polarimetric scattering matrix is measured from an identical spatial perspective. This eliminates the \enquote{polarization squint} effects caused by viewing a target from slightly different angles, thereby simplifying the calibration process.
+
+However, this electromagnetic ideal comes with significant implementation penalties. Dual-polarized patch antennas or horn feeds require complex feeding networks, often necessitating orthogonal mode transducers (OMTs) or multilayer substrates that increase the physical bulk of the sensor. Furthermore, maintaining high isolation between the co-located channels is challenging; the proximity of the feeds invariably leads to increased mutual coupling and cross-polar leakage, which can corrupt the delicate polarimetric signature of the target.
+
+\paragraph{Interleaved single-polarized architectures.} To mitigate the hardware complexity and coupling issues of co-located designs, an alternative strategy is to spatially interleave single-polarized elements (see \cref{fig:interleaved_single_pol_elements}). By spatially separating the horizontal and vertical elements, this architecture inherently improves port-to-port isolation and simplifies the routing of feed lines. While this reduces the cost and complexity of the PCB stack-up, it introduces a spatial disparity between the polarization channels. If not carefully compensated for in the manifold synthesis, this phase centre mismatch can lead to angle-dependent polarization errors, particularly for near-field targets or distributed scatterers.
+
+\begin{figure}[!ht]
+    \centering
+    \begin{subfigure}{0.45\textwidth}
+        \centering
+        \includegraphics[height=.2\textheight]{images/dual_pol_elements.png}
+        \caption{Dual-polarized elements}
+        \label{fig:dual_pol_elements}
+    \end{subfigure}
+    ~
+    \begin{subfigure}{0.45\textwidth}
+        \centering
+        \includegraphics[height=.2\textheight]{images/interleaved_single_pol_elements.png}
+        \caption{Interleaved single-polarized elements}
+        \label{fig:interleaved_single_pol_elements}
+    \end{subfigure}
+    \caption{Comparison of physical element arrangements for polarimetric MIMO radar.}
+\end{figure}
+
+\paragraph{Virtual channel overlapping.} A hybrid design strategy, which is worthy of investigation, is the exploitation of MIMO virtual array synthesis to bridge the gap between these two architectures. It is hypothesized that by carefully designing the overlapping patterns of transmitting and receiving sub-arrays, one can synthesize specific \emph{virtual} positions where the co- and cross-polar channels coincide purely through signal processing, even if the physical elements are spatially separated.
+
+This concept is illustrated in \cref{fig:overlapping_single_pol_elements}. By ensuring that specific indices of the virtual convolution overlap, the system can provide \enquote{anchor points} of true polarimetric alignment. These overlapping virtual phase centres could potentially serve as a high-fidelity reference for polarimetric calibration -- effectively simulating the performance of a dual-polarized element -- while retaining the manufacturing simplicity and isolation benefits of a single-polarized interleaved layout.
+
+\begin{figure}[!ht]
+    \centering
+    \includegraphics[height=.2\textheight]{images/overlapping_single_pol_elements.png}
+    \captionsetup{hypcap=false}
+    \captionof{figure}{Overlapping channels in an interleaved single-polarized element grid}
+    \label{fig:overlapping_single_pol_elements}
+\end{figure}
