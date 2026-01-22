@@ -8,3 +8,6 @@ MEMS
 multistatic
 beampattern
 CFAR
+hydrometeor
+Pauli
+Frobenius

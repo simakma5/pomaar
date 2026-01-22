@@ -3390,3 +3390,33 @@
   keywords = {3-D printing,Antenna feeds,dielectric lens,Gain measurement,high gain,integrated lens antenna (ILA),Millimeter wave technology,Printed circuits,Printers,series-fed,System integration,Wireless communication},
   file = {/home/martin/Zotero/storage/2HTB5RMI/Cho et al. - 2024 - Series-Fed Integrated Lens Antenna for High Gain in Millimeter-Wave Band.pdf}
 }
+
+@online{zangwillModernElectrodynamics2012,
+  title = {Modern {{Electrodynamics}}},
+  author = {Zangwill, Andrew},
+  date = {2012-12-24},
+  publisher = {Cambridge University Press},
+  doi = {10.1017/CBO9781139034777},
+  url = {https://www.cambridge.org/highereducation/books/modern-electrodynamics/E5448C70CBF3651B2056F28EBF859AE9},
+  urldate = {2026-01-20},
+  abstract = {An engaging writing style and a strong focus on the physics make this comprehensive, graduate-level textbook unique among existing classical electromagnetism textbooks. Charged particles in vacuum and the electrodynamics of continuous media are given equal attention in discussions of electrostatics, magnetostatics, quasistatics, conservation laws, wave propagation, radiation, scattering, special relativity and field theory. Extensive use of qualitative arguments similar to those used by working physicists makes Modern Electrodynamics a must-have for every student of this subject. In 24 chapters, the textbook covers many more topics than can be presented in a typical two-semester course, making it easy for instructors to tailor courses to their specific needs. Close to 120 worked examples and 80 applications boxes help the reader build physical intuition and develop technical skill. Nearly 600 end-of-chapter homework problems encourage students to engage actively with the material. A solutions manual is available for instructors at www.cambridge.org/Zangwill.},
+  isbn = {9781139034777},
+  langid = {english},
+  organization = {Cambridge Aspire website},
+  file = {/home/martin/Zotero/storage/AMNF3629/E5448C70CBF3651B2056F28EBF859AE9.html}
+}
+
+@inproceedings{gaglioneKrogagerDecompositionPseudoZernike2014,
+  title = {Krogager Decomposition and {{Pseudo-Zernike}} Moments for Polarimetric Distributed {{ATR}}},
+  booktitle = {2014 {{Sensor Signal Processing}} for {{Defence}} ({{SSPD}})},
+  author = {Gaglione, Domenico and Clemente, Carmine and Pallotta, Luca and Proudler, Ian and De Maio, Antonio and Soraghan, John J.},
+  date = {2014-09},
+  pages = {1--5},
+  doi = {10.1109/SSPD.2014.6943309},
+  url = {https://ieeexplore.ieee.org/document/6943309},
+  urldate = {2026-01-22},
+  abstract = {Automatic Target Recognition (ATR) is one of the most challenging areas of the modern radar signal processing field. In this paper a recognition algorithm for full-polarimetric SAR images, that is robust with respect to rotations and target roll, is presented. It is based on the use of the pseudo-Zernike moments and the Krogager decomposition components, and exploits multiple sources of information such as polarization and spatial diversity. The effectiveness of the proposed approach has been demonstrated with real full polarimetric SAR data.},
+  eventtitle = {2014 {{Sensor Signal Processing}} for {{Defence}} ({{SSPD}})},
+  keywords = {Feature extraction,Image sensors,Scattering,Sensors,Synthetic aperture radar,Training},
+  file = {/home/martin/Zotero/storage/APULK6UI/Gaglione et al. - 2014 - Krogager decomposition and Pseudo-Zernike moments for polarimetric distributed ATR.pdf}
+}
