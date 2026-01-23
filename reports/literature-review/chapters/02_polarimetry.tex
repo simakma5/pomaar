@@ -1,13 +1,14 @@
 \chapter{Radar polarimetry}
 \label{chap:radar_polarimetry}
 
-Although the foundational ideas of radar polarimetry date back to the 1970s and can be considered a mature concept -- with the 1980s and 1990s representing a golden period of theoretical and experimental development for synthetic aperture radar (SAR) and meteorology~\parencite{leePolarimetricRadarImaging2017} -- its application potential in the automotive industry began to emerge only in the previous decade. In remote sensing, polarimetry has long been the standard for classifying terrain textures or hydrometeor shapes; however, transferring these techniques to the automotive domain presents unique challenges. Unlike the far-field, high-altitude geometries of SAR, automotive radar operates at grazing incidence angles with significant multipath interaction, in the near-to-intermediate field, and against highly dynamic, non-cooperative targets.
+Although the foundational ideas of radar polarimetry date back to the 1970s and can be considered a mature concept -- with the 1980s and 1990s representing a golden period of theoretical and experimental development for SAR and meteorology~\parencite{leePolarimetricRadarImaging2017} -- its application potential in the automotive industry began to emerge only in the previous decade. In remote sensing, polarimetry has long been the standard for classifying terrain textures or hydrometeor shapes; however, transferring these techniques to the automotive domain presents unique challenges. Unlike the far-field, high-altitude geometries of SAR, automotive radar operates at grazing incidence angles with significant multipath interaction, in the near-to-intermediate field, and against highly dynamic, non-cooperative targets.
 
-Consequently, the field of polarimetric automotive radar remains in its infancy, lacking robust methods for classifying dynamic vulnerable road users (VRUs) such as pedestrians and cyclists. Nonetheless, it holds a compelling promise for achieving higher reliability and sophistication in sensors for advanced driver-assistance systems (ADAS) and autonomous driving. This promise has captured the attention of major automotive companies and research institutes, prompting viability confirmations~\parencite{tillyRoadUserClassification2021} and proof-of-concept system implementations~\parencite{tintiFullyPolarimetricAutomotive2024}. The rapidly increasing innovation in this area is further evidenced by the recent emergence of monographs focusing specifically on polarimetric radar for automotive applications~\parencite{visentinPolarimetricRadarAutomotive2019}.
+Consequently, the field of polarimetric automotive radar remains in its infancy, lacking robust methods for classifying dynamic VRUs such as pedestrians and cyclists. Nonetheless, it holds a compelling promise for achieving higher reliability and sophistication in sensors for ADAS and autonomous driving. This promise has captured the attention of major automotive companies and research institutes, prompting viability confirmations~\parencite{tillyRoadUserClassification2021} and proof-of-concept system implementations~\parencite{tintiFullyPolarimetricAutomotive2024}. The rapidly increasing innovation in this area is further evidenced by the recent emergence of monographs focusing specifically on polarimetric radar for automotive applications~\parencite{visentinPolarimetricRadarAutomotive2019}.
 
 Establishing a polarimetric framework for VRU classification, however, places stringent demands on the underlying radar architecture. The theoretical requirements for high polarization purity and cross-polarization discrimination (XPD) directly inform the selection of radiating element types and feeding integration platforms, as will be discussed in detail in~\cref{chap:frontend}. Furthermore, the need for simultaneous acquisition of the full scattering matrix for dynamic scenes necessitates a sophisticated large-aperture MIMO configuration. The design of this MIMO topology and its impact on virtual aperture and polarimetric diversity will be the focus of~\cref{chap:mimo-topologies}. This introductory chapter therefore provides the theoretical and phenomenological motivation for the hardware and topological developments that follow.
 
-The exposition given in this chapter follows standard references to electrodynamics and radar polarimetry, such as~\textcite{zangwillModernElectrodynamics2012} and~\textcite{leePolarimetricRadarImaging2017}, respectively. Additionally, a specialized monograph on polarimetric radar for automotive applications by~\textcite{visentinPolarimetricRadarAutomotive2019}, is discussed to provide further context and detail.\todo{Add citations throughout the chapter.}
+The exposition given in this chapter follows standard references to electrodynamics and radar polarimetry, such as~\textcite{zangwillModernElectrodynamics2012} and~\textcite{leePolarimetricRadarImaging2017}. Additionally, a specialized monograph on polarimetric radar for automotive applications by~\textcite{visentinPolarimetricRadarAutomotive2019}, is discussed to provide further context and detail.\todo{Add citations throughout the chapter.}
+
 
 \section{Fundamentals of radar polarimetry}
 \label{sec:polarimetry-fundamentals}
@@ -18,7 +19,9 @@ The description of polarization typically relies on the Jones vector for coheren
 
 \paragraph{Time convention.} As common in engineering monographs, this text treats the convention of time as \emph{positive}, meaning that a scalar wave $w(\xi,t)$ propagating in the $\xi$ direction is expressed as $\exp\[\ii(\omega t - k\xi)\]$. This is in contrast to physics literature, which often adopts a \emph{negative time} convention, leading to $\exp\[\ii(k\xi - \omega t)\]$.
 
+
 \subsection{Polarization of electromagnetic waves}
+
 While the full propagation of electromagnetic energy is governed by Maxwell's equations, for radar polarimetry it suffices to consider the solution for a monochromatic plane wave propagating in a direction given by the wave vector $\vec k = k\vec e_k$ with angular frequency $\omega = 2\pi f$. Such electric and magnetic vector fields can be expressed as
 \begin{align}
     \vec E(\vec r, t) &= \vec{\mathcal E}_\perp\exp\[\ii(\omega t - \vec k\cdot \vec r)\]
@@ -41,10 +44,11 @@ The polarization state -- the geometric locus traced by the tip of the electric 
 %\index{Jones vector}
 This representation is critical for the MIMO system design discussed in~\cref{chap:mimo-topologies}, as the transmitter and receiver chains operate coherently. However, the Jones vector is strictly valid only for fully polarized, monochromatic waves.
 
+
 \subsection{The Sinclair scattering matrix}
 \label{sec:sinclair-matrix}
-When concerned with scattering off targets, the relationship between the incident and scattered electric fields is of primary interest. As discussed in the previous sections, polarization of a monochromatic plane wave at a given instant can be fully characterized by the Jones vector. Furthermore, a set of two orthogonal Jones vectors forms a polarization basis. Therefore, it is possible to establish a linear scattering model that relates the incident and scattered Jones vectors, $\vec E_{\mathrm{in}}$ and $\vec E_{\mathrm{sc}}$, respectively, via a complex scattering matrix:%
-    \footnote{When defining the polarimetric scattering matrix, it is necessary to assume a frame in which the polarization is defined. Generally, there are two principal conventions: the \emph{forward scatterer alignment} (FSA) and the \emph{backscatter alignment} (BSA). While the FSA convention, sometimes called \emph{wave-oriented}, defines the polarization basis for both incident and scattered waves so that the Cartesian $z$-axis always faces the $\vec k$ direction, the BSA system operates by defining the basis of the scattered wave with respect to the receiving antenna. This text assumes the BSA convention, as is standard for monostatic radar. This choice simplifies the scattering definition by defining a fixed coordinate system for both the incident and backscattered waves relative to the antenna.}
+
+When concerned with scattering off targets, the relationship between the incident and scattered electric fields is of primary interest. As discussed in the previous sections, polarization of a monochromatic plane wave at a given instant can be fully characterized by the Jones vector. Furthermore, a set of two orthogonal Jones vectors forms a polarization basis. Therefore, it is possible to establish a linear scattering model that relates the incident and scattered Jones vectors, $\vec E_{\mathrm{in}}$ and $\vec E_{\mathrm{sc}}$, respectively, via a complex scattering matrix:
 \begin{align}
     \label{eq:sinclair-matrix}
     \vec E_{\mathrm{sc}} = \frac{\e^{-\ii kr}}{r} \vec S \vec E_{\mathrm{in}} = \frac{\e^{-\ii kr}}{r} \begin{bmatrix} S_{\mathrm{HH}} & S_{\mathrm{HV}} \\ S_{\mathrm{VH}} & S_{\mathrm{VV}} \end{bmatrix} \vec E_{\mathrm{in}}.
@@ -61,9 +65,11 @@ The absolute phase term $\exp(\ii\phi_{\mathrm{HH}})$ is not considered an indep
     \footnote{Even after this reduction, fully polarimetric systems, capable of measuring the full scattering response, dispose of five independent parameters per resolution cell. This is in contrast to single-polarized systems, which measure only two, and it shows the increased complexity and information content of polarimetric measurements.}
 However, practical considerations in automotive radar often challenge this ideal model by introducing near-field effects: Reciprocity holds for plane waves; for targets in the near-field of the array, such as a pedestrian situated $\qty{2}{m}$ away from the antenna, the wavefront curvature may introduce deviations.
 
+\paragraph{Scattering coordinate frameworks.} When defining the polarimetric scattering matrix, it is necessary to assume a frame in which the polarization is defined. Generally, there are two principal conventions: the \emph{forward scatterer alignment} (FSA) and the \emph{backscatter alignment} (BSA). While the FSA convention, sometimes called \emph{wave-oriented}, defines the polarization basis for both incident and scattered waves so that the Cartesian $z$-axis always faces the $\vec k$ direction, the BSA system operates by defining the basis of the scattered wave with respect to the receiving antenna. This text assumes the BSA convention, as is standard for monostatic radar. This choice simplifies the scattering definition by defining a fixed coordinate system for both the incident and backscattered waves relative to the antenna.
+
 \paragraph{From theoretical scattering to observed signatures.} While the Sinclair matrix $\vec S$ provides a deterministic description of target scattering in an ideal environment, the transition to practical automotive sensing introduces two significant layers of complexity: hardware-induced distortion and the stochastic nature of distributed targets.
 
-In practical scenarios, the measured matrix $\vec M$ is a transformation of the true scattering matrix $\vec S$ through the system's transfer functions. This is typically modelled as:%
+In practical scenarios, the measured matrix $\vec M$ is a transformation of the true scattering matrix $\vec S$ through the system's transfer functions. This is typically modelled as%
     \footnote{In polarimetric calibration, the equation is commonly expressed \enquote{backwards}, that is, by equating the ideal scattering matrix to the measured one transformed by $\vec R$ and $\vec T$ as the \emph{correction} matrices. Here, we express it in the \emph{forward} direction to emphasize the measurement process, hence taking $\vec R$ and $\vec T$ as the \emph{distortion} matrices.}
 \begin{equation}
     \label{eq:measurement-model}
@@ -73,14 +79,15 @@ where $\vec T$ and $\vec R$ represent the polarimetric imbalances of the transmi
 
 Second, in the presence of complex, non-point-like targets such as VRUs, a single Sinclair matrix is often insufficient to capture the depolarization caused by multiple scattering centres. This necessitates the use of the second-order statistics introduced in the following section.
 
+
 \subsection{Stokes parameters and the Poincaré sphere}
 \label{sec:stokes-poincare}
 
-In dynamic automotive scenarios, electromagnetic waves typically interact with \emph{distributed scatterers} -- extended targets such as road surfaces, vegetation, vehicles, or tunnel walls that comprise numerous independent scattering centers within a single resolution cell. Because these sub-reflectors contribute random phase and amplitude fluctuations, the resulting interference induces depolarization, rendering the reflected wave partially polarized or incoherent. To characterize these complex fields, the Stokes parameters are employed; they provide a phase-agnostic description of the wave's polarization state based on observable, time-averaged power measurements.
+In dynamic automotive scenarios, electromagnetic waves typically interact with \emph{distributed scatterers} -- extended targets such as road surfaces, vegetation, vehicles, or tunnel walls that comprise numerous independent scattering centres within a single resolution cell. Because these sub-reflectors contribute random phase and amplitude fluctuations, the resulting interference induces depolarization, rendering the reflected wave partially polarized or incoherent. To characterize these complex fields, the Stokes parameters are employed; they provide a phase-agnostic description of the wave's polarization state based on observable, time-averaged power measurements.
 
 The transition from Jones formalism to Stokes parameters involves considering the Jones vector components as random processes, $E_H(t)$ and $E_V(t)$. Taking the time-averaged%
     \footnote{Taking the outer product of a single Jones vector $\vec E_J=[E_H,E_V]^\T$ without averaging would yield a rank-1 matrix, corresponding to the theoretical ideal of a fully polarized, perfectly coherent wave. Temporal averaging is essential to capture partial polarization effects.}
-outer product of the Jones vector with its Hermitian transpose yields the Hermitian positive semidefinite wave covariance matrix $\vec J$, often called the \emph{coherency matrix}:
+outer product of the Jones vector yields the Hermitian positive semidefinite wave covariance matrix $\vec J$, often called the \emph{coherency matrix}:
 \begin{align}
     \label{eq:coherency-matrix}
     \vec J = \langle \vec E_J \cdot \vec E_J^\dagger \rangle = \begin{bmatrix}
@@ -106,7 +113,7 @@ These matrices form a basis for decomposing the coherency matrix -- a decomposit
     \end{bmatrix}.
 \end{align}
 %\index{Pauli decomposition}
-Here, the coefficients $g_i$ are the \emph{Stokes parameters}, defined as $g_i = \tr(\vec J \vec\sigma_i)$. Together, they form the \emph{Stokes vector} $\vec g$, expressed as:
+Here, the coefficients $g_i$ are the \emph{Stokes parameters}, defined as $g_i = \tr(\vec J \vec\sigma_i)$. Together, they form the \emph{Stokes vector} $\vec g$, expressed as
 \begin{align}
     \label{eq:stokes-vector}
     \vec g = \begin{bmatrix} g_0 \\ g_1 \\ g_2 \\ g_3 \end{bmatrix} = \begin{bmatrix}
@@ -200,10 +207,12 @@ This metric serves as a key discriminant between stable VRU scatterers and distr
 
 The Sinclair and coherency matrices derived in~\cref{sec:polarimetry-fundamentals} contain the complete polarimetric information of a target. However, in their raw matrix form, they offer little direct insight into the physical geometry of the scatterer. \emph{Target decomposition} theorems aim to invert this relationship, expressing the measured matrix as a linear combination of canonical scattering mechanisms -- such as flat plates, dihedrals, or dipoles -- thereby extracting semantic features for classification.
 
-These methods are broadly categorized into \emph{coherent decompositions}, which operate on the Sinclair matrix $\vec S$ of deterministic targets, and \emph{incoherent decompositions}, which operate on the coherency matrix $\vec J$ (or $\vec T$) of distributed targets.
+These methods are broadly categorized into \emph{coherent decompositions}, which operate on the Sinclair scattering matrix of deterministic targets, and \emph{incoherent decompositions}, which operate on the second-order statistics of distributed targets.
+
 
 \subsection{Coherent decomposition}
 \label{subsec:coherent-decomposition}
+
 For deterministic targets with negligible noise and spatial variation, such as a car chassis or a corner reflector, the scattering process is fully coherent. As described by~\textcite{gaglioneKrogagerDecompositionPseudoZernike2014}, a general coherent polarimetric decomposition of the Sinclair matrix $\vec S$ can be expressed as a linear combination of $M$ elementary scattering mechanisms; that is,
 \begin{align}
     \vec S = \sum_{m=1}^M c_m \vec S_m,
@@ -212,9 +221,9 @@ where $\vec S_m$ are the canonical scattering matrices, encoding the response of
 
 The most established framework for interpreting radar targets is the \emph{Pauli decomposition}, which projects the Sinclair matrix onto a scaled basis of Pauli matrices, $\{\sqrt{2}\vec\sigma_i\}_{i=0}^3$, where $\vec\sigma_i$ are defined in~\cref{eq:pauli-matrices}.%
     \footnote{The scaling factor of $\sqrt{2}$ ensures that the Euclidean norm of the target vector matches the Frobenius norm of the scattering matrix, thereby satisfying the requirement for \enquote{total power invariance}. The same reasoning applies to the lexicographic basis discussed later.}
-The resulting vector representation of the scattering matrix, $\vec S$, is referred to as the \emph{Pauli scattering vector} $\vec k_P$:
+The resulting vector representation of the scattering matrix, $\vec S$, is referred to as the \emph{Pauli scattering vector}, defined as
 \begin{align}
-    \label{eq:pauli-vector}
+    \label{eq:pauli-vector-4d}
     \vec k_P = \frac{1}{\sqrt{2}} \begin{bmatrix}
         S_{\mathrm{HH}} + S_{\mathrm{VV}} \\
         S_{\mathrm{HH}} - S_{\mathrm{VV}} \\
@@ -224,144 +233,232 @@ The resulting vector representation of the scattering matrix, $\vec S$, is refer
 \end{align}
 The primary advantage of this basis is that it provides a direct physical interpretation of elementary scattering mechanisms. Consequently, the squared magnitude of each Pauli component quantifies the contribution of a specific canonical mechanism to the total radar cross-section (RCS). Specifically:
 \begin{itemize}
-    \item \emph{Single-bounce:} $|a|^2/2$ corresponds to odd-bounce scattering, typically arising from spheres, flat plates, or trihedral reflectors. In an automotive context, this mechanism dominates returns from flat surfaces, such as walls or the rear of a vehicle.
-    \item \emph{Double-bounce:} $|b|^2/2$ corresponds to even-bounce scattering derived from dihedral structures. This is commonly observed in the corner-like features of a car (e.g., window frames and side mirrors) or the ground-wall interaction of a curb.
-    \item \emph{Cross-polar:} $|c|^2/2$ represents the cross-polarization energy induced by dihedrals or dipoles rotated by $\ang{45}$ around the radar line-of-sight.
-    \item \emph{Asymmetric:} $|d|^2/2$ accounts for asymmetric scattering mechanisms, which may arise from complex target geometries or non-reciprocal propagation effects.
+    \item Single-bounce: $|a|^2/2$ corresponds to odd-bounce scattering, typically arising from spheres, flat plates, or trihedral reflectors. In an automotive context, this mechanism dominates returns from flat surfaces, such as walls or the rear of a vehicle.
+    \item Double-bounce: $|b|^2/2$ corresponds to even-bounce scattering derived from dihedral structures. This is commonly observed in the corner-like features of a car (e.g., window frames and side mirrors) or the ground-wall interaction of a curb.
+    \item Cross-polar: $|c|^2/2$ represents the cross-polarization energy induced by dihedrals or dipoles rotated by $\ang{45}$ around the radar line-of-sight.
+    \item Asymmetric: $|d|^2/2$ accounts for non-reciprocal scattering mechanisms or asymmetric geometries which convert horizontal to vertical polarization differently than vice versa.
 \end{itemize}
 
 In strict monostatic configurations, the principle of reciprocity applies, theoretically forcing the fourth component to zero; practically, it will contain noise or system artefacts. In the ideal scenario of $d=0$, the Pauli vector reduces to a three-dimensional representation:
 \begin{align}
-    \vec k_P = \begin{bmatrix} a \\ b \\ c \end{bmatrix} = \frac{1}{\sqrt{2}} \begin{bmatrix}
+    \label{eq:pauli-vector-3d}
+    \vec k_P \equiv \vec k_P = \begin{bmatrix} a \\ b \\ c \end{bmatrix} = \frac{1}{\sqrt{2}} \begin{bmatrix}
         S_{\mathrm{HH}} + S_{\mathrm{VV}} \\
         S_{\mathrm{HH}} - S_{\mathrm{VV}} \\
         2S_{\mathrm{HV}}
     \end{bmatrix}.
 \end{align}
-However, in the \emph{quasi-monostatic} scenarios relevant to this work -- where transmit and receive antennas are closely spaced but not co-located -- the asymmetry term $d$ remains non-negligible.
+However, in the \emph{quasi-monostatic} scenarios relevant to this work -- where transmit and receive antennas are closely spaced but not co-located -- the asymmetry term $d$ may contain non-negligible system noise or phase imbalances which must be accounted for during calibration.
 
-\paragraph{Lexicographic basis} An alternative representation frequently encountered in the literature is the \emph{lexicographic basis}, which is a scaled canonical basis of $\C^{2 \times 2}$:
+\paragraph{Lexicographic basis.} An alternative representation frequently encountered in the literature is the \emph{lexicographic basis}, which is a scaled canonical basis of $\C^{2 \times 2}$:
 \begin{align}
     \label{eq:lexicographic-basis}
-    \Phi_0 = 2\begin{bmatrix} 1 & 0 \\ 0 & 0 \end{bmatrix}, \quad
-    \Phi_1 = 2\begin{bmatrix} 0 & 1 \\ 0 & 0 \end{bmatrix}, \quad
-    \Phi_2 = 2\begin{bmatrix} 0 & 0 \\ 1 & 0 \end{bmatrix}, \quad
-    \Phi_3 = 2\begin{bmatrix} 0 & 0 \\ 0 & 1 \end{bmatrix}.
+    \Phi_L = \left\{
+        2\begin{bmatrix} 1 & 0 \\ 0 & 0 \end{bmatrix},
+        2\begin{bmatrix} 0 & 1 \\ 0 & 0 \end{bmatrix},
+        2\begin{bmatrix} 0 & 0 \\ 1 & 0 \end{bmatrix},
+        2\begin{bmatrix} 0 & 0 \\ 0 & 1 \end{bmatrix}
+    \right\}.
 \end{align}
-This basis orders the target vector elements as $\vec k_L = [S_{\mathrm{HH}}, S_{\mathrm{HV}}, S_{\mathrm{VH}}, S_{\mathrm{VV}}]^\T$, which is the native format for many radar hardware interfaces and is convenient for certain matrix operations, such as system calibration, it lacks the direct physical interpretability of the Pauli basis.
+This basis orders the target vector elements as $\vec k_L = [S_{\mathrm{HH}}, S_{\mathrm{HV}}, S_{\mathrm{VH}}, S_{\mathrm{VV}}]^\T$. While is the native format for many radar hardware interfaces and is convenient for system calibration, it lacks the direct physical interpretability of the Pauli basis.
 
-\paragraph{Alternative decompositions} While Krogager and Cameron proposed alternative coherent decompositions, such utilizing circular polarization to decompose targets into sphere, diplane, and helix components, the Pauli basis remains the standard for coherent preprocessing due to its orthogonality and computational efficiency.
+\paragraph{Alternative decompositions.} While Krogager and Cameron proposed alternative coherent decompositions -- such as Krogager's approach using circular polarization to decompose targets into sphere, diplane, and helix components%
+    \footnote{This is analogous to the Pauli decomposition but employs a circular polarization basis, which can be advantageous for identifying certain target geometries. While the components share similar interpretations (single-bounce and double-bounce), the helix component is physically distinct from Pauli's \enquote{tilted-wall component}; it captures chiral or asymmetric scattering mechanisms that are not explicitly represented as a unique shape in the Pauli basis.}
+-- the Pauli basis remains the standard for coherent preprocessing due to its orthogonality and computational efficiency.
 
-\subsection{Cloude-Pottier incoherent decomposition}
-\label{sec:cloude-pottier}
-In the context of VRU classification, targets are rarely simple point scatterers. A pedestrian, for instance, is a complex aggregate of limbs with varying orientations and materials, possibly moving within a single resolution cell, creating a \emph{distributed target}.
 
-To analyse such targets, it is necessary to move from the coherent vector $\vec k_P$ to the second-order statistics represented by the \emph{Pauli coherency matrix} $\vec T$:
+\subsection{Incoherent decomposition}
+\label{sec:incoherent-decomposition}
+
+In the context of VRU classification, targets are rarely simple point scatterers. A pedestrian, for instance, is a complex aggregate of limbs with varying orientations and materials, possibly moving within a single resolution cell, creating a \emph{distributed target}. To analyse such targets, it is necessary to move from the coherent vector $\vec k_P$ to the second-order statistics represented by the \emph{Pauli coherency matrix} $\vec T$, defined as a statistically averaged outer product of the Pauli vector:%
+    \footnote{The Pauli coherency matrix $\vec T$ should not be confused with the general coherency matrix $\vec J$ defined in~\cref{eq:coherency-matrix}, which is a $2 \times 2$ matrix representing the wave's polarization state. While both are coherency matrices, they serve different purposes: $\vec J$ characterizes the polarization of the electromagnetic wave itself, whereas $\vec T$ encapsulates the statistical scattering properties of the target as represented in the Pauli basis.}
 \begin{align}
-    \vec T = \langle \vec k_P \cdot \vec k_P^\dagger \rangle.
+    \vec T = \langle \vec k_P \cdot \vec k_P^\dagger \rangle,
 \end{align}
-Note that $\vec T$ is mathematically equivalent to the matrix $\vec J$ defined in~\cref{eq:coherency-matrix}, but represented in the Pauli basis rather than the lexicographic basis. The most powerful tool for analysing $\vec T$ is the \emph{Cloude-Pottier decomposition}, based on the eigenvalue expansion of the Hermitian matrix $\vec T$:
+where $\langle\cdot\rangle$ denotes statistical averaging over an arbitrary dimension.%
+    \footnote{In SAR polarimetry, this averaging is typically performed over multiple looks or spatial pixels to reduce speckle noise. In automotive radar, where real-time processing is essential, this averaging may be performed temporally over multiple pulses or spatially across adjacent range, Doppler, or angle-of-arrival cells.}
+This matrix is Hermitian positive semidefinite and, as such, is always diagonalizable by a unitary matrix $\vec U$, formed by orthonormal eigenvectors of $\vec T$, and the diagonalized matrix $\vec D$ features non-negative real entries on its main diagonal, which are the eigenvalues of $\vec T$.
+
+It is worth noting that $\vec T$ is, under unitary transformation, mathematically equivalent to any matrix formed by an outer product of the Sinclair scattering matrix, regardless of the decomposition basis used for vector representation. This means that the lexicographic basis introduced in~\cref{eq:lexicographic-basis}, as well as the Krogager circular and Cameron bases discussed above, can all be employed, making the following analysis techniques broadly applicable.
+
+The most established method for analysing the coherency matrix, originally developed by Cloude and Pottier in 1997 for SAR imaging and remote sensing, is the \emph{Cloude-Pottier decomposition}, which assumes that there is always a dominant average scattering mechanism in each cell. To generate estimates of the average target scattering matrix parameters, this method employs the eigenvalue expansion; that is
 \begin{align}
     \vec T = \sum_{i=1}^3 \lambda_i \vec e_i \vec e_i^\dagger,
 \end{align}
-where $\lambda_1 \ge \lambda_2 \ge \lambda_3 \ge 0$ are the real eigenvalues and $\vec e_i$ are the orthogonal eigenvectors. This expansion allows the definition of three key parameters that describe the randomness and mechanism of the scattering:
+where are the eigenvalues, sorted in descending order ($\lambda_1 \ge \lambda_2 \ge \lambda_3$), and $\vec e_i$ are the orthogonal eigenvectors.
 
-\paragraph{Polarimetric Entropy ($H$).} Defined from the logarithmic probability of the eigenvalues $P_i = \lambda_i / \sum \lambda_k$, entropy measures the randomness of the scattering process:
+\paragraph{Noise subspace reduction} In a practical measurement utilizing the full 4D Pauli vector (Eq.~\ref{eq:pauli-vector-4d}), the coherency matrix is $4 \times 4$ with four eigenvalues. However, under the monostatic assumption, the physical signal subspace is rank-3. As discussed by~\textcite{visentinPolarimetricRadarAutomotive2019}, the fourth eigenvalue $\lambda_4$ can be attributed to additive white Gaussian noise (AWGN) in the non-reciprocal channel. To enhance estimation accuracy, a noise subtraction step is often applied:
 \begin{align}
-    H = \sum_{i=1}^3 -P_i \log_3 P_i, \quad 0 \le H \le 1.
+    \lambda_i' = \lambda_i - \lambda_4 \quad \text{for } i=1,2,3,
 \end{align}
-$H=0$ indicates a single dominant mechanism (isotropic point target), while $H=1$ indicates random noise or fully developed volume scattering (e.g., dense foliage or complex clutter).
+assuming $\lambda_4$ represents the noise floor $N$. Following this correction, the analysis proceeds on the reduced $3 \times 3$ subspace.
 
-\paragraph{Mean Alpha Angle ($\bar{\alpha}$).} By parameterizing the eigenvectors, the angle $\alpha_i$ is extracted to identify the physical mechanism associated with the $i$-th eigenvalue. The mean angle is defined as $\bar{\alpha} = \sum P_i \alpha_i$:
+The resulting unitary matrix $\vec U = \begin{bmatrix} \vec e_1 & \vec e_2 & \vec e_3 \end{bmatrix}$ contains eigenvectors parametrized by five angular degrees of freedom, specifically:
+\begin{align}
+    \label{eq:eigenvector-parametrization}
+    \vec e_i = \begin{bmatrix}
+        \cos(\alpha_i)\e^{\ii\epsilon_i} \\
+        \sin(\alpha_i) \cos(\beta_i) \exp(\ii \delta_i) \\
+        \sin(\alpha_i) \sin(\beta_i) \exp(\ii \gamma_i)
+    \end{bmatrix}, \quad i=1,2,3.
+\end{align}
+
+Based on this eigendecomposition, three key parameters are defined. First, defined from the logarithmic probability of the eigenvalues, the \emph{polarimetric entropy} measures the \enquote{randomness} of the scattering process:
+\begin{align}
+    \label{eq:polarimetric-entropy}
+    H = -\sum_{i=1}^3 P_i \log_3(P_i), \quad\text{ where }\quad P_i = \frac{\lambda'_i}{\sum_{k=1}^3 \lambda'_k}.
+\end{align}
+This definition delineates the scattering processes: $H=0$ indicates a fully deterministic, single dominant mechanism without loss of polarimetric information, such as an isotropic point target, while $H=1$ indicates random noise or fully developed volumetric scattering with complete depolarization effects, such as dense foliage or complex clutter.
+
+Second, the angle $\alpha_i$ is defined using the angular parametrization of eigenvectors from~\cref{eq:eigenvector-parametrization} to identify the physical mechanism associated with the $i$-th eigenvalue. This polarimetric classifier, known as the \emph{mean alpha angle}, is defined as
+\begin{align}
+    \label{eq:mean-alpha-angle}
+    \bar{\alpha} = \sum_{i=1}^3 P_i \alpha_i.
+\end{align}
+This feature effectively categorizes scattering mechanisms into three primary types:
 \begin{itemize}
-    \item $\bar{\alpha} \approx \ang{0}$: Surface scattering (road, car body).
-    \item $\bar{\alpha} \approx \ang{45}$: Dipole/Volume scattering (vegetation, potentially limbs).
-    \item $\bar{\alpha} \approx \ang{90}$: Double-bounce scattering (ground-wheel, curb).
+    \item $\bar{\alpha} \approx \ang{0}$: isotropic surface (road, car body).
+    \item $\bar{\alpha} \approx \ang{45}$: dipole/volume (vegetation, potentially limbs).
+    \item $\bar{\alpha} \approx \ang{90}$: isotropic dihedral (ground-wheel, curb).
 \end{itemize}
+It should be noted that $\alpha$ strongly depends on the angle of incidence; flat surfaces tend to yield lower $\alpha$ values at normal incidence and higher values at grazing angles due to varying reflection coefficients.
 
-\paragraph{Anisotropy ($A$).} This parameter characterizes the relative importance of the second and third eigenvalues:
+Finally, the \emph{polarimetric anisotropy} in another parameter defined as an eigenvalue ratio, constructed as a complementary description to entropy. It characterizes the relative importance of the second and third eigenvalues with respect to their descending arrangement:
 \begin{align}
     A = \frac{\lambda_2 - \lambda_3}{\lambda_2 + \lambda_3}.
 \end{align}
-For VRUs, these parameters form a distinctive feature space (the $H/\alpha$ plane). While a vehicle is a low-entropy target ($H < 0.3$), pedestrians typically exhibit moderate-to-high entropy due to their non-rigid body dynamics, allowing for separation from static clutter.
+This metric ranges from $A=0$, indicating equal contributions from the second and third scattering mechanisms, to $A=1$, where the third mechanism is negligible relative to the second. Polarimetric anisotropy thus describes the complexity of the non-dominant scattering, providing a means to differentiate between targets that may exhibit similar entropy values. 
+
+Anisotropy is particularly meaningful when the entropy is high ($H > 0.7$): in this regime, it distinguishes between targets with two significant scattering mechanisms (high $A$) and those characterized by fully random or isotropic scattering (low $A$). When entropy is low, the second and third eigenvalues are typically too small for anisotropy to provide reliable information, limiting its interpretability in such cases.
+
+\paragraph{The $H/\alpha$ plane.} The joint analysis of polarimetric entropy $H$ and mean alpha angle $\bar{\alpha}$ provides a powerful two-dimensional feature space for target classification, commonly referred to as the $H/\alpha$ plane. This representation allows for intuitive visualization and separation of different scattering mechanisms, especially in SAR polarimetry, based on their polarimetric characteristics.
+    \todo{Add figure of H/alpha plane with typical target clusters.}
+
 
 \subsection{Simple polarimetric descriptors}
-While eigenvalue decompositions offer rigorous physical insight, their computational cost -- requiring diagonalization for every cell in a range-Doppler map -- can be prohibitive for real-time automotive embedded systems. Consequently, simpler ratio-based descriptors are often employed as lightweight features for detection algorithms.
+\label{sec:simple-polarimetric-descriptors}
 
-Common descriptors adapted from meteorology include:
+While the target decomposition theorems discussed in~\cref{subsec:coherent-decomposition} and~\cref{sec:incoherent-decomposition} offer rigorous physical interpretations of the scattering mechanisms, their computational complexity -- requiring eigendecomposition of the $3\times3$ coherency matrix for every resolution cell -- can be prohibitive for real-time automotive applications constrained by embedded hardware resources. Consequently, simple polarimetric descriptors -- originally developed for hydrometeor classification~\parencite{bringiPolarimetricDopplerWeather2001} based on power ratios and correlation coefficients -- can offer low-complexity proxies for target classification. However, the translation of these metrics from meteorological bands (S/C/X-band) to automotive millimetre-wave frequencies ($\qtyrange{77}{81}{GHz}$) requires careful consideration of wavelength-scale roughness and system limitations.
+
+\paragraph{Differential reflectivity.} Perhaps the most fundamental polarimetric ratio, differential reflectivity quantifies the power imbalance between horizontal and vertical polarizations. It is defined logarithmically as
+\begin{align}
+    \label{eq:differential-reflectivity}
+    Z_{\mathrm{DR}} = 10\log_{10}\(\frac{\langle |S_{\mathrm{HH}}|^2 \rangle}{\langle |S_{\mathrm{VV}}|^2 \rangle}\).
+\end{align}
+In meteorology, this metric serves as a feature for classifying raindrop oblateness. In the automotive context, $Z_{\mathrm{DR}}$ provides a measure of the target's geometric orientation. Passenger vehicles, being predominantly horizontally oriented structures, typically exhibit positive $Z_{\mathrm{DR}}$. Conversely, pedestrians lack this stable horizontal dominance; their scattering response at $\qty{79}{GHz}$ is distributed and fluctuating due to the roughness of clothing and limb motion~\parencite{deepRadarCrosssectionsPedestrians2020}, often resulting in a mean $Z_{\mathrm{DR}}$ near $0\,\mathrm{dB}$. Thus, $Z_{\mathrm{DR}}$ acts as a robust discriminator for separating vehicles from non-horizontal clutter.
+
+\paragraph{Linear depolarization ratio.} The linear depolarization ratio measures the system's ability to detect cross-polarized energy relative to the co-polarized return. It is defined as
+\begin{align}
+    \label{eq:linear-depolarization-ratio}
+    \mathrm{LDR} = 10\log_{10}\(\frac{\langle |S_{\mathrm{VH}}|^2 \rangle}{\langle |S_{\mathrm{VV}}|^2 \rangle}\).
+\end{align}
+An ideal monostatic radar observing a sphere or a flat plate at normal incidence results in zero cross-polarization ($\mathrm{LDR} \to -\infty$). In contrast, complex targets with intricate geometries, such as bicycles, induce significant depolarization due to multiple scattering and non-orthogonal structural components~\parencite{bouwmeesterClassificationDynamicVulnerable2025}. This can result in elevated LDR values compared to flat plates, though detecting this weak cross-polarized return requires high SNR. Practically, however, the utility of this metric is bounded by the antenna system's cross-polarization isolation: If the antenna leakage exceeds the target's depolarization response, the LDR signature becomes corrupted, limiting its use to high-performance sensor architectures.
+
+\paragraph{Co-polar correlation coefficient.} To assess the coherence between the horizontal and vertical scattering centres, the co-polar correlation coefficient is utilized:
+\begin{align}
+    \label{eq:copolar-correlation-coefficient}
+    \rho_{\mathrm{hv}} = \frac{|\langle S_{\mathrm{HH}} S_{\mathrm{VV}}^* \rangle|}{\sqrt{\langle |S_{\mathrm{HH}}|^2 \rangle \langle |S_{\mathrm{VV}}|^2 \rangle}}.
+\end{align}
+This statistical descriptor ranges from 0 to 1 and is potentially the most robust metric for automotive scenes. Man-made objects with stable phase centres, such as vehicles, poles, guardrails, typically exhibit $\rho_{\mathrm{hv}}$ close to 1. In contrast, distributed volume scatterers -- such as bushes, grass, and tree canopies -- decorrelate the orthogonal channels significantly due to their random orientation and depth, yielding lower correlation values. This could make $\rho_{\mathrm{hv}}$ an effective pre-filter for suppressing vegetation clutter, a common source of false positives in radar perception.
+
+These descriptors can be computed efficiently for each resolution cell and used as input features to lightweight classification algorithms. For example, objects exhibiting very large negative LDR values alongside high $\rho_{\mathrm{hv}}$ are likely to correspond to specular reflections off the road surface and buildings, which can be filtered out early.
+
+
+\subsection{Gap analysis: Doppler-resolved polarimetric signatures}
+\label{subsec:gap-analysis}
+
+The decomposition methods discussed in~\cref{subsec:coherent-decomposition,sec:incoherent-decomposition} generally treat the radar target as a singular spatial entity. However, for dynamic VRU classification, a purely spatial perspective is insufficient. Pedestrians and cyclists are articulate structures characterized by complex motion, generating a unique spectral signature known as the \emph{micro-Doppler} effect.
+
+While micro-Doppler analysis is conventionally performed on scalar spectrograms, the physical scattering mechanisms of limbs and wheels are non-stationary. Therefore, the polarimetric features should theoretically vary as a distributed function over the Doppler domain.
+
+\paragraph{Validation of the polarimetric-Doppler hypothesis.} Recent experimental work has validated the conjecture that resolving polarimetry in the Doppler domain yields distinct, semantic classification features. As demonstrated by \textcite{bouwmeesterClassificationDynamicVulnerable2025}, the scattering mechanisms of VRUs are not constant but evolve across the gait cycle. Using a standard $3 \times 4$ MIMO configuration ($12$ virtual channels) in a diagonal polarization basis, the study confirmed that specific micro-Doppler components exhibit unique polarimetric behaviours:
 \begin{itemize}
-    \item \textbf{Differential Reflectivity ($Z_{\mathrm{DR}}$):} The ratio of horizontal to vertical received power, $10\log_{10}(\langle|S_{\mathrm{HH}}|^2\rangle / \langle|S_{\mathrm{VV}}|^2\rangle)$. This aids in distinguishing vertically oriented targets (pedestrians) from horizontal ones.
-    \item \textbf{Linear Depolarization Ratio (LDR):} The ratio of cross-polar to co-polar power, $10\log_{10}(\langle|S_{\mathrm{HV}}|^2\rangle / \langle|S_{\mathrm{HH}}|^2\rangle)$. High LDR is a strong indicator of complex geometry or irregular surfaces typical of VRUs.
-    \item \textbf{Co-polar Correlation Coefficient ($\rho_{\mathrm{hv}}$):} The magnitude of the correlation between HH and VV channels. Man-made targets typically exhibit $\rho_{\mathrm{hv}} \to 1$, while natural distributed targets exhibit lower correlation.
+    \item \emph{Cyclists:} While the frame and rider exhibit dominant odd-bounce scattering (high Pauli $a$ and $b$ features), the rear wheel introduces a distinct cross-polarized response (Pauli $c$ feature) corresponding to a dihedral mechanism, likely due to the spoke-rim interaction.
+    \item \emph{Pedestrians:} The torso and forward-swinging limbs exhibit predominantly co-polarized returns, whereas backward-swinging limbs show weak depolarization.
 \end{itemize}
+By feeding these Doppler-resolved polarimetric power maps into a convolutional neural network, an F1-score of $98.2\%$ was achieved, statistically outperforming single-polarization baselines and confirming the utility of the feature set.
 
-\subsection{Gap analysis: Applicability to automotive scenarios}
-The decomposition techniques reviewed above were historically developed for \emph{synthetic aperture radar (SAR)} and remote sensing, operating under assumptions of static scenes, far-field plane wave incidence, and high-altitude geometries (steep incidence angles).
+\paragraph{The spatial resolution bottleneck.} Despite validating the phenomenological benefits of polarimetric micro-Doppler, the current state of the art faces a critical limitation regarding spatial separability. To manage the computational load and the limited angular resolution of a standard $12$-channel virtual array, the processing pipeline proposed by~\textcite{bouwmeesterClassificationDynamicVulnerable2025} relies on a \enquote{dominant target} selection strategy:
+\begin{quote}
+    \enquote{The angle for which the sum of the squared absolute values of the scattering matrix is maximum is computed\dots This procedure effectively selects the dominant target within a range-Doppler cell, thus removing the angular dimension from the processed measurement data.}
+\end{quote}
 
-Transferring these methods to the automotive domain introduces specific challenges:
-\begin{enumerate}
-    \item \textbf{Grazing Incidence:} Automotive radars operate near the ground. At grazing angles, the Brewster angle effect can suppress vertical polarization returns from the road surface, artificially inflating $Z_{\mathrm{DR}}$ and distorting the $\alpha$ parameter.
-    \item \textbf{Coherent Integration Time:} In SAR, the integration time is long enough to form a well-defined covariance matrix. In dynamic automotive scenarios, the "target" (e.g., a cyclist) moves across range cells rapidly. Estimating $\vec T$ requires averaging over a window that assumes stationarity, a condition often violated by fast-moving VRUs.
-    \item \textbf{Micro-Doppler Coupling:} Standard decomposition ignores Doppler. For VRUs, the polarimetric signature is time-variant and coupled with the micro-Doppler signature (e.g., the swinging arm of a pedestrian has a different polarization response than the torso).
-\end{enumerate}
-This suggests that while classical decompositions provide the \emph{basis} for feature extraction, they must be extended to the joint Doppler-polarization domain -- a topic underexplored in current literature and central to the processing framework proposed in this research.
+While effective in controlled, isolated scenarios, this approach creates a significant reliability gap in complex urban environments. In a realistic traffic scene, a VRU is frequently spatially adjacent to strong static reflectors (e.g., fences, guardrails, or parked vehicles). If a pedestrian and a static object co-exist within the same range-Doppler bin, the polarimetric signature of the dominant clutter will mask the subtler polarimetric features of the VRU limbs. Consequently, low-resolution estimates of entropy $H$ and anisotropy $A$ become contaminated, rendering the classification features ambiguous.
 
+\paragraph{Research objective.}
+To advance beyond this dominant-target limitation, the radar architecture must possess sufficient angular resolution to spatially isolate dynamic VRUs from clutter \emph{before} polarimetric feature extraction. This necessitates a transition from standard low-order MIMO to large-aperture MIMO topologies. 
 
-\section{Doppler-resolved polarimetric signatures}
-
-\begin{custombox}[orange]{Goal of this section}
-    \begin{itemize}
-        \item Motivation: Introduce time-varying and micro-Doppler effects that are lost when averaging over Doppler channels.
-        \item Micro-Doppler and dynamic scattering: Discuss human gait, limb motion, bicycle rotation, etc., as examples of polarization-Doppler coupling.
-        \item Joint angle-Doppler-polarization processing: Explain representation in multi-dimensional spaces (e.g., polarimetric time-frequency signatures).
-        \item Current state of the art: Summarize recent developments in Doppler-resolved polarimetry, emphasizing underexplored dynamic analysis.
-        \item Challenges: Data sparsity, synchronization, calibration drift, coherent alignment, and MIMO virtual array non-idealities.
-    \end{itemize}
+This project proposes a scaled $12 \times 16$ MIMO architecture yielding up to $192$ virtual channels. By leveraging this large virtual aperture, the system aims to preserve the angular dimension, allowing for the extraction of clean, spatially isolated scattering matrices for every Doppler bin. Consequently, the primary research question of this work is defined as:
+\begin{custombox}[orange]{}
+    Can the integration of a high-resolution $12 \times 16$ MIMO architecture with Doppler-resolved polarimetric processing significantly enhance the classification accuracy of dynamic VRUs?
 \end{custombox}
 
+% \begin{custombox}[orange]{Goal of this section \& more research directions}
+%     The decomposition techniques reviewed above were historically developed for \emph{synthetic aperture radar (SAR)} and remote sensing, operating under assumptions of static scenes, far-field plane wave incidence, and high-altitude geometries (steep incidence angles).
 
-\section{Polarimetric MIMO processing for VRU classification}
-
-\begin{custombox}[orange]{Goal of this section}
-    \begin{itemize}
-        \item Conceptual integration: Outline how polarimetry and MIMO diversity jointly enhance target separability and classification robustness.
-        \item Proposed framework: \begin{itemize}
-            \item Multi-channel coherent integration across polarization and spatial dimensions.
-            \item Feature-level fusion of Doppler-polarimetric descriptors.
-            \item ML/AI classification trends leveraging polarimetry (e.g., CNNs on Stokes-encoded spectrograms, transformer-based fusion).
-        \end{itemize}
-        \item Illustrative use case: Application to vulnerable road user (VRU) classification  --  pedestrians, cyclists, scooters  --  emphasizing the unique polarimetric-Doppler micro-signatures.
-
-    \end{itemize}
-\end{custombox}
+%     Transferring these methods to the automotive domain introduces specific challenges:
+%     \begin{enumerate}
+%         \item \textbf{Grazing Incidence:} Automotive radars operate near the ground. At grazing angles, the Brewster angle effect can suppress vertical polarization returns from the road surface, artificially inflating $Z_{\mathrm{DR}}$ and distorting the $\alpha$ parameter.
+%         \item \textbf{Coherent Integration Time:} In SAR, the integration time is long enough to form a well-defined covariance matrix. In dynamic automotive scenarios, the "target" (e.g., a cyclist) moves across range cells rapidly. Estimating $\vec T$ requires averaging over a window that assumes stationarity, a condition often violated by fast-moving VRUs.
+%         \item \textbf{Micro-Doppler Coupling:} Standard decomposition ignores Doppler. For VRUs, the polarimetric signature is time-variant and coupled with the micro-Doppler signature (e.g., the swinging arm of a pedestrian has a different polarization response than the torso).
+%     \end{enumerate}
+%     This suggests that while classical decompositions provide the \emph{basis} for feature extraction, they must be extended to the joint Doppler-polarization domain -- a topic underexplored in current literature and central to the processing framework proposed in this research.
+% \end{custombox}
 
 
+% \section{Doppler-resolved polarimetric signatures}
+
+% \begin{custombox}[orange]{Goal of this section}
+%     \begin{itemize}
+%         \item Motivation: Introduce time-varying and micro-Doppler effects that are lost when averaging over Doppler channels.
+%         \item Micro-Doppler and dynamic scattering: Discuss human gait, limb motion, bicycle rotation, etc., as examples of polarization-Doppler coupling.
+%         \item Joint angle-Doppler-polarization processing: Explain representation in multi-dimensional spaces (e.g., polarimetric time-frequency signatures).
+%         \item Current state of the art: Summarize recent developments in Doppler-resolved polarimetry, emphasizing underexplored dynamic analysis.
+%         \item Challenges: Data sparsity, synchronization, calibration drift, coherent alignment, and MIMO virtual array non-idealities.
+%     \end{itemize}
+% \end{custombox}
 
 
-\subsection{Suitability for automotive radar}
-Automotive scenes differ fundamentally from the operating conditions assumed in polarimetric radar theory:
-\begin{itemize}
-    \item Short range (5--60 m): transition region between near-field and far-field, invalidating plane-wave assumptions.
-    \item High dynamics: scattering matrices evolve on millisecond timescales due to limb motion and ego-vehicle motion.
-    \item Multipath dominance: ground reflections and vehicle surfaces introduce depolarization not predicted by classical models.
-    \item Multiplexing constraints: sequential polarimetric switching increases Doppler ambiguity when combined with TDM-MIMO.
-\end{itemize}
-These discrepancies justify the development of \emph{new polarimetric methods}, potentially including Doppler-resolved polarimetric processing and joint spatial-polarimetric feature extraction.
+% \section{Polarimetric MIMO processing for VRU classification}
 
-\begin{custombox}[orange]{Notes}
-\begin{itemize}
-    \item Why polarimetric radar?
-    \begin{itemize}
-        \item Weishaupt et al.~\parencite{weishauptCalibrationSignalProcessing2022}: \enquote{In automotive applications, the additional information on the scattering process derived from polarimetry can be used for an improved classification of other road users [1], [2] or the enhanced perception of the static environment for localization purposes [3]. A typical new result through applying polarimetry is an estimate of whether an even or odd number of reflections occurred at a scatterer. This allows drawing conclusions on the object's geometries.}
-        \item \ldots
-    \end{itemize}
+% \begin{custombox}[orange]{Goal of this section}
+%     \begin{itemize}
+%         \item Conceptual integration: Outline how polarimetry and MIMO diversity jointly enhance target separability and classification robustness.
+%         \item Proposed framework: \begin{itemize}
+%             \item Multi-channel coherent integration across polarization and spatial dimensions.
+%             \item Feature-level fusion of Doppler-polarimetric descriptors.
+%             \item ML/AI classification trends leveraging polarimetry (e.g., CNNs on Stokes-encoded spectrograms, transformer-based fusion).
+%         \end{itemize}
+%         \item Illustrative use case: Application to vulnerable road user (VRU) classification  --  pedestrians, cyclists, scooters  --  emphasizing the unique polarimetric-Doppler micro-signatures.
 
-    \item Major challenges~\parencite{zhaoOverviewPolarimetryApplication2025}:
-    \begin{itemize}
-        \item Increment of the cross-polarization level of the radiation pattern in off-broadside measurement
-        \item Varying antenna phase centres in MIMO polarimetric radar
-        \item Complexity of polarimetric radar calibration
-        \item Lack of comprehensive system model for joint development of antennas and calibration strategies
-    \end{itemize}
-\end{itemize}
-\end{custombox}
+%     \end{itemize}
+% \end{custombox}
+
+
+% \subsection{Suitability for automotive radar}
+% Automotive scenes differ fundamentally from the operating conditions assumed in polarimetric radar theory:
+% \begin{itemize}
+%     \item Short range (5--60 m): transition region between near-field and far-field, invalidating plane-wave assumptions.
+%     \item High dynamics: scattering matrices evolve on millisecond timescales due to limb motion and ego-vehicle motion.
+%     \item Multipath dominance: ground reflections and vehicle surfaces introduce depolarization not predicted by classical models.
+%     \item Multiplexing constraints: sequential polarimetric switching increases Doppler ambiguity when combined with TDM-MIMO.
+% \end{itemize}
+% These discrepancies justify the development of \emph{new polarimetric methods}, potentially including Doppler-resolved polarimetric processing and joint spatial-polarimetric feature extraction.
+
+% \begin{custombox}[orange]{Notes}
+% \begin{itemize}
+%     \item Why polarimetric radar?
+%     \begin{itemize}
+%         \item Weishaupt et al.~\parencite{weishauptCalibrationSignalProcessing2022}: \enquote{In automotive applications, the additional information on the scattering process derived from polarimetry can be used for an improved classification of other road users [1], [2] or the enhanced perception of the static environment for localization purposes [3]. A typical new result through applying polarimetry is an estimate of whether an even or odd number of reflections occurred at a scatterer. This allows drawing conclusions on the object's geometries.}
+%         \item \ldots
+%     \end{itemize}
+
+%     \item Major challenges~\parencite{zhaoOverviewPolarimetryApplication2025}:
+%     \begin{itemize}
+%         \item Increment of the cross-polarization level of the radiation pattern in off-broadside measurement
+%         \item Varying antenna phase centres in MIMO polarimetric radar
+%         \item Complexity of polarimetric radar calibration
+%         \item Lack of comprehensive system model for joint development of antennas and calibration strategies
+%     \end{itemize}
+% \end{itemize}
+% \end{custombox}

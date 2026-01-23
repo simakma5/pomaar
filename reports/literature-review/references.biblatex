@@ -3420,3 +3420,36 @@
   keywords = {Feature extraction,Image sensors,Scattering,Sensors,Synthetic aperture radar,Training},
   file = {/home/martin/Zotero/storage/APULK6UI/Gaglione et al. - 2014 - Krogager decomposition and Pseudo-Zernike moments for polarimetric distributed ATR.pdf}
 }
+
+@book{bringiPolarimetricDopplerWeather2001,
+  title = {Polarimetric {{Doppler Weather Radar}}: {{Principles}} and {{Applications}}},
+  shorttitle = {Polarimetric {{Doppler Weather Radar}}},
+  author = {Bringi, V. N. and Chandrasekar, V.},
+  date = {2001},
+  publisher = {Cambridge University Press},
+  location = {Cambridge},
+  doi = {10.1017/CBO9780511541094},
+  url = {https://www.cambridge.org/core/books/polarimetric-doppler-weather-radar/C93A3269D222708EADB81C1E4504BB4F},
+  urldate = {2026-01-23},
+  abstract = {This 2001 book provides a detailed introduction to the principles of Doppler and polarimetric radar, focusing in particular on their use in the analysis of weather systems. The design features and operation of practical radar systems are highlighted throughout the book in order to illustrate important theoretical foundations. The authors begin by discussing background topics such as electromagnetic scattering, polarization, and wave propagation. They then deal in detail with the engineering aspects of pulsed Doppler polarimetric radar, including the relevant signal theory, spectral estimation techniques, and noise considerations. They close by examining a range of key applications in meteorology and remote sensing. The book will be of great use to graduate students of electrical engineering and atmospheric science as well as to practitioners involved in the applications of polarimetric radar systems.},
+  isbn = {978-0-521-62384-1}
+}
+
+@article{deepRadarCrosssectionsPedestrians2020,
+  title = {Radar Cross-Sections of Pedestrians at Automotive Radar Frequencies Using Ray Tracing and Point Scatterer Modelling},
+  author = {Deep, Yoshana and Held, Patrick and Ram, Shobha Sundar and Steinhauser, Dagmar and Gupta, Anshu and Gruson, Frank and Koch, Andreas and Roy, Anirban},
+  date = {2020},
+  journaltitle = {IET Radar, Sonar \& Navigation},
+  volume = {14},
+  number = {6},
+  pages = {833--844},
+  issn = {1751-8792},
+  doi = {10.1049/iet-rsn.2019.0471},
+  url = {https://onlinelibrary.wiley.com/doi/abs/10.1049/iet-rsn.2019.0471},
+  urldate = {2026-01-23},
+  abstract = {Simulation of radar cross-sections of pedestrians at automotive radar frequencies forms a key tool for software verification test beds for advanced driver assistance systems. Two commonly used simulation methods are the computationally simple scattering centre model of dynamic humans and the shooting and bouncing ray technique based on geometric optics. The latter technique is more accurate but computationally complex. Hence, it is usually used only for modelling scattered returns of still human poses. In this work, the authors combine the two methods in a linear regression framework to accurately estimate the scattering coefficients or reflectivities of point scatterers in a realistic automotive radar signal model which they subsequently use to simulate range-time, Doppler-time and range-Doppler radar signatures. The simulated signatures show a normalised mean square error {$<$}10\% and a structural similarity {$>$}81\% with respect to measurement results generated with an automotive radar at 77 GHz.},
+  langid = {english},
+  keywords = {advanced driver assistance systems,automotive radar frequencies,bouncing ray technique,computationally simple scattering centre model,Doppler radar,driver information systems,electromagnetic wave scattering,frequency 77.0 GHz,mean square error methods,point scatterer,point scatterers,radar cross-sections,radar imaging,radar signal processing,radar target recognition,range-Doppler radar signatures,ray tracing,realistic automotive radar signal model,reflectivities,regression analysis,road vehicle radar,scattered returns,scattering coefficients,shooting,simulated signatures,software verification test beds},
+  file = {/home/martin/Zotero/storage/K25DSE2J/Deep et al. - 2020 - Radar cross-sections of pedestrians at automotive radar frequencies using ray tracing and point scat.pdf;/home/martin/Zotero/storage/BRB7F6TV/iet-rsn.2019.html}
+}
+

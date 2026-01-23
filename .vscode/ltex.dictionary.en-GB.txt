@@ -11,3 +11,8 @@ CFAR
 hydrometeor
 Pauli
 Frobenius
+Hermitian
+quasi-monostatic
+Krogager
+polarimetry
+hydrometeors
