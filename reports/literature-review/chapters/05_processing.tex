@@ -1,7 +1,11 @@
 \chapter{Polarimetric and MIMO signal processing}
 \label{chap:processing}
 
-Polarimetric processing techniques in classical radar systems rely on scattering matrix reconstruction and decomposition methods such as Pauli, Krogager or Cloude-Pottier analysis. These methods, however, assume far-field illumination, stationary targets and ideal polarization channels -- conditions that are rarely met in automotive environments. Recent work explores hybrid or sequential polarimetry for FMCW radars, but multiplexing overheads often lead to Doppler ambiguities or channel imbalance. To date, no standardized processing pipeline exists for extracting polarimetric features from dynamic automotive scenes, particularly when combined with MIMO virtual aperture reconstruction. This leaves substantial room for defining new polarimetric processing frameworks tailored to short-range, high-mobility applications.
+Polarimetric processing techniques in classical radar systems rely on scattering matrix reconstruction and decomposition methods such as Pauli, Krogager or Cloude-Pottier analysis.
+These methods, however, assume far-field illumination, stationary targets and ideal polarization channels -- conditions that are rarely met in automotive environments.
+Recent work explores hybrid or sequential polarimetry for FMCW radars, but multiplexing overheads often lead to Doppler ambiguities or channel imbalance.
+To date, no standardized processing pipeline exists for extracting polarimetric features from dynamic automotive scenes, particularly when combined with MIMO virtual aperture reconstruction.
+This leaves substantial room for defining new polarimetric processing frameworks tailored to short-range, high-mobility applications.
 
 \section{Scattering matrix reconstruction}
 
@@ -17,7 +21,9 @@ Polarimetric processing techniques in classical radar systems rely on scattering
         \item Need to develop a polarimetric decomposition method for VRU classification.
         \item More research needed on characterization of road-scenario scattering mechanisms.
     \end{itemize}
-    \item Target classification: Most people train a CNN/graph-CNN/DL/RL or any other ML model on radar point cloud data consisting of peak detections. However, it suffers from drawbacks propagated from the peak-detection algorithms like CFAR. It might (and it shows to) be more convenient to perform classifications on the 4-D radar cube/tensor data or its projections/cuts/etc.
+    \item Target classification: Most people train a CNN/graph-CNN/DL/RL or any other ML model on radar point cloud data consisting of peak detections.
+    However, it suffers from drawbacks propagated from the peak-detection algorithms like CFAR.
+    It might (and it shows to) be more convenient to perform classifications on the 4-D radar cube/tensor data or its projections/cuts/etc.
     \begin{itemize}
         \item Major et al.~\parencite{majorVehicleDetectionAutomotive2019}: First people to perform vehicular target classification on pre-detection data.
         \item Tilly et al.~\parencite{tillyRoadUserDetection2023}: Object classification and detection on pre-CFAR data.
