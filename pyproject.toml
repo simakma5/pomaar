@@ -1,32 +1,50 @@
 [build-system]
-requires = ["flit_core >=3.2,<4"]
-build-backend = "flit_core.buildapi"
+requires = ["hatchling"]
+build-backend = "hatchling.build"
 
 [project]
 name = "pomaar"
-version = "0.0.1"
-description = "POMAAR (Polarimetric MIMO Arrays for Automotive Radars) is focused on the development of polarimetric MIMO arrays for advanced driver-assistance systems. This interdisciplinary research involves solving fundamental challenges in automotive radar, including the development of new theory and calibration procedures to enhance the classification of vulnerable road users."
+version = "0.1.0"
+description = "Polarimetric MIMO Arrays for Automotive Radars"
+readme = "README.md"
+requires-python = ">=3.12"
 authors = [
-  { name = "Martin Simak" },
+    { name = "Martin Simak" },
 ]
 license = { file = "LICENSE" }
-readme = "README.md"
 classifiers = [
     "Programming Language :: Python :: 3",
-    "License :: OSI Approved :: MIT License"
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: POSIX :: Linux",
 ]
-requires-python = "~=3.12.0"
+dependencies = [
+    "numpy>=1.26",
+    "scipy>=1.11",
+    "xarray>=2023.10",
+    "matplotlib>=3.8",
+]
 
+[project.optional-dependencies]
+dev = [
+    "pytest",
+    "ruff",
+]
+doc = [
+    "mkdocs-material",
+    "mkdocstrings[python]",
+]
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/pomaar"]
 
 [tool.ruff]
-line-length = 99
-src = ["pomaar"]
-include = ["pyproject.toml", "pomaar/**/*.py"]
+line-length = 100
+src = ["src"]
 
 [tool.ruff.lint]
-extend-select = ["I"]  # Add import sorting
+select = ["E", "F", "I", "N", "W"] # Pyflakes, pycodestyle, Isort, Naming
+ignore = []
 
 [tool.ruff.lint.isort]
 known-first-party = ["pomaar"]
 force-sort-within-sections = true
-

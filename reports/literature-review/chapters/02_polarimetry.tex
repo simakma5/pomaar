@@ -60,7 +60,7 @@ The polarization state -- the geometric locus traced by the tip of the electric 
 For a fully coherent wave, the \emph{Jones vector} is defined by the amplitudes $|E_1|$ and $|E_2|$ and the relative phase difference $\delta \coloneq \delta_2 - \delta_1$, taking the form
 \begin{align}
     \label{eq:jones-vector}
-    \vec E_J \coloneq \vec E(\vec o,0) = \begin{bmatrix} |E_1| \exp(\ii\delta_1) \\ |E_2| \exp(\ii\delta_2) \end{bmatrix} = \exp(\ii\delta_1) \begin{bmatrix} |E_1| \\ |E_2| \exp(\ii\delta) \end{bmatrix}.
+    \vec E_J \coloneq \vec E(\mathbf o,0) = \begin{bmatrix} |E_1| \exp(\ii\delta_1) \\ |E_2| \exp(\ii\delta_2) \end{bmatrix} = \exp(\ii\delta_1) \begin{bmatrix} |E_1| \\ |E_2| \exp(\ii\delta) \end{bmatrix}.
 \end{align}
 %\index{Jones vector}
 This representation is critical for the MIMO system design discussed in~\cref{chap:mimo-topologies}, as the transmitter and receiver chains operate coherently.
@@ -373,7 +373,7 @@ This matrix is Hermitian positive semidefinite and, as such, is always diagonali
 It is worth noting that $\vec T$ is, under unitary transformation, mathematically equivalent to any matrix formed by an outer product of the Sinclair scattering matrix, regardless of the decomposition basis used for vector representation.
 This means that the lexicographic basis introduced in~\cref{eq:lexicographic-basis}, as well as the Krogager circular and Cameron bases discussed above, can all be employed, making the following analysis techniques broadly applicable.
 
-The most established method for analysing the coherency matrix, originally developed by Cloude and Pottier in 1997 for SAR imaging and remote sensing, is the \emph{Cloude-Pottier decomposition}, which assumes that there is always a dominant average scattering mechanism in each cell.
+The most established method for analysing the coherency matrix, originally developed by Cloude and Pottier in 1997 for SAR imaging and remote sensing, is the \emph{Cloude--Pottier decomposition}, which assumes that there is always a dominant average scattering mechanism in each cell.
 To generate estimates of the average target scattering matrix parameters, this method employs the eigenvalue expansion; that is
 \begin{align}
     \vec T = \sum_{i=1}^3 \lambda_i \vec e_i \vec e_i^\dagger,
