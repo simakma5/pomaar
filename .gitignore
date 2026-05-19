@@ -44,4 +44,8 @@ data/*
 *.run.xml
 *.synctex.gz
 *.toc
+*.glg-abr
+*.glo-abr
+*.gls-abr
+*.ist
 # *.pdf

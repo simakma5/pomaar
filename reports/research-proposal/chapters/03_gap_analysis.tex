@@ -1,0 +1,354 @@
+\chapter{Research gap analysis}
+\label{ch:research-gaps}
+
+
+\section{Formulation of hypotheses and research questions}
+
+\todo{Add intro text.}
+
+\begin{custombox}{Research questions}
+    \begin{itemize}
+        \item \textbf{Primary research question:} Can the integration of a high-resolution $12 \times 16$ \gls{mimo} architecture with Doppler-resolved polarimetric processing significantly enhance the classification accuracy of dynamic \glspl{vru}?
+        \item \textbf{Secondary research question 1:} What is the optimal choice of polarization basis for polarimetric automotive radar?
+        \item \textbf{Secondary research question 2:} What are the fundamental lower bounds on antenna requirements (e.g. cross-polarization discrimination, phase centre alignment), as derived from the sensitivity and robustness of polarimetric decomposition algorithms?
+        \item \textbf{Secondary research question 3:} How can \gls{mimo} topologies be optimized specifically for polarimetric fidelity -- establishing \enquote{polarimetry-first} array designs -- to mitigate the detrimental effects of phase centre displacement and cross-polar coupling?
+    \end{itemize}
+\end{custombox}
+
+\begin{custombox}[orange]{To do: add research questions}
+    The decomposition techniques reviewed above were historically developed for \gls{sar} and remote sensing, operating under assumptions of static scenes, far-field plane wave incidence, and high-altitude geometries (steep incidence angles).
+
+    Transferring these methods to the automotive domain introduces specific challenges:
+    \begin{enumerate}
+        \item \textbf{Grazing incidence:} Automotive radars operate near the ground.
+        At grazing angles, the Brewster angle effect can suppress vertical polarization returns from the road surface, artificially inflating $Z_{\mathrm{DR}}$ and distorting the $\alpha$ parameter.
+        \item \textbf{Coherent integration time:} In \gls{sar}, the integration time is long enough to form a well-defined covariance matrix.
+        In dynamic automotive scenarios, the "target" (e.g. a cyclist) moves across range cells rapidly.
+        Estimating $\vec T$ requires averaging over a window that assumes stationarity, a condition often violated by fast-moving \glspl{vru}.
+        \item \textbf{Micro-Doppler coupling:} Standard decomposition ignores Doppler.
+        For \glspl{vru}, the polarimetric signature is time-variant and coupled with the micro-Doppler signature (e.g. the swinging arm of a pedestrian has a different polarization response than the torso).
+    \end{enumerate}
+    This suggests that while classical decompositions provide the \emph{basis} for feature extraction, they must be extended to the joint Doppler-polarization domain -- a topic underexplored in current literature and central to the processing framework proposed in this research.
+\end{custombox}
+
+\begin{custombox}[orange]{To-do: add section on Doppler-resolved polarimetric signatures}
+    \begin{itemize}
+        \item Motivation: Introduce time-varying and micro-Doppler effects that are lost when averaging over Doppler channels.
+        \item Micro-Doppler and dynamic scattering: Discuss human gait, limb motion, bicycle rotation, etc., as examples of polarization-Doppler coupling.
+        \item Joint angle-Doppler-polarization processing: Explain representation in multidimensional spaces (e.g. polarimetric time-frequency signatures).
+        \item Current state of the art: Summarize recent developments in Doppler-resolved polarimetry, emphasizing underexplored dynamic analysis.
+        \item Challenges: Data sparsity, synchronization, calibration drift, coherent alignment, and \gls{mimo} virtual array non-idealities.
+    \end{itemize}
+\end{custombox}
+
+\begin{custombox}[orange]{To-do: add some talk on \enquote{automotive hurdles}}
+    Automotive scenes differ fundamentally from the operating conditions assumed in polarimetric radar theory:
+    \begin{itemize}
+        \item Short range (5--60 m): transition region between near-field and far-field, invalidating plane-wave assumptions.
+        \item High dynamics: scattering matrices evolve on millisecond timescales due to limb motion and ego-vehicle motion.
+        \item Multipath dominance: ground reflections and vehicle surfaces introduce depolarization not predicted by classical models.
+        \item Multiplexing constraints: sequential polarimetric switching increases Doppler ambiguity when combined with \gls{tdm}-\gls{mimo}.
+    \end{itemize}
+    These discrepancies justify the development of \emph{new polarimetric methods}, potentially including Doppler-resolved polarimetric processing and joint spatial-polarimetric feature extraction.
+\end{custombox}
+
+\section{Research gaps identified in literature}
+
+\todo{Add intro text.}
+
+
+\subsection{Gaps in polarimetric models}
+
+The decomposition methods discussed in~\cref{subsec:coherent-decomposition,sec:incoherent-decomposition} generally treat the radar target as a singular spatial entity.
+However, for dynamic \gls{vru} classification, a purely spatial perspective is insufficient.
+Pedestrians and cyclists are articulate structures characterized by complex motion, generating a unique spectral signature known as the \emph{micro-Doppler} effect.
+
+While micro-Doppler analysis is conventionally performed on scalar spectrograms, the physical scattering mechanisms of limbs and wheels are non-stationary.
+Therefore, the polarimetric features should theoretically vary as a distributed function over the Doppler domain.
+
+\paragraph{Validation of the polarimetric-Doppler hypothesis.}
+Recent experimental work has validated the conjecture that resolving polarimetry in the Doppler domain yields distinct, semantic classification features.
+As demonstrated by \textcite{bouwmeesterClassificationDynamicVulnerable2025}, the scattering mechanisms of \glspl{vru} are not constant but evolve across the gait cycle.
+Using a standard $3 \times 4$ \gls{mimo} configuration (producing $12$ virtual channels) in a diagonal polarization basis, the study confirmed that specific micro-Doppler components exhibit unique polarimetric behaviours:
+\begin{itemize}
+    \item \emph{Cyclists:} While the frame and rider exhibit dominant odd-bounce scattering (high Pauli $a$ and $b$ features), the rear wheel introduces a distinct cross-polarized response (Pauli $c$ feature) corresponding to a dihedral mechanism, likely due to the spoke-rim interaction.
+    \item \emph{Pedestrians:} The torso and forward-swinging limbs exhibit predominantly co-polarized returns, whereas backward-swinging limbs show weak depolarization.
+\end{itemize}
+By feeding these Doppler-resolved polarimetric power maps into a convolutional neural network, an F1-score of $98.2\%$ was achieved, statistically outperforming single-polarization baselines and confirming the utility of the feature set.
+
+\paragraph{The spatial resolution bottleneck.}
+Despite validating the phenomenological benefits of polarimetric micro-Doppler, the current state of the art faces a critical limitation regarding spatial separability.
+To manage the computational load and the limited angular resolution of a standard $12$-channel virtual array, the processing pipeline proposed by~\textcite{bouwmeesterClassificationDynamicVulnerable2025} relies on a \enquote{dominant target} selection strategy:
+\begin{quote}
+    \enquote{The angle for which the sum of the squared absolute values of the scattering matrix is maximum is computed\dots This procedure effectively selects the dominant target within a range-Doppler cell, thus removing the angular dimension from the processed measurement data.}
+\end{quote}
+
+While this approach served as an effective stop-gap to demonstrate the value of Doppler-resolved polarimetry given specific hardware constraints, it is insufficient for complex urban environments.
+In a realistic traffic scene, a \gls{vru} is frequently spatially adjacent to strong static reflectors (e.g. fences, guardrails, or parked vehicles).
+If a pedestrian and a static object co-exist within the same range-Doppler bin, the polarimetric signature of the dominant clutter will mask the subtler polarimetric features of the \gls{vru} limbs.
+Consequently, low-resolution estimates of entropy $H$ and anisotropy $A$ (or similar classification features) become contaminated, rendering the classification features ambiguous.
+To advance beyond this limitation, the radar architecture must possess sufficient angular resolution to spatially isolate dynamic \glspl{vru} from clutter \emph{before} polarimetric feature extraction.
+
+
+\subsection{Gaps in front-end technologies}
+
+A critical gap exists in balancing polarimetric dynamic range with mass manufacturing constraints.
+While the industrial baseline (microstrip patches) supports mass production and straightforward integration, it naturally bottlenecks polarimetric fidelity, struggling to maintain necessary \gls{xpd} beyond moderate scan angles.
+Dense \gls{mimo} lattices with this technology suffer from severe mutual coupling that distorts the polarization matrix.
+Conversely, while emerging integrated waveguide solutions (such as \glspl{gw}) offer the necessary electromagnetic purity and isolation, they are still far from being considered viable for widespread adoption.
+
+Crucially, the literature lacks a formalized framework for deriving antenna performance requirements directly from the sensitivity of the target classification algorithms.
+Current hardware design often proceeds in isolation from the signal processing pipeline.
+Consequently, the fundamental lower bounds on antenna specifications -- such as the maximum allowable phase error or amplitude imbalance before a polarimetric decomposition method fails -- remain undefined.
+
+
+\subsection{Gaps in MIMO topologies}
+
+The interaction between spatial sparsity, virtual array synthesis, and polarization purity remains largely unexplored in the W-band.
+While numerous algorithms exist for scalar 2D array synthesis, extending these to dual polarization reveals profound calibration and performance gaps.
+Most published W-band polarimetric prototypes suffer from severe cross-polar coupling, reduced aperture efficiency, and phase centre mismatches.
+
+Specifically, the physical displacement between orthogonal radiating elements (e.g. horizontal and vertical patches) introduces a \enquote{polarization squint} or parallax effect.
+Even in co-located \gls{mimo} layouts, the co-polar channels do not share identical phase centres or beam shapes.
+As far as the current literature indicates, apart from preliminary investigations into polarimetry with standard \gls{mimo} synthesis~\parencite{zhaoCalibrationPolarimetricAutomotive2024}, there is a distinct absence of \enquote{polarimetry-first} array topologies.
+Currently, no established array topology exists that is mathematically optimized from its inception to preserve the fidelity of the full scattering matrix while simultaneously maximizing spatial resolution and multiplexing feasibility.
+
+
+\section{Proposed solutions and design choices}
+
+\todo{Add intro text.}
+
+
+\subsection{Derivation of antenna requirements via perturbation analysis}
+
+To bridge the gap between front-end hardware and signal processing, this research proposes a top-down, algorithm-driven methodology for antenna design.
+Rather than aiming for absolute electromagnetic perfection, the project will derive the fundamental lower bounds of antenna performance required for robust \gls{vru} classification.
+
+This will be achieved by performing rigorous sensitivity and perturbation analyses on standard polarimetric decomposition methods.
+By systematically injecting calibrated noise and systematic measurement errors (modifying polarimetric component amplitudes, phases, and cross-channel phase differences) into ideal scattering matrices, the robustness of the decomposition algorithms will be mapped.
+The resulting performance margins will then be translated directly into structural and electrical requirements for the antenna system.
+
+
+\subsection{Polarimetric scattering and parallax simulator}
+
+To execute the perturbation analysis and study the effects of \gls{mimo} physical displacement, a comprehensive simulation platform will be developed.
+This tool will calculate the polarimetric response of a target as measured by a \gls{mimo} array with varied phase centre locations.
+
+The development of this simulator is envisioned as a collaborative effort, partitioning the problem into two domains: the electromagnetic scattering physics of the target and the array embedded radiation patterns extracted using full-wave electromagnetic simulations.
+By defining a specific application -- such as classifying vehicles versus pedestrians -- the simulator will compute the scattered field, apply spatial transformations to account for the physical displacement of the polarimetric array elements, and feed the resulting corrupted matrix into the decomposition algorithms.
+This will allow for the explicit study of polarization squint and the evaluation of calibration techniques to mitigate systematic measurement errors.
+
+
+\subsection{Polarimetry-first MIMO topologies}
+
+While the academic literature is rich with novel, optimization-driven antenna concepts, the development of robust polarimetric processing algorithms benefits from a stable hardware baseline.
+By utilizing established uniform topologies or industry-standard sparse reference designs, system variability is minimized.
+This ensures that observed anomalies in the Doppler-polarimetric domain can be attributed to target scattering physics rather than artefacts of an experimental antenna array manifold.
+
+The integration of polarimetric functionality into \gls{mimo} radar introduces a new dimension to topology synthesis: the management of the dual-polarized signal space.
+Unlike scalar \gls{mimo} (one polarization), where the primary goal is maximizing the virtual aperture, polarimetric designs must also ensure the fidelity of the full scattering matrix measurement.
+Consequently, the design space splits into two fundamental architectural choices: the use of dual-polarized elements sharing a common phase centre versus the spatial interleaving of single-polarized elements.
+
+Building upon the insights gained from the simulator, this research will pioneer the synthesis of \enquote{polarimetry-first} \gls{mimo} topologies.
+By abandoning legacy scalar optimization techniques, the design space will be constrained to topologies that explicitly minimize the phase centre disparity between orthogonal channels.
+The project will critically analyse the suboptimal characteristics of existing dual-polarized demonstrators to identify specific topological aspects -- such as sub-array interleaving, virtual channel overlapping, and spatial symmetry -- that can be mathematically optimized to ensure true polarimetric alignment across the synthesized virtual aperture.
+
+\paragraph{Dual-polarized architectures.}
+The most theoretically robust approach involves the use of dual-polarized elements at each array position (see \cref{fig:dual_pol_elements}).
+In this configuration, orthogonal polarizations (typically horizontal and vertical) ideally%
+    \footnote{It is plausible that even with dual-polarized antennas, the phase centres of the co- and cross-polar channels do not perfectly coincide due to manufacturing tolerances, feed network imbalances, or mutual coupling effects.}
+share a common phase centre.
+The primary advantage of this topology is the maximization of the virtual aperture for all polarization channels simultaneously, ensuring that the polarimetric scattering matrix is measured from an identical spatial perspective.
+This eliminates the \enquote{polarization squint} effects caused by viewing a target from slightly different angles, thereby simplifying the calibration process.
+
+However, this electromagnetic ideal comes with significant implementation penalties.
+Dual-polarized antennas require complex feeding networks, often necessitating additional substrate layers that increase the physical bulk of the sensor.
+Furthermore, maintaining high isolation between the co-located channels is challenging; the proximity of the feeds invariably leads to increased mutual coupling and cross-polar leakage, making the element design and manufacturing process more intricate and costly.
+Moreover, each dual-polarized antenna element requires two independent channels, effectively halving the number of unique spatial samples achievable with a given number of \gls{rf} chains, which can limit the achievable angular resolution and multiplexing capabilities of the \gls{mimo} system.
+
+\paragraph{Interleaved single-polarized architectures.}
+To mitigate the hardware complexity and coupling issues of dual-polarized designs, an alternative strategy is to spatially interleave single-polarized elements (see \cref{fig:interleaved_single_pol_elements}).
+By spatially separating the horizontal and vertical elements, this architecture inherently improves port-to-port isolation, simplifies the routing of feed lines, and does not reduce the virtual aperture.
+While this reduces the cost and complexity of the \gls{pcb} stack-up, this layout introduces a significant spatial disparity between individual polarization channels, exacerbating the issue of polarization squint.
+If not carefully compensated for in the manifold synthesis, this phase centre mismatch can lead to angle-dependent polarization errors, particularly for near-field targets or distributed scatterers.
+
+\paragraph{Virtual channel overlapping.}
+A hybrid design strategy, which is worthy of investigation, is the exploitation of \gls{mimo} virtual array synthesis to bridge the gap between these two architectures.
+By carefully designing the overlapping patterns of transmitting and receiving sub-arrays, it is possible to synthesize specific \emph{virtual} positions where the co- and cross-polar channels coincide purely through signal processing, even if the physical elements are spatially separated.
+This concept is illustrated in \cref{fig:overlapping_single_pol_elements}.
+
+By ensuring that specific indices of the virtual convolution overlap, the system can provide \enquote{anchor points} of true polarimetric alignment.
+These overlapping virtual phase centres could potentially serve as a high-fidelity reference for polarimetric calibration -- effectively simulating the performance of a dual-polarized element -- while retaining the manufacturing simplicity and isolation benefits of a single-polarized interleaved layout without reducing the virtual aperture size by more than necessary for accurate polarimetric calibration.
+
+\begin{figure}[!ht]
+    \centering
+    \begin{subfigure}{0.45\textwidth}
+        \centering
+        \includegraphics[height=.2\textheight]{images/dual_pol_elements.png}
+        \caption{Dual-polarized elements}
+        \label{fig:dual_pol_elements}
+    \end{subfigure}
+    ~
+    \begin{subfigure}{0.45\textwidth}
+        \centering
+        \includegraphics[height=.2\textheight]{images/interleaved_single_pol_elements.png}
+        \caption{Interleaved single-polarized elements}
+        \label{fig:interleaved_single_pol_elements}
+    \end{subfigure}
+    \\[2ex]
+    \begin{subfigure}{\textwidth}
+        \centering
+        \includegraphics[height=.23\textheight]{images/overlapping_single_pol_elements.png}
+        \caption{Overlapping channels in an interleaved single-polarized element grid}
+        \label{fig:overlapping_single_pol_elements}
+    \end{subfigure}
+    \caption{Comparison of physical element arrangements for polarimetric MIMO radar.}
+\end{figure}
+
+
+\subsection{Choice of radiating element and feeding platforms}
+
+The survey of the literature, carried out in \cref{sec:frontend}, captures a vast and rapidly evolving design space for \qty{79}{GHz} automotive radar.
+It is evident that emerging technologies, particularly \gls{gw} as an integration platform and \gls{med} as radiating elements, are maturing into robust solutions that address the traditional losses and bandwidth limitations of millimetre-wave circuitry.
+These technologies represent the state of the art of electromagnetic design, offering superior isolation and polarization purity that are highly attractive for next-generation sensing.
+However, the architectural choices for the specific research encompassed by this project are governed by a different set of optimization criteria.
+The primary objective of this doctoral work is the extraction of dynamic, Doppler-resolved polarimetric signatures using a large-aperture \gls{mimo} radar.
+In this context, the antenna array is not the primary subject of innovation but rather an enabler -- a critical functional block that must guarantee reliable data acquisition to validate the signal processing techniques of polarimetric decomposition and signature extraction.
+
+Consequently, the focus is placed on the ability to rapidly prototype a complete, reliable polarimetric system with imaging capabilities, rather than employing experimental radiating elements that may introduce manufacturing uncertainties or integration delays.
+To align with this objective, the following design decisions have been established:
+
+\begin{itemize}
+    \item \textbf{Adoption of planar technology.} To attain industrial support in terms of manufacturability and compatibility with standard calibration routines, the design is restricted to planar technologies (\gls{pcb}/\gls{ltcc}).
+    While acknowledging the superior efficiency of air-filled waveguides, the mature fabrication processes of printed circuits ensure that the large-scale \gls{mimo} array can be produced with consistent tolerances, which is a prerequisite for accurate array manifold calibration.
+
+    \item \textbf{Selection of radiating mechanism.} Within the planar domain, the design strategy envisions a multi-layer \gls{siw} stack-up as the high-performance contender.
+    Specifically, slotted radiation serves as the main mechanism, potentially augmented with parasitic patches on the top layer to shape the individual beam pattern and improve impedance bandwidth, a technique supported by recent studies on hybrid \gls{siw}-patch topologies, such as works of~\textcite{puskely5GSIWBasedPhased2022,yangMillimeterWaveDualPolarizedDifferentially2020}.
+    This approach strikes a balance between the isolation benefits of \gls{siw} and the low profile of printed elements.
+
+    \item \textbf{Iterative development strategy.} To mitigate risk, particularly in the early phases of the project, the front-end design will leverage the established experience of dealing with uniform patch array cascades.
+    This approach mirrors the proven architectures employed by industry leaders, such as Texas Instruments~\parencite{texasInstrumentsAwrxCascadedRadar2020} and Continental, for imaging automotive radar.
+    By starting with a known baseline -- standard series-fed microstrip patches -- the research ensures a stable platform for initial data collection and algorithm development, allowing the focus to remain on the signal processing challenges of high-fidelity polarimetric measurements resolved in Doppler.
+\end{itemize}
+
+In summary, while the literature points toward \gls{gw} and \gls{med} as the future of automotive electromagnetics, this research purposefully selects established planar implementations to prioritize system-level reliability and the integrity of the polarimetric signal processing pipeline.
+
+
+\section{Feasibility study and preliminary development}
+
+\todo{Add intro text.}
+
+
+\subsection{Polarimetric scattering simulation model}
+\label{sec:scattering-simulator}
+
+To accurately model the full polarimetric response of electrically large target scenes and validate the decomposition algorithms prior to hardware testing, a dedicated simulation platform will be constructed.
+The proposed technical pipeline employs a hybrid methodology, bridging full-wave electromagnetic data with an asymptotic ray-tracing solver.
+This approach ensures that array-level hardware physics are correctly accounted for while remaining computationally feasible for large-scale environments.
+The pipeline is divided into three primary stages.
+
+\paragraph{Antenna modelling via full-wave characterization.}
+Rather than simulating the entire scene in a computationally expensive full-wave environment, a full-wave solver, namely CST Studio Suite,%
+    \todo{Add citation.}
+will be utilized exclusively to characterize the \gls{mimo} array.
+This step is critical to capture exact electromagnetic properties that theoretical models cannot synthesize accurately, including mutual coupling, edge effects, and precise phase centre locations.
+As a preliminary validation step, the simulator will replicate the \qty{28}{\giga\hertz} dual-polarized array specified by~\textcite{fandiantoroExperimentalStudyPolarimetric2025}.
+This involves constructing an $8 \times 8$ array of dual-polarized elements (yielding a $16 \times 16$ port configuration) and extracting the complex embedded element patterns for all ports to serve as sources in the subsequent scattering simulation.
+
+\paragraph{Scene scattering and propagation.}
+Because targets such as \glspl{vru} are electrically massive at millimetre-wave frequencies, the scene scattering will be evaluated using an asymptotic ray-tracing solver, primarily Altair Feko.%
+    \todo{Add citation.}
+The complex radiation patterns extracted from the full-wave simulation will be imported as far-field sources and assigned to the respective transmitting and receiving coordinates in the virtual scene.
+Using canonical shapes initially (e.g. spheres and dihedral corner reflectors) to validate the response, the solver will compute the full polarimetric scattering matrix for each transmitter-receiver pair.
+While Feko is prioritized for its superior handling of edge diffractions and creeping waves, CST's native asymptotic solver remains a viable fallback to mitigate potential data friction regarding coordinate systems and polarization vectors between the Dassault and Altair ecosystems.
+
+\paragraph{Data processing and polarimetric decomposition.}
+The final stage involves processing the frequency-domain channel responses generated by the asymptotic solver.
+Custom scripts will synthesize the \gls{fmcw} radar signals by applying the appropriate time delays and phase shifts, generating a raw radar data cube that spans fast time, slow time, and spatial channels.
+Subsequent processing will apply \gls{mimo} imaging algorithms, such as back-projection, to form the spatial image.
+Once the coherency matrices are constructed, established polarimetric decompositions -- such as the Yamaguchi four-component or Yamaguchi--Singh six-component methods used by \textcite{fandiantoroExperimentalStudyPolarimetric2025} -- will be applied to classify the scattering mechanisms across the target.
+This effectively closes the loop between hardware non-idealities and algorithmic classification performance.
+
+
+\subsection{Two-stage iterative development scheme for front-end technology}
+
+The transition from standard automotive radar to a fully polarimetric imaging system imposes stringent boundary conditions on the antenna element, primarily driven by a fundamental conflict between electromagnetic purity and industrial mass-producibility.
+The core research question underpinning this design phase is: what constitutes a robust polarimetric antenna within the constraints of an automotive form factor?
+While legacy systems prioritize forward gain and wide bandwidth, the extraction of reliable polarimetric signatures necessitates an \gls{xpd} exceeding \qty{20}{\decibel} across a wide field of view.
+Consequently, the antenna cannot be treated merely as a passive component, but rather as a critical functional block that dictates the achievable dynamic range of the subsequent signal processing pipeline.
+
+To align with the project's objective of validating signal processing algorithms on a reliable hardware platform, the proposed architecture purposefully builds upon the established planar topologies utilized in modern imaging automotive radars.
+However, to overcome the inherent polarimetric limitations of standard series-fed patch arrays -- specifically, the degradation of \gls{xpd} caused by cross-polar radiation from feed networks -- this study adopts an aperture-coupled patch topology as the baseline design.
+This baseline serves as the foundational stage in an iterative development strategy, which will eventually transition towards an \gls{siw} stack-up.
+
+
+\subsubsection{Architectural rationale and the aperture-coupled baseline}
+
+The primary advantage of the aperture-coupled architecture is its ability to physically and electromagnetically isolate the radiating element from the feed network.
+By separating the respective dielectric layers with a common ground plane, energy transfers purely magnetically through a sub-resonant aperture, or slot.
+This absolute suppression of feed network radiation, together with the polarization purity of slotted radiation, yields the exceptional \gls{xpd} essential for high-fidelity polarimetric measurements.
+
+From an equivalent circuit perspective, the slot acts simultaneously as a transformer -- dictating the patch's coupled impedance -- and a parallel LC circuit representing the slot resonance and fringing fields, placed in series with the microstrip feed.
+When plotted on a Smith chart, the input impedance locus typically forms a circle.
+\todo{Add an exploded view of the aperture-coupled patch and its equivalent circuit.}
+
+\paragraph{Substrate selection.}
+A classical benefit of aperture coupling is the ability to independently optimize the feed and antenna substrates.
+Theoretical models dictate that the antenna substrate should be an electrically thick, low-loss material ($h \geq \lambda/10$) with a low relative permittivity ($\epsilon_{\mathrm{r}} < 3$) to encourage outward radiation, widen impedance bandwidth, and mitigate surface-wave propagation.
+Conversely, the feed network requires an electrically thin substrate ($h < \lambda/50$) with high permittivity ($\epsilon_{\mathrm{r}} > 5$) to confine the electromagnetic fields into a guided wave, maximize coupling through the aperture, and prevent spurious radiation.
+
+However, scaling this topology to the \qty{79}{\giga\hertz} automotive band reveals a harsh clash between theoretical ideals and manufacturing realities.
+If a high-permittivity substrate (e.g. $\epsilon_{\mathrm{r}} = 6.5$) is selected for the feed network to confine the fields, the required width for a \qty{50}{\ohm} microstrip trace becomes microscopic.
+This extreme reduction in trace width drastically compounds conductor losses and places the design at the absolute limit of standard \gls{pcb} etching tolerances.
+Consequently, practical millimetre-wave arrays necessitate a compromise, typically forcing the selection of a feed substrate with an $\epsilon_{\mathrm{r}}$ between 3 and 4.
+
+Furthermore, the physical scaling introduces severe surface-wave vulnerabilities.
+At lower microwave frequencies, such as radar X-band, a standard substrate thickness inherently excites only the dominant $\mathrm{TM}_{0}$ surface wave.
+While problematic in large \gls{mimo} arrays due to the risk of \enquote{scan blindness} -- manifesting as reflection spikes at specific scan angles -- it is generally manageable.
+At \qty{79}{\giga\hertz}, however, the $h/\lambda_{0}$ ratio spikes dramatically.
+Failing to adequately thin the dielectric substrate allows higher-order modes, such as the $\mathrm{TE}_{1}$ mode, to proliferate.
+In the context of a dense \gls{mimo} lattice, this results in severe power loss, mutual coupling, and spatial decorrelation, which can mathematically masquerade as target depolarization.
+This fundamental vulnerability underscores the necessity of the planned transition to an \gls{siw} cavity-backed topology, which will synthesize a metallic wall boundary to completely suppress these lateral surface waves.
+
+\begin{custombox}[orange]{Remove or keep?}
+    As frequency increases (or as the substrate becomes electrically thicker), higher-order modes 'cut on'.
+    The cutoff frequency for the $\mathrm{TE}_{n}$ modes is given by
+    \begin{align}
+        f_{c,\mathrm{TE}_n} = \frac{(2n-1)c}{4h\sqrt{\epsilon_{\mathrm{r}} - 1}}
+    \end{align}
+    At \qty{79}{\giga\hertz}, the wavelength $\lambda_{0}$ is roughly \qty{3.8}{\milli\metre}.
+    If $h$ is not kept strictly thin, the physical thickness easily exceeds the cutoff threshold for $\mathrm{TE}_{1}$, allowing it to propagate and wreak havoc on the array's mutual coupling matrix.
+\end{custombox}
+
+
+\subsubsection{Parametric tuning and series-feed synthesis}
+
+Transitioning the aperture-coupled element into a series-fed array fundamentally alters the electromagnetic paradigm from a localized resonant load to a cascaded microwave network.
+The array relies on analogue beamforming in the elevation plane to synthesize a wide, fan-like beam, requiring precise control over both the amplitude and phase distribution across the elements.%
+    \todo{Finalize this section after analysis and successful replication of Jan's design.}
+
+To ensure the array radiates a broadside beam without grating lobes, the physical and electrical spacing of the elements must be meticulously decoupled.
+Physically, the phase centres of the patches must remain spaced strictly below $0.7\lambda_{0}$ (ideally $\approx 0.5\lambda_{0}$).
+Electrically, the fields exciting each patch must be perfectly in phase, demanding a total electrical delay of exactly \qty{360}{\degree} between adjacent elements.
+Because the guided wavelength ($\lambda_{\mathrm{g}}$) within the feed substrate is physically shorter than the free-space wavelength ($\lambda_{0}$), achieving this electrical phase shift within the constrained physical gap requires routing the microstrip line through elongated U-bends -- or controlled widenings in the subsequent \gls{siw} architecture.
+
+\paragraph{Extraction of single-element coupling parameters.}
+If identical slots are placed uniformly along a cascaded feed line, the first element extracts a disproportionate amount of the incident power, resulting in an exponential amplitude decay that severely skews the radiation pattern and raises side-lobe levels.
+To synthesize a tailored amplitude taper (e.g. Taylor or Chebyshev distribution), the array necessitates progressive coupling, where the initial slot is heavily under-coupled and the final slot is the longest.
+
+To quantify this, the single slot-coupled patch must be characterized within a two-port \enquote{unit cell} environment.
+Assuming a lossless network, the power coupled to the patch, $|C|^2$, can be deduced by the conservation of energy as
+\begin{equation}
+    |C|^2 = 1 - |S_{11}|^2 - |S_{21}|^2
+\end{equation}
+During full-wave simulation, it is critical that the reference planes are perfectly de-embedded to the centre of the slot to negate the phase rotation and dielectric loss of the access lines.
+Furthermore, the slot should remain strictly sub-resonant (ideally $\approx \lambda_{\mathrm{g}}/10$).
+If the slot length approaches resonance to achieve a match, the reflection coefficient rises, triggering standing waves that completely disrupt the intended amplitude distribution of the cascaded array.
+
+\paragraph{Array termination and travelling-wave operation.}
+To support the wide bandwidth necessary for high-resolution automotive radar, the cascade must operate as a travelling-wave array rather than a narrowband resonant structure.
+While classical travelling-wave designs terminate the feed line with a physical \qty{50}{\ohm} resistive load to absorb residual power and prevent standing waves, integrating such loads at \qty{79}{\giga\hertz} introduces parasitic anomalies and manufacturing complexity.
+Instead, a highly efficient alternative is to design the terminal element to function as a virtual load.
+Given that the progressive amplitude taper extracts the majority of the energy through the preceding elements, the final slot is aggressively coupled to radiate the entirety of the remaining power.
+By carefully applying a reflection-cancelling modification to the terminal stub to match the array's residual impedance, the backward-travelling wave is suppressed.
+This strategy secures the broadband performance of a travelling wave without the efficiency penalty of a physical absorber, provided the array is sufficiently long to ensure minimal power reaches the termination.

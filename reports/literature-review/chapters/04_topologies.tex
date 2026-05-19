@@ -9,7 +9,7 @@ Only a few prototypes integrate dual-polarization at W-band, and these often suf
 As a result, no established array topology exists that simultaneously optimizes spatial resolution, polarization isolation and multiplexing feasibility for a fully polarimetric automotive radar.
 
 
-\section{MIMO fundamentals}
+\section{Fundamentals of MIMO radar}
 
 The concept of MIMO antenna systems is a well-established and extensively published area within telecommunications, where transmitting data over multiple uncorrelated signals results in additional information about the state of the communication channel, aggregating effects like multipath propagation and other types of signal fading or delays.
 This information is leveraged to estimate the channel matrix which is then used to compensate for propagation effects to recover the transmitted data.
@@ -21,8 +21,8 @@ Lastly, it should be noted that the transfer of MIMO concepts from communication
 Uncritical adaptation can lead to flawed conclusions, as seen in some early distributed MIMO literature, where certain contributions were either redundant rediscoveries of multistatic radar concepts or contained incorrect statements, as notes by \textcite{chernyakConceptMIMORadar2010}.
 
 From the standpoint of antenna array design, the key feature of MIMO radar is the creation of a \emph{virtual array} through the combination of multiple transmit and receive antennas.
-Mathematically, if an array has $N_\mathrm{TX}$ transmitters and $N_\mathrm{RX}$ receivers, and each transmitter emits an orthogonal waveform, the received signals can be separated and associated with each transmit-receive pair.
-This effectively synthesizes $N_\mathrm{TX} \times N_\mathrm{RX}$ virtual elements, whose positions are determined by the sum (or, in some cases, the difference) of the physical locations of the transmit and receive antennas~\parencite{holderSystematicMethodsSynthesis2023}.
+Mathematically, if an array has $N_\mathrm{Tx}$ transmitters and $N_\mathrm{Rx}$ receivers, and each transmitter emits an orthogonal waveform, the received signals can be separated and associated with each transmit-receive pair.
+This effectively synthesizes $N_\mathrm{Tx} \times N_\mathrm{Rx}$ virtual elements, whose positions are determined by the sum (or, in some cases, the difference) of the physical locations of the transmit and receive antennas~\parencite{holderSystematicMethodsSynthesis2023}.
 The resulting virtual array, which can be obtained as a convolution of the physical transmit and receive element positions, can have a larger aperture and finer angular resolution than the physical arrays alone, but the spatial distribution of these virtual elements depends on both the physical layout and the multiplexing scheme.
 
 \paragraph{Co-located and distributed MIMO radar.}

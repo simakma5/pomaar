@@ -33,6 +33,7 @@ class ArraySynthesizer:
         self.name = name
         self.highlight_overlaps = highlight_overlaps
         self.logger = logging.getLogger(f"{__name__}.{self.__class__.__name__}")
+        self.bin_resolution = 1e-2
 
         # Physical array
         self.tx_h = np.empty((0, 2))
@@ -73,7 +74,7 @@ class ArraySynthesizer:
             self._centre_physical(method=centre_method)
         self._compute_virtual()
 
-    def plot_topology(self, xlim=None, ylim=None, marker_size=80):
+    def plot_topology(self, xlim=None, ylim=None, marker_size=60):
         """Visualizes the physical and virtual arrays in 2D."""
         fig, (ax1, ax2) = plt.subplots(2, 1, figsize=(10, 10), sharex=False)
         for ax in [ax1, ax2]:
@@ -84,7 +85,7 @@ class ArraySynthesizer:
             if ylim is not None:
                 ax.set_ylim(ylim)
         print_legend = True
-        if any([not non_zero for non_zero in [self.tx_h_count, self.tx_v_count, self.rx_h_count, self.rx_v_count]]):
+        if (self.tx_h_count == 0 and self.rx_h_count == 0) or (self.tx_v_count == 0 and self.rx_v_count == 0):
             self.highlight_overlaps = False
             print_legend = None
         # Physical layout
@@ -174,11 +175,8 @@ class ArraySynthesizer:
                 label="VH" if print_legend else None,
             )
         # Highlight calibration overlaps
-        calibration_overlaps, redundant_overlaps = self._analyze_calibration_overlaps()
-        total_virtual_elements = (
-            self.tx_count * self.rx_count - calibration_overlaps.shape[0] - redundant_overlaps.shape[0]
-        )
         if self.highlight_overlaps:
+            calibration_overlaps, redundant_overlaps = self._analyze_calibration_overlaps()
             if calibration_overlaps.size:
                 ax2.scatter(
                     calibration_overlaps[:, 0],
@@ -186,27 +184,30 @@ class ArraySynthesizer:
                     s=1.5 * marker_size,
                     facecolors="none",
                     edgecolors="gold",
-                    linewidth=1.5,
                     label="Calibration overlap",
                 )
                 overlap_str = self._format_coords(calibration_overlaps)
                 self.logger.info(f"{len(calibration_overlaps)} calibration overlaps found: {overlap_str}")
+            if redundant_overlaps.size:
+                ax2.scatter(
+                    redundant_overlaps[:, 0],
+                    redundant_overlaps[:, 1],
+                    s=1.5 * marker_size,
+                    facecolors="none",
+                    edgecolors="red",
+                    label="Redundant overlap",
+                )
+                redundant_str = self._format_coords(redundant_overlaps)
+                self.logger.warning(f"{len(redundant_overlaps)} redundant overlaps found: {redundant_str}")
+            if not calibration_overlaps.size and not redundant_overlaps.size:
+                self.logger.info("No overlaps found.")
 
-                if redundant_overlaps.size:
-                    ax2.scatter(
-                        redundant_overlaps[:, 0],
-                        redundant_overlaps[:, 1],
-                        s=1.5 * marker_size,
-                        facecolors="none",
-                        edgecolors="red",
-                        linewidth=1.5,
-                        label="Redundant overlap",
-                    )
-                    redundant_str = self._format_coords(redundant_overlaps)
-                    self.logger.warning(f"{len(redundant_overlaps)} redundant overlaps found: {redundant_str}")
-            else:
-                print("No overlaps found.")
-
+        all_virtual = np.vstack([arr for arr in (self.v_hh, self.v_vv, self.v_hv, self.v_vh) if arr.size])
+        if all_virtual.size > 0:
+            binned_virtual = np.floor(all_virtual / self.bin_resolution).astype(int)
+            total_virtual_elements = np.unique(binned_virtual, axis=0).shape[0]
+        else:
+            total_virtual_elements = 0
         ax2.set_title(f"Virtual array ({total_virtual_elements} unique elements)", fontsize=14)
         ax2.set_xlabel(r"Azimuth ($\lambda/2$)", fontsize=12)
         ax2.set_ylabel(r"Elevation ($\lambda/2$)", fontsize=12)
@@ -225,26 +226,36 @@ class ArraySynthesizer:
         Identifies channel overlaps at each virtual position, distinguishing between
         calibration and redundant ones. Utilizes a binning approach to group nearby
         virtual elements, accounting for minor numerical discrepancies.
+
+        Calibration overlaps occur when two different co- or cross-polar channels, such
+        as HH and VV or HV and VH,  occupy the same virtual position. Redundant overlaps
+        occur when co- and cross-polar channels overlap, providing no additional
+        calibration information.
+
+        Warning: Calibration overlaps are calculated as a subset, meaning that even if
+        channels HH, VV, HV, VH all overlap, it will be evaluated as a single
+        calibration overlap.
         """
-        resolution = 1e-2  # Main tuning knob for adjusting the binning sensitivity
-        occupied_bins = defaultdict(set)
+        occupied_bins = defaultdict(list)
         for channel, positions in [("hh", self.v_hh), ("vv", self.v_vv), ("hv", self.v_hv), ("vh", self.v_vh)]:
             if not positions.size:
                 continue
-            binned_positions = np.floor(positions / resolution).astype(int)
+            binned_positions = np.floor(positions / self.bin_resolution).astype(int)
             for position in binned_positions:
-                occupied_bins[tuple(position)].add(channel)
+                occupied_bins[tuple(position)].append(channel)
         calibration_overlaps, redundant_overlaps = [], []
         for position, channels in occupied_bins.items():
             if len(channels) < 2:
                 continue
-            real_coord = [coord * resolution for coord in position]
-            if any(pair.issubset(channels) for pair in [{"hh", "vv"}, {"hv", "vh"}]):
+            real_coord = [coord * self.bin_resolution for coord in position]
+            channel_set = set(channels)
+            if any(pair.issubset(channel_set) for pair in [{"hh", "vv"}, {"hv", "vh"}]):
                 calibration_overlaps.append(real_coord)
             else:
                 redundant_overlaps.append(real_coord)
-
-        return np.array(sorted(calibration_overlaps)), np.array(sorted(redundant_overlaps))
+        return np.array(sorted(calibration_overlaps)) if calibration_overlaps else np.empty((0, 2)), np.array(
+            sorted(redundant_overlaps)
+        ) if redundant_overlaps else np.empty((0, 2))
 
     def _centre_physical(self, method: str = "bounds") -> np.ndarray:
         """Translate every physical coordinate so that the layout is centred."""

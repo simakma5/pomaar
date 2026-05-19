@@ -39,7 +39,7 @@ This is in contrast to physics literature, which often adopts a \emph{negative t
 \subsection{Polarization of electromagnetic waves}
 
 While the full propagation of electromagnetic energy is governed by Maxwell's equations, for radar polarimetry it suffices to consider the solution for a monochromatic plane wave propagating in a direction given by the wave vector $\vec k = k\vec e_k$ with angular frequency $\omega = 2\pi f$.
-Such electric and magnetic vector fields, $\vec E$ and $\vec B$, trace out an ellipse in the field perpendicular to the direction of propagation $\vec k$, and can be expressed as~\parencite{zangwillModernElectrodynamics2012}
+Such electric and magnetic vector fields, $\vec E$ and $\vec B$, trace out an ellipse in the plane perpendicular to the direction of propagation $\vec k$, and can be expressed as~\parencite{zangwillModernElectrodynamics2012}
 \begin{align}
     \vec E(\vec r, t) &= \vec E_\perp\exp\[\ii(\omega t - \vec k\cdot \vec r)\]
 &
@@ -72,7 +72,8 @@ However, the Jones vector is strictly valid only for fully polarized, monochroma
 
 When concerned with scattering off targets, the relationship between the incident and scattered electric fields is of primary interest.
 As discussed in the previous sections, polarization of a monochromatic plane wave at a given instant can be fully characterized by the Jones vector.
-Furthermore, a set of two orthogonal Jones vectors forms a polarization basis.
+Furthermore, a set of two orthogonal Jones vectors forms a polarization basis.%1
+    \todo{Add a section on selection of polarization basis. Note the choices used by various authors.}
 Therefore, it is possible to establish a linear scattering model that relates the incident and scattered Jones vectors, $\vec E^{\mathrm{in}}$ and $\vec E^{\mathrm{sc}}$, respectively, via a complex scattering matrix:
 \begin{align}
     \label{eq:sinclair-matrix}
@@ -401,7 +402,7 @@ The resulting unitary matrix $\vec U = \begin{bmatrix} \vec e_1 & \vec e_2 & \ve
     \end{bmatrix}, \quad i=1,2,3.
 \end{align}
 
-Based on this eigendecomposition, three key parameters are defined.
+Based on this eigen-decomposition, three key parameters are defined.
 First, defined from the logarithmic probability of the eigenvalues, the \emph{polarimetric entropy} measures the \enquote{randomness} of the scattering process:
 \begin{align}
     \label{eq:polarimetric-entropy}
@@ -442,7 +443,7 @@ This representation allows for intuitive visualization and separation of differe
 \subsection{Simple polarimetric descriptors}
 \label{sec:simple-polarimetric-descriptors}
 
-While the target decomposition theorems discussed in~\cref{subsec:coherent-decomposition} and~\cref{sec:incoherent-decomposition} offer rigorous physical interpretations of the scattering mechanisms, their computational complexity -- requiring eigendecomposition of the $3\times3$ coherency matrix for every resolution cell -- can be prohibitive for real-time automotive applications constrained by embedded hardware resources.
+While the target decomposition theorems discussed in~\cref{subsec:coherent-decomposition} and~\cref{sec:incoherent-decomposition} offer rigorous physical interpretations of the scattering mechanisms, their computational complexity -- requiring eigen-decomposition of the $3\times3$ coherency matrix for every resolution cell -- can be prohibitive for real-time automotive applications constrained by embedded hardware resources.
 Consequently, simple polarimetric descriptors -- originally developed for hydrometeor classification~\parencite{bringiPolarimetricDopplerWeather2001} based on power ratios and correlation coefficients -- can offer low-complexity proxies for target classification.
 However, the translation of these metrics from meteorological bands (S/C/X-band) to automotive millimetre-wave frequencies ($\qtyrange{77}{81}{GHz}$) requires careful consideration of wavelength-scale roughness and system limitations.
 
@@ -495,7 +496,7 @@ For example, objects exhibiting very large negative LDR values alongside high $\
     \item Distribution of polarimetric ratios in the range-velocity spectrum:
     \begin{quote}
         \enquote{
-            This can be done by analyzing the polarimetric ratios of the individual detections.
+            This can be done by analysing the polarimetric ratios of the individual detections.
             They are computed as the ratio of the squared magnitude of the considered scattering parameter divided by the squared magnitude of all four scattering parameters for just a single detection, in contrast to the target polarimetric ratio which is computed using all detections corresponding to a target within a frame.
         }
     \end{quote}
@@ -540,7 +541,10 @@ This project proposes a scaled $12 \times 16$ MIMO architecture yielding up to $
 By leveraging this large virtual aperture, the system aims to preserve the angular dimension, allowing for the extraction of clean, spatially isolated scattering matrices for every Doppler bin.
 Consequently, the primary research question of this work is defined as:
 \begin{custombox}[orange]{}
-    Can the integration of a high-resolution $12 \times 16$ MIMO architecture with Doppler-resolved polarimetric processing significantly enhance the classification accuracy of dynamic VRUs?
+    \begin{itemize}
+        \item Can the integration of a high-resolution $12 \times 16$ MIMO architecture with Doppler-resolved polarimetric processing significantly enhance the classification accuracy of dynamic VRUs?
+        \item What is the optimal choice of polarization basis for polarimetric automotive radar?
+    \end{itemize}
 \end{custombox}
 
 % \begin{custombox}[orange]{Goal of this section \& more research directions}

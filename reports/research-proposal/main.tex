@@ -1,0 +1,44 @@
+\documentclass[11pt,a4paper,oneside]{report}
+\usepackage[margin=2.5cm]{geometry}
+\usepackage[main=british,czech]{babel}
+% \usepackage[english=american]{csquotes}
+\usepackage[nodayofweek]{datetime}
+
+\usepackage{longtable}
+\usepackage{pdflscape}
+\usepackage{titlesec}
+\usepackage{titletoc}
+\titlecontents{chapter}[0em]{\vspace{4pt}\bfseries}{\thecontentslabel\quad}{}{\hfill\contentspage}
+
+\setlength{\marginparwidth}{2cm}
+\usepackage{todonotes}
+\usepackage{lipsum}
+
+\usepackage{stddoc}
+\addbibresource{references.biblatex}
+
+\usepackage[abbreviations,nomain,nonumberlist]{glossaries-extra}
+\setabbreviationstyle[abbreviations]{long-short}
+\loadglsentries{glossary}
+\makeglossaries
+
+\renewcommand{\H}{\mathrm{H}}
+\newcommand{\V}{\mathrm{V}}
+
+% \includeonly{chapters/02_literature_review}
+
+\begin{document}
+
+\include{frontmatter}
+
+\printglossary[type=abbreviations,title=List of abbreviations,style=long]
+
+\include{chapters/01_introduction}
+
+\include{chapters/02_literature_review}
+
+\include{chapters/03_gap_analysis}
+
+\printbibliography
+
+\end{document}
