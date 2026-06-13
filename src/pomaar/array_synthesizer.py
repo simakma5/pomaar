@@ -5,6 +5,11 @@ import matplotlib.pyplot as plt
 from matplotlib.ticker import MaxNLocator
 import numpy as np
 
+# TODO:
+# - Add mild non-uniformity in elevation to the Tx array
+# - Try a MIMO array with diamond-shaped virtual lattice
+# - Evaluate topologies by populating them with actual elements
+
 
 def interleave_linear_arrays(tx_h: np.ndarray, tx_v: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
     """Swap every other element between two equal-length linear arrays."""

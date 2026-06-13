@@ -76,6 +76,10 @@ Using a standard $3 \times 4$ \gls{mimo} configuration (producing $12$ virtual c
 \end{itemize}
 By feeding these Doppler-resolved polarimetric power maps into a convolutional neural network, an F1-score of $98.2\%$ was achieved, statistically outperforming single-polarization baselines and confirming the utility of the feature set.
 
+\begin{custombox}[orange]{To-do: Olexander's comment}
+    It would be very interesting also to use polarimetry to detect: water/ice on the road; edges of the road; milestones with optical reflector \enquote{cataphote} -- might have clear trihedral behaviour at short mm waves; road signs vs trees (single reflection against volume scattering; lampposts vs pedestrians).
+\end{custombox}
+
 \paragraph{The spatial resolution bottleneck.}
 Despite validating the phenomenological benefits of polarimetric micro-Doppler, the current state of the art faces a critical limitation regarding spatial separability.
 To manage the computational load and the limited angular resolution of a standard $12$-channel virtual array, the processing pipeline proposed by~\textcite{bouwmeesterClassificationDynamicVulnerable2025} relies on a \enquote{dominant target} selection strategy:
@@ -247,9 +251,13 @@ The proposed technical pipeline employs a hybrid methodology, bridging full-wave
 This approach ensures that array-level hardware physics are correctly accounted for while remaining computationally feasible for large-scale environments.
 The pipeline is divided into three primary stages.
 
+\begin{custombox}[orange]{To-do: Olexander's comment}
+    I would not dive into this subject, its is multiple PhDs on its own. I would rather model scatterer as a black box with some polarization properties and see which antennas are needed to reconstruct them from measured \gls{mimo} data.
+\end{custombox}
+
 \paragraph{Antenna modelling via full-wave characterization.}
 Rather than simulating the entire scene in a computationally expensive full-wave environment, a full-wave solver, namely CST Studio Suite,%
-    \todo{Add citation.}
+    \todo{Cite CST.}
 will be utilized exclusively to characterize the \gls{mimo} array.
 This step is critical to capture exact electromagnetic properties that theoretical models cannot synthesize accurately, including mutual coupling, edge effects, and precise phase centre locations.
 As a preliminary validation step, the simulator will replicate the \qty{28}{\giga\hertz} dual-polarized array specified by~\textcite{fandiantoroExperimentalStudyPolarimetric2025}.
@@ -257,7 +265,7 @@ This involves constructing an $8 \times 8$ array of dual-polarized elements (yie
 
 \paragraph{Scene scattering and propagation.}
 Because targets such as \glspl{vru} are electrically massive at millimetre-wave frequencies, the scene scattering will be evaluated using an asymptotic ray-tracing solver, primarily Altair Feko.%
-    \todo{Add citation.}
+    \todo{Cite Feko.}
 The complex radiation patterns extracted from the full-wave simulation will be imported as far-field sources and assigned to the respective transmitting and receiving coordinates in the virtual scene.
 Using canonical shapes initially (e.g. spheres and dihedral corner reflectors) to validate the response, the solver will compute the full polarimetric scattering matrix for each transmitter-receiver pair.
 While Feko is prioritized for its superior handling of edge diffractions and creeping waves, CST's native asymptotic solver remains a viable fallback to mitigate potential data friction regarding coordinate systems and polarization vectors between the Dassault and Altair ecosystems.
@@ -268,6 +276,13 @@ Custom scripts will synthesize the \gls{fmcw} radar signals by applying the appr
 Subsequent processing will apply \gls{mimo} imaging algorithms, such as back-projection, to form the spatial image.
 Once the coherency matrices are constructed, established polarimetric decompositions -- such as the Yamaguchi four-component or Yamaguchi--Singh six-component methods used by \textcite{fandiantoroExperimentalStudyPolarimetric2025} -- will be applied to classify the scattering mechanisms across the target.
 This effectively closes the loop between hardware non-idealities and algorithmic classification performance.
+
+\begin{custombox}[orange]{To-do: Olexander's comment}
+    \begin{itemize}
+        \item Decomposition is an advanced step. I would start with simple (power only) measurement technique to reconstruct polarimetric properties of the scatterer - similar to what Mate is doing now, but Mate has dual pol antennas in each measurement point. How to do the same power-only with receive antennas displaced from each other? how to calibrate out phase shift due to the antenna displacement?
+        \item The bloody question here: how to do averaging (mathematical operation $\langle a\rangle$)? Averaging in time -- but car is moving. Averaging over multiple image cells -- like in SAR -- but we do not have so many cells\dots
+    \end{itemize}
+\end{custombox}
 
 
 \subsection{Two-stage iterative development scheme for front-end technology}
