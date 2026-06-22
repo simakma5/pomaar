@@ -3468,3 +3468,50 @@
   keywords = {4-component polarimetric decomposition,6-component polarimetric decomposition,Array signal processing,beamforming,Geometry,Image reconstruction,Imaging,MIMO radar,polarimetric radar,polarization decomposition,Radar,radar imaging,Radar imaging,Radar polarimetry,Scattering,Shape,Yamaguchi polarimetric decomposition},
   file = {/home/martin/Zotero/storage/EGG5X74D/Fandiantoro et al. - 2025 - Experimental Study of Polarimetric Scattering Diversity Effect on MIMO Imaging Radar.pdf}
 }
+
+@article{kangDesignTravelingWaveSeriesFed2020,
+  title = {Design of {{Traveling-Wave Series-Fed Microstrip Array With}} a {{Low Sidelobe Level}}},
+  author = {Kang, Y. and Noh, E. and Kim, K.},
+  date = {2020-08},
+  journaltitle = {IEEE Antennas and Wireless Propagation Letters},
+  volume = {19},
+  number = {8},
+  pages = {1395--1399},
+  doi = {10.1109/LAWP.2020.2989916}
+}
+
+@article{kangDesignTravelingWaveSeriesFed2020,
+  title = {Design of {{Traveling-Wave Series-Fed Microstrip Array With}} a {{Low Sidelobe Level}}},
+  author = {Kang, Yunsu and Noh, Eonsu and Kim, Kangwook},
+  date = {2020-08},
+  journaltitle = {IEEE Antennas and Wireless Propagation Letters},
+  volume = {19},
+  number = {8},
+  pages = {1395--1399},
+  issn = {1548-5757},
+  doi = {10.1109/LAWP.2020.2989916},
+  url = {https://ieeexplore.ieee.org/abstract/document/9076864},
+  urldate = {2026-06-04},
+  abstract = {A design procedure for traveling-wave series-fed microstrip array with a low sidelobe level (SLL) was proposed. To control the radiated power while suppressing the reflection for each antenna element, three types of microstrip antenna elements were introduced, and design parameters were studied. To validate the design procedure, a traveling-wave series-fed array was designed to operate at 76.5 GHz. The performance of the array was measured at an anechoic chamber. The results show stable gain and half-power beamwidth (HPBW) over the frequency range of 75 and 78 GHz, where the SLL was consistently lower than -17 dB.},
+  keywords = {Bandwidth,Design procedure,Feeds,Gain,low sidelobe level (SLL),Microstrip,microstrip antenna arrays,Microstrip antenna arrays,Microstrip antennas,millimeter-wave antennas,series feeding,traveling-wave antennas},
+  file = {/home/martin/Zotero/storage/3BYUZMAY/Kang et al. - 2020 - Design of Traveling-Wave Series-Fed Microstrip Array With a Low Sidelobe Level.pdf}
+}
+
+@article{priyalathaCompactModifiedHourglassshaped2023,
+  title = {Compact Modified Hourglass-Shaped Aperture-Coupled Antenna for Radar Applications},
+  author = {Priyalatha, P. and Kumari, Runa and Nandi, Sourav},
+  date = {2023-11},
+  journaltitle = {International Journal of Microwave and Wireless Technologies},
+  volume = {15},
+  number = {9},
+  pages = {1592--1600},
+  issn = {1759-0787, 1759-0795},
+  doi = {10.1017/S1759078723000272},
+  url = {https://www.cambridge.org/core/journals/international-journal-of-microwave-and-wireless-technologies/article/compact-modified-hourglassshaped-aperturecoupled-antenna-for-radar-applications/8A9F665621E78FD56071EA95310D9D1C},
+  urldate = {2026-06-07},
+  abstract = {This paper furnishes a compact modified hourglass-shaped aperture-coupled antenna for radar applications. The effect of slots of various shapes and various slot lengths on the input impedance, radiation pattern, and gain of the antenna are analyzed. The proposed antenna, designed using a modified hourglass-shaped aperture, offers a gain of 8.214 dBi for an compact antenna with a dimension of 20.4 × 20.4 × 1.041 mm3 and an aperture area of 2.495 mm2. Implementation of this proposed modified hourglass-shaped aperture offers a high gain per unit radiating patch area of 40.26 dB/𝜆2𝑔 and a high gain per unit aperture area of 1324.84 dB/𝜆2𝑔. The proposed aperture feeds a circular patch which radiates at its resonant frequency of 10.5 GHz. The proposed design is fabricated and the simulated results are verified experimentally. Equivalent circuit analysis is also done. A measured gain of 7.2 dBi is observed at 10.5 GHz. The physical area of the antenna is reduced without compromising the gain by judiciously choosing the shape of slot with more degree of freedom for impedance matching. The proposed antenna is well suited for the unit cell of phased array antennas for X-band missile radar applications.},
+  langid = {english},
+  keywords = {Aperture area,compact,input impedance,missile radar,phased array},
+  file = {/home/martin/Zotero/storage/9Q4IVP72/Priyalatha et al. - 2023 - Compact modified hourglass-shaped aperture-coupled antenna for radar applications.pdf}
+}
+
