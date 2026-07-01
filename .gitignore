@@ -19,6 +19,7 @@ htmlcov/
 
 # --- Environments ---
 .venv/
+.venv_container/
 .env
 
 # --- Documentation ---

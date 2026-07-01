@@ -23,6 +23,7 @@ dependencies = [
     "xarray>=2023.10",
     "matplotlib>=3.8",
     "ipykernel>=7.2.0",
+    "pyaedt>=1.1.0",
 ]
 
 [project.optional-dependencies]
