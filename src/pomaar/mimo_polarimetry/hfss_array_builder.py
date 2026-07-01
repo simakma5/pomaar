@@ -270,6 +270,15 @@ class MimoHfssBuilder:
             close_on_exit=False,
         )
 
+        # Sync design variables from source design to target design
+        # This prevents copied objects in the target design from retaining stale/cached design variable dimensions.
+        try:
+            print("Syncing design variables from source to target design...")
+            for var_name, var_expr in self.source_design_app.variable_manager.design_variables.items():
+                self.target_design_app[var_name] = var_expr
+        except Exception as e:
+            print(f"  Warning: Failed to sync design variables ({e})")
+
         target_modeler = self.target_design_app.modeler
 
         # --- STEP 3: Size & Draw Global Contiguous Board ---
@@ -507,15 +516,6 @@ class MimoHfssBuilder:
         print("Cleaning up template geometries...")
         target_modeler.delete(all_replicate_sources)
 
-        # Clean up any custom coordinate systems carried over from the unit-cell templates
-        cs_names = [cs.name for cs in target_modeler.coordinate_systems]
-        if cs_names:
-            print(f"Clearing {len(cs_names)} lingering coordinate systems from target design...")
-            try:
-                target_modeler.delete(cs_names)
-            except Exception as e:
-                print(f"  Warning: Failed to delete coordinate systems ({e})")
-
         # --- STEP 5: Perform Boolean Dummy Operations ---
         print("\nExecuting boolean cutout operations...")
         for (operation, target_solid), dummy_instances in replicated_dummy_mapping.items():
@@ -557,6 +557,24 @@ class MimoHfssBuilder:
                 impedance=50.0,
                 name=port_name,
             )
+
+        # Enable Port Post Processing Effects to satisfy warning constraints
+        try:
+            port_assignments = {}
+            for port_sheet in replicated_ports_list:
+                suffix = port_sheet.replace('PortSheet', '')
+                if suffix.startswith('_'):
+                    suffix = suffix[1:]
+                port_name = f"Port_{suffix}"
+                port_assignments[f"{port_name}:1"] = ("1W", "0deg")
+                
+            self.target_design_app.edit_sources(
+                assignment=port_assignments,
+                include_port_post_processing=True
+            )
+            print("  Enabled 'Include Port Post Processing Effects' in Edit Sources.")
+        except Exception as e:
+            print(f"  Warning: Could not enable port post processing effects ({e})")
 
         # --- STEP 7: Create Radiation Airbox ---
         print("\nCreating radiation boundary Airbox...")
