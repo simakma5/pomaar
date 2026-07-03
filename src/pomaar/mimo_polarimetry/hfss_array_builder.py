@@ -5,10 +5,10 @@ Programmatically builds a planar MIMO antenna array layout on a single PCB subst
 using a template-based, boolean-driven assembly workflow.
 """
 
+import math
 import os
 import sys
-import time
-import math
+
 from ansys.aedt.core import Desktop, Hfss
 from ansys.aedt.core.generic.constants import Axis, Gravity
 
@@ -35,7 +35,7 @@ class MimoHfssBuilder:
         self.pcb_margin_mm = pcb_margin_mm
         self.grpc_port = grpc_port
         self.non_graphical = non_graphical
-        
+
         self.desktop_session = None
         self.source_design_app = None
         self.target_design_app = None
@@ -72,7 +72,7 @@ class MimoHfssBuilder:
     ):
         """
         Calculates coordinates for a coplanar MIMO array on the z=0 plane.
-        
+
         The Rx array is a dense ULA along the X-axis (centred at y=0, z=0) with 0.5 lambda spacing.
         The Tx array is a sparse ULA along the X-axis (centred at y=subarray_spacing, z=0)
         with spacing = receiver_count * receiver_spacing.
@@ -89,25 +89,29 @@ class MimoHfssBuilder:
         rx_offset_x = (receiver_count - 1) * receiver_spacing_mm / 2.0
         for rx_idx in range(receiver_count):
             x_pos = rx_idx * receiver_spacing_mm - rx_offset_x
-            elements.append({
-                "label": f"Rx_{rx_idx + 1}",
-                "pos": [x_pos, 0.0, 0.0],
-                "role": "Rx",
-                "polarization": "v",
-                "yaw": 0.0,
-            })
+            elements.append(
+                {
+                    "label": f"Rx_{rx_idx + 1}",
+                    "pos": [x_pos, 0.0, 0.0],
+                    "role": "Rx",
+                    "polarization": "v",
+                    "yaw": 0.0,
+                }
+            )
 
         # Tx elements along X-axis at y=subarray_spacing
         tx_offset_x = (transmitter_count - 1) * transmitter_spacing_mm / 2.0
         for tx_idx in range(transmitter_count):
             x_pos = tx_idx * transmitter_spacing_mm - tx_offset_x
-            elements.append({
-                "label": f"Tx_{tx_idx + 1}",
-                "pos": [x_pos, subarray_spacing_mm, 0.0],
-                "role": "Tx",
-                "polarization": "v",
-                "yaw": 180.0,
-            })
+            elements.append(
+                {
+                    "label": f"Tx_{tx_idx + 1}",
+                    "pos": [x_pos, subarray_spacing_mm, 0.0],
+                    "role": "Tx",
+                    "polarization": "v",
+                    "yaw": 180.0,
+                }
+            )
 
         print(f"Generated coplanar layout at {operating_frequency_ghz} GHz:")
         print(f"  Rx Elements: {receiver_count} (spacing={receiver_spacing_mm:.2f} mm)")
@@ -140,12 +144,12 @@ class MimoHfssBuilder:
         # --- STEP 1: Classify Unit-Cell Objects ---
         # Perform object scan while source design is active
         all_object_names = source_modeler.object_names
-        
+
         global_layers = {}  # dict of layer_name -> {material, z_min, z_max}
-        port_sheets = []    # list of port sheet names
-        dummy_solids = {}   # dict of (operation, target_solid) -> list of dummy source names
-        active_elements = [] # list of active trace/copper names
-        
+        port_sheets = []  # list of port sheet names
+        dummy_solids = {}  # dict of (operation, target_solid) -> list of dummy source names
+        active_elements = []  # list of active trace/copper names
+
         for obj_name in all_object_names:
             # 1. First, check for dummy boolean solids (e.g. Subtract_L12_Ground)
             if "_" in obj_name and obj_name.split("_")[0] in ["Subtract", "Unite"]:
@@ -156,7 +160,7 @@ class MimoHfssBuilder:
                 if key not in dummy_solids:
                     dummy_solids[key] = []
                 dummy_solids[key].append(obj_name)
-                
+
             # 2. Second, check for global layers (Substrate or Ground)
             elif obj_name.endswith("_Substrate") or obj_name.endswith("_Ground"):
                 source_obj = source_modeler.get_object_from_name(obj_name)
@@ -167,11 +171,11 @@ class MimoHfssBuilder:
                     "z_min": z_min,
                     "z_max": z_max,
                 }
-            
+
             # 3. Third, check for port sheets (PortSheet1, PortSheet2, etc.)
             elif obj_name.startswith("PortSheet"):
                 port_sheets.append(obj_name)
-                
+
             # 4. Fourth, regular active elements (Patches, Feeds, etc.)
             else:
                 source_obj = source_modeler.get_object_from_name(obj_name)
@@ -187,28 +191,46 @@ class MimoHfssBuilder:
         print(f"  Dummy Cutouts:    {list(dummy_solids.keys())}")
         print(f"  Active Elements:  {active_elements}")
 
-        # --- Check for PhaseCentreCS (British spelling) ---
+        # --- Check/Compute PhaseCentreCS ---
         offset = [0.0, 0.0, 0.0]
         cs_map = {cs.name: cs for cs in source_modeler.coordinate_systems}
-        
+
+        run_opt = False
         if "PhaseCentreCS" in cs_map:
             cs_obj = cs_map["PhaseCentreCS"]
-            # Extract [dx, dy, dz] origin offset of phase centre
-            offset = [float(val) for val in cs_obj.origin]
+            try:
+                # Direct evaluation to bypass PyAEDT temp_var post-processing assignment bug
+                dx_mm = float(self.source_design_app.evaluate_expression(cs_obj.props["OriginX"])) * 1000.0
+                dy_mm = float(self.source_design_app.evaluate_expression(cs_obj.props["OriginY"])) * 1000.0
+                dz_mm = float(self.source_design_app.evaluate_expression(cs_obj.props["OriginZ"])) * 1000.0
+                offset = [round(dx_mm, 3), round(dy_mm, 3), round(dz_mm, 3)]
+            except Exception:
+                try:
+                    offset = [float(val) for val in cs_obj.origin]
+                except Exception:
+                    offset = [0.0, 0.0, 0.0]
             print(f"\n[INFO] PhaseCentreCS found in unit-cell design. Origin offset: {offset} mm.")
+            user_input = input("Do you want to use the existing PhaseCentreCS? (y/n) [default: y]: ")
+            if user_input.strip().lower() in ["n", "no"]:
+                print("[INFO] Re-calculating Phase Centre using Optimetrics...")
+                run_opt = True
         else:
-            print("\n" + "="*80)
+            print("\n" + "=" * 80)
             print("[WARNING] PhaseCentreCS was NOT found in the unit-cell design!")
-            print("Proceeding without phase centre offset (zero offset) might cause geometric misalignment")
-            print("in phase centre spatial diversity calculations.")
-            print("="*80 + "\n")
-            
-            user_input = input("Do you want to proceed without PhaseCentreCS offset? (y/n): ")
-            if user_input.strip().lower() not in ["y", "yes", ""]:
-                print("[INFO] Aborted by user.")
-                self.close()
-                sys.exit(0)
-            print("[INFO] Proceeding with zero offset [0.0, 0.0, 0.0] mm.")
+            print("=" * 80 + "\n")
+            user_input = input("Do you want to run Optimetrics to calculate the Phase Centre? (y/n) [default: y]: ")
+            if user_input.strip().lower() not in ["n", "no"]:
+                run_opt = True
+            else:
+                user_input2 = input("Proceed without PhaseCentreCS offset? (y/n) [default: y]: ")
+                if user_input2.strip().lower() in ["n", "no"]:
+                    print("[INFO] Aborted by user.")
+                    self.close()
+                    sys.exit(0)
+                print("[INFO] Proceeding with zero offset [0.0, 0.0, 0.0] mm.")
+
+        if run_opt:
+            offset = self._run_phase_centre_opt(source_modeler, global_layers, active_elements, operating_frequency_ghz)
 
         project_name = self.source_design_app.project_name
         design_list = self.source_design_app.design_list
@@ -230,14 +252,14 @@ class MimoHfssBuilder:
                 new_desktop=False,
                 close_on_exit=False,
             )
-            
+
             # Clear existing 3D bodies
             target_modeler = self.target_design_app.modeler
             all_objs = list(target_modeler.object_names)
             if all_objs:
                 print(f"  Clearing {len(all_objs)} existing objects...")
                 target_modeler.delete(all_objs)
-                
+
             # Clear coordinate systems
             cs_names = [cs.name for cs in target_modeler.coordinate_systems]
             if cs_names:
@@ -285,7 +307,7 @@ class MimoHfssBuilder:
         # Sort layers by prefix (L1, L12, L2...) to ensure they are created in stackup order
         sorted_layers = sorted(global_layers.keys(), key=lambda name: name.split("_")[0])
         ground_layer_names = []
-        
+
         # Track overall board bounds for Airbox radiation boundary creation
         overall_x_min = None
         overall_x_max = None
@@ -306,10 +328,10 @@ class MimoHfssBuilder:
             x_min_uc, x_max_uc = float(bbox[0]), float(bbox[3])
 
             # Query all active elements and port sheets to get the Y-bounds (longitudinal bounds)
-            # This crops out any empty substrate margin and forces the board to terminate directly where the feedlines end.
+            # This crops out empty substrate margin and forces the board to terminate directly where the feedlines end.
             y_min_active_uc = None
             y_max_active_uc = None
-            for active_name in (active_elements + port_sheets):
+            for active_name in active_elements + port_sheets:
                 try:
                     act_obj = self.source_design_app.modeler.get_object_from_name(active_name)
                     act_bbox = act_obj.bounding_box
@@ -382,7 +404,7 @@ class MimoHfssBuilder:
                     material=material,
                 )
                 sub_board.transparency = 0.5
-                
+
             elif layer_name.endswith("_Ground"):
                 ground_layer_names.append(layer_name)
                 # If ground is modeled as infinitely thin sheet (thickness = 0)
@@ -407,7 +429,7 @@ class MimoHfssBuilder:
         all_replicate_sources = active_elements + port_sheets
         for dummy_list in dummy_solids.values():
             all_replicate_sources.extend(dummy_list)
-            
+
         replicated_dummy_mapping = {key: [] for key in dummy_solids.keys()}
         replicated_ports_list = []
 
@@ -447,7 +469,7 @@ class MimoHfssBuilder:
             for variant_suffix, rotation_yaw in polarization_variants:
                 variant_label = f"{label}{variant_suffix}"
                 print(f"  Replicating element variant: {variant_label} to position {pos} mm...")
-                
+
                 # Duplicate all templates locally using duplicate_along_line with a dummy Z offset of 1.0 mm.
                 # This completely bypasses the X11 clipboard copy/paste mechanism to avoid hangs in headless containers.
                 success, pasted_names = target_modeler.duplicate_along_line(
@@ -473,15 +495,15 @@ class MimoHfssBuilder:
                         if pasted_name.startswith(source_name):
                             base_name = source_name
                             break
-                            
+
                     new_name = f"{base_name}_{variant_label}"
                     target_modeler.get_object_from_name(pasted_name).name = new_name
                     renamed_objs.append(new_name)
-                    
+
                     # Track port sheets
                     if base_name in port_sheets:
                         replicated_ports_list.append(new_name)
-                        
+
                     # Track dummy solids
                     for key, dummy_src_list in dummy_solids.items():
                         if base_name in dummy_src_list:
@@ -500,7 +522,7 @@ class MimoHfssBuilder:
                 rad = math.radians(total_rotation)
                 cos_val = math.cos(rad)
                 sin_val = math.sin(rad)
-                
+
                 # Rotate offset around Z axis
                 rot_dx = offset[0] * cos_val - offset[1] * sin_val
                 rot_dy = offset[0] * sin_val + offset[1] * cos_val
@@ -521,12 +543,12 @@ class MimoHfssBuilder:
         for (operation, target_solid), dummy_instances in replicated_dummy_mapping.items():
             if not dummy_instances:
                 continue
-                
+
             # Verify if the target solid exists in the target modeler before executing
             if target_solid not in target_modeler.object_names:
                 print(f"  Warning: Target solid '{target_solid}' not found in layout. Skipping boolean {operation}.")
                 continue
-                
+
             if operation == "Subtract":
                 print(f"  Subtracting {len(dummy_instances)} objects from '{target_solid}'")
                 target_modeler.subtract(
@@ -542,13 +564,13 @@ class MimoHfssBuilder:
         print("\nAssigning port excitations...")
         # Use first identified ground plane as the default reference ground
         default_ground = ground_layer_names[0] if ground_layer_names else "Ground_Plane"
-        
+
         for port_sheet in replicated_ports_list:
-            suffix = port_sheet.replace('PortSheet', '')
-            if suffix.startswith('_'):
+            suffix = port_sheet.replace("PortSheet", "")
+            if suffix.startswith("_"):
                 suffix = suffix[1:]
             port_name = f"Port_{suffix}"
-            
+
             print(f"  Assigning lumped port to sheet '{port_sheet}' referencing '{default_ground}'")
             self.target_design_app.lumped_port(
                 assignment=port_sheet,
@@ -562,16 +584,13 @@ class MimoHfssBuilder:
         try:
             port_assignments = {}
             for port_sheet in replicated_ports_list:
-                suffix = port_sheet.replace('PortSheet', '')
-                if suffix.startswith('_'):
+                suffix = port_sheet.replace("PortSheet", "")
+                if suffix.startswith("_"):
                     suffix = suffix[1:]
                 port_name = f"Port_{suffix}"
                 port_assignments[f"{port_name}:1"] = ("1W", "0deg")
-                
-            self.target_design_app.edit_sources(
-                assignment=port_assignments,
-                include_port_post_processing=True
-            )
+
+            self.target_design_app.edit_sources(assignment=port_assignments, include_port_post_processing=True)
             print("  Enabled 'Include Port Post Processing Effects' in Edit Sources.")
         except Exception as e:
             print(f"  Warning: Could not enable port post processing effects ({e})")
@@ -624,15 +643,15 @@ class MimoHfssBuilder:
         """Triggers the HFSS simulation setup and solve."""
         if not self.target_design_app:
             raise RuntimeError("Array design not synthesized yet.")
-        
+
         print("Initializing analysis setup...")
         operating_freq = "28GHz"
         if self.source_design_app.setups:
             operating_freq = self.source_design_app.setups[0].props.get("Frequency", "28GHz")
-            
+
         setup = self.target_design_app.create_setup(setup_name="ArraySetup")
         setup.props["Frequency"] = operating_freq
-        
+
         print(f"Solving full-wave HFSS array design at {operating_freq}...")
         self.target_design_app.analyze(setup_name="ArraySetup")
 
@@ -640,15 +659,199 @@ class MimoHfssBuilder:
         """Exports solved S-parameter coupling matrix to a Touchstone (.sNp) file."""
         if not self.target_design_app:
             raise RuntimeError("Array design is not resolved.")
-            
+
         output_touchstone_path = os.path.abspath(output_touchstone_path)
         print(f"Exporting coupling S-parameters to: {output_touchstone_path}")
-        
+
         self.target_design_app.export_touchstone(
-            setup_name="ArraySetup",
-            sweep_name="LastSweep",
-            filename=output_touchstone_path
+            setup_name="ArraySetup", sweep_name="LastSweep", filename=output_touchstone_path
         )
+
+    def _run_phase_centre_opt(self, source_modeler, global_layers, active_elements, operating_frequency_ghz):
+        """Runs HFSS Optimetrics to find the exact phase centre of the antenna."""
+        print("\nStarting automated Phase Centre extraction...")
+
+        # Calculate substrate span and center
+        x_min_uc, x_max_uc = None, None
+        y_min_uc, y_max_uc = None, None
+        for obj_name, layer_info in global_layers.items():
+            if "_substrate" in obj_name.lower():
+                layer_obj = source_modeler[obj_name]
+                bbox = layer_obj.bounding_box
+                cx_min = float(bbox[0])
+                cx_max = float(bbox[3])
+                cy_min = float(bbox[1])
+                cy_max = float(bbox[4])
+                if x_min_uc is None or cx_min < x_min_uc:
+                    x_min_uc = cx_min
+                if x_max_uc is None or cx_max > x_max_uc:
+                    x_max_uc = cx_max
+                if y_min_uc is None or cy_min < y_min_uc:
+                    y_min_uc = cy_min
+                if y_max_uc is None or cy_max > y_max_uc:
+                    y_max_uc = cy_max
+
+        # Fallback values
+        if x_min_uc is None:
+            x_min_uc, x_max_uc = -5.0, 5.0
+        if y_min_uc is None:
+            y_min_uc, y_max_uc = -5.0, 5.0
+
+        x_span = x_max_uc - x_min_uc
+        y_span = y_max_uc - y_min_uc
+        x_center = (x_min_uc + x_max_uc) / 2.0
+        y_center = (y_min_uc + y_max_uc) / 2.0
+
+        # Find top Z coordinate
+        top_z = 0.0
+        for layer_info in global_layers.values():
+            if layer_info["z_max"] > top_z:
+                top_z = layer_info["z_max"]
+        for obj_name in active_elements:
+            layer_obj = source_modeler[obj_name]
+            bbox = layer_obj.bounding_box
+            z_max = float(bbox[5])
+            if z_max > top_z:
+                top_z = z_max
+
+        print(f"  Unit-cell lateral spans: X={x_span:.2f} mm, Y={y_span:.2f} mm")
+        print(f"  Top-most Z layer: {top_z:.3f} mm")
+
+        # Set up design variables for optimization
+        print("  Creating design variables...")
+        self.source_design_app["PhaseCentreX"] = f"{x_center:.3f}mm"
+        self.source_design_app["PhaseCentreY"] = f"{y_center:.3f}mm"
+        self.source_design_app["PhaseCentreZ"] = f"{top_z:.3f}mm"
+
+        # Activate variable optimization with ranges
+        self.source_design_app.activate_variable_optimization(
+            "PhaseCentreX", minimum=f"{x_center - x_span / 2.0:.3f}mm", maximum=f"{x_center + x_span / 2.0:.3f}mm"
+        )
+        self.source_design_app.activate_variable_optimization(
+            "PhaseCentreY", minimum=f"{y_center - y_span / 2.0:.3f}mm", maximum=f"{y_center + y_span / 2.0:.3f}mm"
+        )
+        self.source_design_app.activate_variable_optimization(
+            "PhaseCentreZ", minimum=f"{top_z - 1.0:.3f}mm", maximum=f"{top_z + 2.0:.3f}mm"
+        )
+
+        # Create Relative Coordinate System
+        temp_cs_name = "PhaseCentreCS_Opt"
+        cs_map = {cs.name: cs for cs in source_modeler.coordinate_systems}
+        if temp_cs_name in cs_map:
+            try:
+                cs_map[temp_cs_name].delete()
+            except Exception:
+                pass
+
+        print(f"  Creating temporary coordinate system '{temp_cs_name}'...")
+        source_modeler.create_coordinate_system(
+            origin=["PhaseCentreX", "PhaseCentreY", "PhaseCentreZ"], reference_cs="Global", name=temp_cs_name
+        )
+
+        # Create Far Field Infinite Sphere Setup
+        # We sweep theta from -40 to 40 degrees at phi=0
+        sphere_name = "PhaseCentreSphere"
+        print(f"  Creating far-field infinite sphere setup '{sphere_name}' bound to '{temp_cs_name}'...")
+        try:
+            self.source_design_app.field_setups[sphere_name].delete()
+        except Exception:
+            pass
+
+        self.source_design_app.insert_infinite_sphere(
+            name=sphere_name,
+            phi_start=0,
+            phi_stop=0,
+            phi_step=1,
+            theta_start=-40,
+            theta_stop=40,
+            theta_step=2,
+            units="deg",
+            custom_coordinate_system=temp_cs_name,
+        )
+
+        # Create Optimetrics Optimization Setup
+        opt_setup_name = "PhaseCentreOpt"
+        print(f"  Creating Optimetrics setup '{opt_setup_name}'...")
+        try:
+            self.source_design_app.optimizations.delete(opt_setup_name)
+        except Exception:
+            pass
+
+        opt_setup = self.source_design_app.optimizations.add(
+            calculation="pk2pk(cang_deg(rEphi))",
+            ranges={
+                "Theta": ("-40deg", "40deg"),
+                "Phi": "0deg",
+                "Freq": f"{operating_frequency_ghz}GHz",
+            },
+            optimization_type="Optimization",
+            variables=["PhaseCentreX", "PhaseCentreY", "PhaseCentreZ"],
+            name=opt_setup_name,
+            context=sphere_name,
+            report_type="Far Fields",
+            condition="Minimize",
+        )
+
+        print("  Running Phase Centre Optimization in HFSS...")
+        try:
+            self.source_design_app.analyze_setup(opt_setup_name)
+        except Exception as e:
+            print(f"  [ERROR] Optimization failed: {e}")
+            print("  Falling back to zero offset [0.0, 0.0, 0.0] mm.")
+            return [0.0, 0.0, 0.0]
+
+        # Retrieve optimized values
+        print("  Retrieving optimized coordinates...")
+        # evaluate_expression returns values in SI units (meters). Convert to millimeters.
+        opt_x = float(self.source_design_app.evaluate_expression("PhaseCentreX")) * 1000.0
+        opt_y = float(self.source_design_app.evaluate_expression("PhaseCentreY")) * 1000.0
+        opt_z = float(self.source_design_app.evaluate_expression("PhaseCentreZ")) * 1000.0
+
+        # Round to 3 decimal places
+        opt_x_rounded = round(opt_x, 3)
+        opt_y_rounded = round(opt_y, 3)
+        opt_z_rounded = round(opt_z, 3)
+
+        print(f"  Optimized Phase Centre coordinates: [{opt_x_rounded}, {opt_y_rounded}, {opt_z_rounded}] mm")
+
+        # Clean up temporary setups
+        print("  Cleaning up temporary Optimetrics configurations...")
+        try:
+            self.source_design_app.optimizations.delete(opt_setup_name)
+        except Exception:
+            pass
+        try:
+            self.source_design_app.field_setups[sphere_name].delete()
+        except Exception:
+            pass
+        try:
+            cs_map = {cs.name: cs for cs in source_modeler.coordinate_systems}
+            if temp_cs_name in cs_map:
+                cs_map[temp_cs_name].delete()
+        except Exception:
+            pass
+
+        # Recreate permanent PhaseCentreCS in unit cell design
+        permanent_cs_name = "PhaseCentreCS"
+        cs_map = {cs.name: cs for cs in source_modeler.coordinate_systems}
+        if permanent_cs_name in cs_map:
+            try:
+                cs_map[permanent_cs_name].delete()
+            except Exception:
+                pass
+
+        print(f"  Saving permanent '{permanent_cs_name}' coordinate system to unit cell...")
+        source_modeler.create_coordinate_system(
+            origin=[f"{opt_x_rounded}mm", f"{opt_y_rounded}mm", f"{opt_z_rounded}mm"],
+            reference_cs="Global",
+            name=permanent_cs_name,
+        )
+
+        # Save project to disk
+        self.source_design_app.save_project()
+        print("  Unit cell design saved.")
+
+        return [opt_x_rounded, opt_y_rounded, opt_z_rounded]
 
     def close(self):
         """Safely releases the AEDT connection."""
@@ -667,11 +870,7 @@ if __name__ == "__main__":
         print("Usage: python3 hfss_array_builder.py <project_path> <source_design_name>")
         sys.exit(1)
 
-    builder = MimoHfssBuilder(
-        project_path=sys.argv[1],
-        source_design_name=sys.argv[2],
-        non_graphical=True
-    )
+    builder = MimoHfssBuilder(project_path=sys.argv[1], source_design_name=sys.argv[2], non_graphical=True)
     try:
         builder.connect_desktop()
         elements_list = builder.calculate_default_coplanar_layout(
