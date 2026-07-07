@@ -219,7 +219,10 @@ class MimoHfssBuilder:
                 except Exception:
                     offset = [0.0, 0.0, 0.0]
             print(f"\n[INFO] PhaseCentreCS found in unit-cell design. Origin offset: {offset} mm.")
-            user_input = input("Do you want to use the existing PhaseCentreCS? (y/n) [default: y]: ")
+            if sys.stdin.isatty():
+                user_input = input("Do you want to use the existing PhaseCentreCS? (y/n) [default: y]: ")
+            else:
+                user_input = "y"
             if user_input.strip().lower() in ["n", "no"]:
                 print("[INFO] Re-calculating Phase Centre using Optimetrics...")
                 run_opt = True
@@ -227,11 +230,17 @@ class MimoHfssBuilder:
             print("\n" + "=" * 80)
             print("[WARNING] PhaseCentreCS was NOT found in the unit-cell design!")
             print("=" * 80 + "\n")
-            user_input = input("Do you want to run Optimetrics to calculate the Phase Centre? (y/n) [default: y]: ")
+            if sys.stdin.isatty():
+                user_input = input("Do you want to run Optimetrics to calculate the Phase Centre? (y/n) [default: y]: ")
+            else:
+                user_input = "y"
             if user_input.strip().lower() not in ["n", "no"]:
                 run_opt = True
             else:
-                user_input2 = input("Proceed without PhaseCentreCS offset? (y/n) [default: y]: ")
+                if sys.stdin.isatty():
+                    user_input2 = input("Proceed without PhaseCentreCS offset? (y/n) [default: y]: ")
+                else:
+                    user_input2 = "y"
                 if user_input2.strip().lower() in ["n", "no"]:
                     print("[INFO] Aborted by user.")
                     self.close()
@@ -254,6 +263,15 @@ class MimoHfssBuilder:
         # To avoid the buggy delete-and-recreate race condition in AEDT,
         # we check if the design exists. If so, we reuse it and clear its modeler.
         if self.target_design_name in design_list:
+            if sys.stdin.isatty():
+                user_input = input(f"Design '{self.target_design_name}' already exists. Do you want to clear it and overwrite? (y/n) [default: y]: ")
+            else:
+                user_input = "y"
+            if user_input.strip().lower() in ["n", "no"]:
+                print("[INFO] Aborted by user to prevent overwriting existing design.")
+                self.close()
+                sys.exit(0)
+
             print(f"Design '{self.target_design_name}' already exists. Reusing and clearing it...")
             self.target_design_app = Hfss(
                 project=project_name,
@@ -274,6 +292,8 @@ class MimoHfssBuilder:
             if cs_names:
                 print(f"  Clearing {len(cs_names)} coordinate systems...")
                 target_modeler.delete(cs_names)
+
+            # Setup and sweep purging will be handled at the end of synthesis in configure_simulation_setup
         else:
             print(f"Creating new HFSS array design '{self.target_design_name}'...")
             try:
@@ -645,23 +665,23 @@ class MimoHfssBuilder:
         except Exception as e:
             print(f"  Warning: Failed to assign radiation boundary ({e})")
 
-        print("  Hiding Airbox in layout view...")
+        print("  Hiding Airbox in layout view (making it fully transparent)...")
         try:
-            self.target_design_app.modeler.oeditor.ChangeProperty(
-                [
-                    "NAME:AllTabs",
-                    [
-                        "NAME:Attributes",
-                        ["NAME:PropServers", "Airbox"],
-                        ["NAME:ChangedProps", ["NAME:Visible", "Value:=", False]],
-                    ],
-                ]
-            )
+            airbox_obj.transparency = 1.0
         except Exception as e:
-            print(f"  Warning: Failed to hide Airbox object ({e})")
+            print(f"  Warning: Failed to set Airbox transparency ({e})")
 
         # Configure simulation setup and sweep in the target design
         self.configure_simulation_setup()
+
+        # Run Design Validation
+        print("\nRunning HFSS built-in design validation...")
+        validation_ok = self.target_design_app.validate_simple()
+        if validation_ok == 1 or validation_ok is True:
+            print("  Design validation: PASSED.")
+        else:
+            print("  [ERROR] Design validation: FAILED!")
+            assert False, "HFSS design validation failed."
 
         self.target_design_app.save_project()
         print(f"\nMIMO array synthesis successfully completed in design '{self.target_design_name}'.")
@@ -671,16 +691,49 @@ class MimoHfssBuilder:
         if not self.target_design_app:
             raise RuntimeError("Array design not synthesized yet.")
 
+        # Check and purge any existing analysis setups and their sweeps
+        # Check and purge any existing analysis setups and their sweeps
+        try:
+            setup_names = list(self.target_design_app.setup_names)
+        except Exception:
+            setup_names = []
+
+        if setup_names:
+            print(f"  Clearing {len(setup_names)} existing analysis setups and their sweeps...")
+            for s_name in setup_names:
+                try:
+                    setup_obj = self.target_design_app.get_setup(s_name)
+                    # Initialize PyAEDT sweeps cache to prevent NoneType iterable error
+                    try:
+                        _ = setup_obj.sweeps
+                    except Exception:
+                        pass
+                    # Delete all sweeps inside this setup
+                    try:
+                        sweep_names = list(setup_obj.get_sweep_names())
+                    except Exception:
+                        sweep_names = []
+                    for sw_name in sweep_names:
+                        try:
+                            setup_obj.delete_sweep(sw_name)
+                            print(f"  Deleted existing sweep '{sw_name}' from setup '{s_name}'")
+                        except Exception:
+                            pass
+                except Exception:
+                    pass
+                try:
+                    self.target_design_app.delete_setup(s_name)
+                    print(f"  Deleted existing setup '{s_name}'")
+                except Exception:
+                    pass
+
         setup_name = "ArraySetup"
         print(
             f"\nConfiguring single-frequency adaptive mesh setup '{setup_name}' at {self.centre_frequency_ghz} GHz..."
         )
 
-        # Access or create the setup
-        if setup_name in self.target_design_app.setup_names:
-            setup = self.target_design_app.get_setup(setup_name)
-        else:
-            setup = self.target_design_app.create_setup(setup_name=setup_name)
+        # Create setup fresh
+        setup = self.target_design_app.create_setup(name=setup_name)
 
         setup.props["Frequency"] = f"{self.centre_frequency_ghz}GHz"
         setup.props["MaximumPasses"] = 21
@@ -697,11 +750,12 @@ class MimoHfssBuilder:
             f"Configuring interpolating frequency sweep '{sweep_name}' ({start_freq:.2f} GHz - {end_freq:.2f} GHz, 401 points)..."
         )
 
-        # Check and delete existing sweep if it already exists
+        # Try to delete default sweep if created automatically
         try:
-            for sw in list(setup.sweeps):
-                if sw.name == sweep_name:
-                    sw.delete()
+            # Initialize sweeps cache to prevent NoneType iterable error
+            _ = setup.sweeps
+            for sname in list(setup.get_sweep_names()):
+                setup.delete_sweep(sname)
         except Exception:
             pass
 
@@ -743,7 +797,7 @@ class MimoHfssBuilder:
         """Runs HFSS Optimetrics to find the exact phase centre of the antenna."""
         print("\nStarting automated Phase Centre extraction...")
 
-        # Calculate substrate span and center
+        # Calculate substrate span and centre
         x_min_uc, x_max_uc = None, None
         y_min_uc, y_max_uc = None, None
         for obj_name, layer_info in global_layers.items():
@@ -771,8 +825,8 @@ class MimoHfssBuilder:
 
         x_span = x_max_uc - x_min_uc
         y_span = y_max_uc - y_min_uc
-        x_center = (x_min_uc + x_max_uc) / 2.0
-        y_center = (y_min_uc + y_max_uc) / 2.0
+        x_centre = (x_min_uc + x_max_uc) / 2.0
+        y_centre = (y_min_uc + y_max_uc) / 2.0
 
         # Find top Z coordinate
         top_z = 0.0
@@ -791,16 +845,16 @@ class MimoHfssBuilder:
 
         # Set up design variables for optimization
         print("  Creating design variables...")
-        self.source_design_app["PhaseCentreX"] = f"{x_center:.3f}mm"
-        self.source_design_app["PhaseCentreY"] = f"{y_center:.3f}mm"
+        self.source_design_app["PhaseCentreX"] = f"{x_centre:.3f}mm"
+        self.source_design_app["PhaseCentreY"] = f"{y_centre:.3f}mm"
         self.source_design_app["PhaseCentreZ"] = f"{top_z:.3f}mm"
 
         # Activate variable optimization with ranges
         self.source_design_app.activate_variable_optimization(
-            "PhaseCentreX", minimum=f"{x_center - x_span / 2.0:.3f}mm", maximum=f"{x_center + x_span / 2.0:.3f}mm"
+            "PhaseCentreX", minimum=f"{x_centre - x_span / 2.0:.3f}mm", maximum=f"{x_centre + x_span / 2.0:.3f}mm"
         )
         self.source_design_app.activate_variable_optimization(
-            "PhaseCentreY", minimum=f"{y_center - y_span / 2.0:.3f}mm", maximum=f"{y_center + y_span / 2.0:.3f}mm"
+            "PhaseCentreY", minimum=f"{y_centre - y_span / 2.0:.3f}mm", maximum=f"{y_centre + y_span / 2.0:.3f}mm"
         )
         self.source_design_app.activate_variable_optimization(
             "PhaseCentreZ", minimum=f"{top_z - 1.0:.3f}mm", maximum=f"{top_z + 2.0:.3f}mm"
@@ -849,6 +903,7 @@ class MimoHfssBuilder:
         except Exception:
             pass
 
+        source_setup = self.source_design_app.setup_names[0] if self.source_design_app.setup_names else None
         opt_setup = self.source_design_app.optimizations.add(
             calculation="pk2pk(cang_deg(rEphi))",
             ranges={
@@ -862,6 +917,7 @@ class MimoHfssBuilder:
             context=sphere_name,
             report_type="Far Fields",
             condition="Minimize",
+            solution=source_setup,
         )
 
         print("  Running Phase Centre Optimization in HFSS...")
@@ -940,6 +996,7 @@ class MimoHfssBuilder:
 if __name__ == "__main__":
     import argparse
     import json
+    import os
 
     parser = argparse.ArgumentParser(description="HFSS Full-Wave Array Synthesis CLI.")
     parser.add_argument("project_path", help="Path to the AEDT project file (.aedt)")
@@ -948,15 +1005,24 @@ if __name__ == "__main__":
         "layout_json_path", nargs="?", default=None, help="Optional path to custom elements layout JSON file"
     )
     parser.add_argument(
-        "--center-freq", "--centre-freq", type=float, default=79.0, help="Center frequency in GHz (default: 79.0)"
+        "--centre-freq", "--center-freq", type=float, default=79.0, help="Centre frequency in GHz (default: 79.0)"
     )
     parser.add_argument("--bandwidth", type=float, default=4.0, help="Sweep bandwidth in GHz (default: 4.0)")
 
     args = parser.parse_args()
 
+    # Determine target design name from layout file if provided
+    target_design_name = None
+    if args.layout_json_path:
+        base_name = os.path.splitext(os.path.basename(args.layout_json_path))[0]
+        words = base_name.replace("-", "_").split("_")
+        layout_suffix = "".join(w.capitalize() for w in words if w)
+        target_design_name = f"{args.source_design_name}{layout_suffix}"
+
     builder = MimoHfssBuilder(
         project_path=args.project_path,
         source_design_name=args.source_design_name,
+        target_design_name=target_design_name,
         centre_frequency_ghz=args.centre_freq,
         bandwidth_ghz=args.bandwidth,
         non_graphical=True,
