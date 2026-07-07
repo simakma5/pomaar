@@ -50,3 +50,6 @@ data/*
 *.gls-abr
 *.ist
 # *.pdf
+
+# --- Temporary outputs ---
+src/pomaar/mimo_polarimetry/examples/*.json

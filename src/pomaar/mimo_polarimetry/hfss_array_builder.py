@@ -28,6 +28,8 @@ class MimoHfssBuilder:
         pcb_margin_mm=0.0,
         grpc_port=50051,
         non_graphical=True,
+        centre_frequency_ghz=79.0,
+        bandwidth_ghz=4.0,
     ):
         self.project_path = os.path.abspath(project_path)
         self.source_design_name = source_design_name
@@ -35,6 +37,8 @@ class MimoHfssBuilder:
         self.pcb_margin_mm = pcb_margin_mm
         self.grpc_port = grpc_port
         self.non_graphical = non_graphical
+        self.centre_frequency_ghz = centre_frequency_ghz
+        self.bandwidth_ghz = bandwidth_ghz
 
         self.desktop_session = None
         self.source_design_app = None
@@ -118,7 +122,7 @@ class MimoHfssBuilder:
         print(f"  Tx Elements: {transmitter_count} (spacing={transmitter_spacing_mm:.2f} mm)")
         return elements
 
-    def synthesize_array_in_hfss(self, elements, operating_frequency_ghz=79.0):
+    def synthesize_array_in_hfss(self, elements, operating_frequency_ghz=None):
         """
         Synthesizes the MIMO array in HFSS using a naming-convention boolean assembly:
         1. Classifies objects in the unit cell (Global Layers, Port Sheets, Active Copper, Dummy Cutouts).
@@ -128,6 +132,11 @@ class MimoHfssBuilder:
         5. Applies boolean operations using the dummy solids (e.g. Subtract_L2_Ground).
         6. Assigns lumped port excitations to the replicated port sheets.
         """
+        if operating_frequency_ghz is not None:
+            self.centre_frequency_ghz = operating_frequency_ghz
+        else:
+            operating_frequency_ghz = self.centre_frequency_ghz
+
         if not self.desktop_session:
             self.connect_desktop()
 
@@ -398,7 +407,7 @@ class MimoHfssBuilder:
             if layer_name.endswith("_Substrate"):
                 print(f"  Creating substrate '{layer_name}' (material={material}, thickness={thickness:.2f} mm)")
                 sub_board = target_modeler.create_box(
-                    origin=[origin_x, origin_y, z_min],
+                    origin=[origin_x, origin_y, z_min - offset[2]],
                     sizes=[board_width, board_height, thickness],
                     name=layer_name,
                     material=material,
@@ -409,17 +418,17 @@ class MimoHfssBuilder:
                 ground_layer_names.append(layer_name)
                 # If ground is modeled as infinitely thin sheet (thickness = 0)
                 if thickness == 0.0:
-                    print(f"  Creating ground plane sheet '{layer_name}' at Z={z_min}")
+                    print(f"  Creating ground plane sheet '{layer_name}' at Z={z_min - offset[2]}")
                     target_modeler.create_rectangle(
                         orientation="XY",
-                        origin=[origin_x, origin_y, z_min],
+                        origin=[origin_x, origin_y, z_min - offset[2]],
                         sizes=[board_width, board_height],
                         name=layer_name,
                     )
                 else:
                     print(f"  Creating ground plane block '{layer_name}' (thickness={thickness:.2f} mm)")
                     target_modeler.create_box(
-                        origin=[origin_x, origin_y, z_min],
+                        origin=[origin_x, origin_y, z_min - offset[2]],
                         sizes=[board_width, board_height, thickness],
                         name=layer_name,
                         material=material,
@@ -601,8 +610,8 @@ class MimoHfssBuilder:
         all_z_coords = []
         for layer_info in global_layers.values():
             all_z_coords.extend([layer_info["z_min"], layer_info["z_max"]])
-        overall_z_min = min(all_z_coords) if all_z_coords else 0.0
-        overall_z_max = max(all_z_coords) if all_z_coords else 1.0
+        overall_z_min = (min(all_z_coords) if all_z_coords else 0.0) - offset[2]
+        overall_z_max = (max(all_z_coords) if all_z_coords else 1.0) - offset[2]
 
         # Calculate clearance using lambda_0 / 4 (quarter wavelength) rule of thumb
         speed_of_light_mm_s = 2.99792458e11
@@ -636,23 +645,86 @@ class MimoHfssBuilder:
         except Exception as e:
             print(f"  Warning: Failed to assign radiation boundary ({e})")
 
+        print("  Hiding Airbox in layout view...")
+        try:
+            self.target_design_app.modeler.oeditor.ChangeProperty(
+                [
+                    "NAME:AllTabs",
+                    [
+                        "NAME:Attributes",
+                        ["NAME:PropServers", "Airbox"],
+                        ["NAME:ChangedProps", ["NAME:Visible", "Value:=", False]],
+                    ],
+                ]
+            )
+        except Exception as e:
+            print(f"  Warning: Failed to hide Airbox object ({e})")
+
+        # Configure simulation setup and sweep in the target design
+        self.configure_simulation_setup()
+
         self.target_design_app.save_project()
         print(f"\nMIMO array synthesis successfully completed in design '{self.target_design_name}'.")
+
+    def configure_simulation_setup(self):
+        """Configures the single-frequency adaptive mesh setup and frequency sweep in the target design."""
+        if not self.target_design_app:
+            raise RuntimeError("Array design not synthesized yet.")
+
+        setup_name = "ArraySetup"
+        print(
+            f"\nConfiguring single-frequency adaptive mesh setup '{setup_name}' at {self.centre_frequency_ghz} GHz..."
+        )
+
+        # Access or create the setup
+        if setup_name in self.target_design_app.setup_names:
+            setup = self.target_design_app.get_setup(setup_name)
+        else:
+            setup = self.target_design_app.create_setup(setup_name=setup_name)
+
+        setup.props["Frequency"] = f"{self.centre_frequency_ghz}GHz"
+        setup.props["MaximumPasses"] = 21
+        setup.props["MaxDeltaS"] = 0.02
+        setup.props["SaveFields"] = True
+        setup.update()
+
+        # Deduce frequency sweep bounds
+        start_freq = self.centre_frequency_ghz - self.bandwidth_ghz / 2.0
+        end_freq = self.centre_frequency_ghz + self.bandwidth_ghz / 2.0
+
+        sweep_name = "Sweep"
+        print(
+            f"Configuring interpolating frequency sweep '{sweep_name}' ({start_freq:.2f} GHz - {end_freq:.2f} GHz, 401 points)..."
+        )
+
+        # Check and delete existing sweep if it already exists
+        try:
+            for sw in list(setup.sweeps):
+                if sw.name == sweep_name:
+                    sw.delete()
+        except Exception:
+            pass
+
+        self.target_design_app.create_linear_count_sweep(
+            setup=setup_name,
+            unit="GHz",
+            start_frequency=start_freq,
+            stop_frequency=end_freq,
+            num_of_freq_points=401,
+            name=sweep_name,
+            save_fields=True,
+            sweep_type="Interpolating",
+        )
 
     def run_solve(self):
         """Triggers the HFSS simulation setup and solve."""
         if not self.target_design_app:
             raise RuntimeError("Array design not synthesized yet.")
 
-        print("Initializing analysis setup...")
-        operating_freq = "28GHz"
-        if self.source_design_app.setups:
-            operating_freq = self.source_design_app.setups[0].props.get("Frequency", "28GHz")
+        # Ensure the setup is configured
+        self.configure_simulation_setup()
 
-        setup = self.target_design_app.create_setup(setup_name="ArraySetup")
-        setup.props["Frequency"] = operating_freq
-
-        print(f"Solving full-wave HFSS array design at {operating_freq}...")
+        print("Solving full-wave HFSS array design using 'ArraySetup'...")
         self.target_design_app.analyze(setup_name="ArraySetup")
 
     def export_coupling_s_parameters(self, output_touchstone_path):
@@ -866,19 +938,44 @@ class MimoHfssBuilder:
 
 
 if __name__ == "__main__":
-    if len(sys.argv) < 3:
-        print("Usage: python3 hfss_array_builder.py <project_path> <source_design_name>")
-        sys.exit(1)
+    import argparse
+    import json
 
-    builder = MimoHfssBuilder(project_path=sys.argv[1], source_design_name=sys.argv[2], non_graphical=True)
+    parser = argparse.ArgumentParser(description="HFSS Full-Wave Array Synthesis CLI.")
+    parser.add_argument("project_path", help="Path to the AEDT project file (.aedt)")
+    parser.add_argument("source_design_name", help="Name of the unit-cell source design")
+    parser.add_argument(
+        "layout_json_path", nargs="?", default=None, help="Optional path to custom elements layout JSON file"
+    )
+    parser.add_argument(
+        "--center-freq", "--centre-freq", type=float, default=79.0, help="Center frequency in GHz (default: 79.0)"
+    )
+    parser.add_argument("--bandwidth", type=float, default=4.0, help="Sweep bandwidth in GHz (default: 4.0)")
+
+    args = parser.parse_args()
+
+    builder = MimoHfssBuilder(
+        project_path=args.project_path,
+        source_design_name=args.source_design_name,
+        centre_frequency_ghz=args.centre_freq,
+        bandwidth_ghz=args.bandwidth,
+        non_graphical=True,
+    )
+
     try:
         builder.connect_desktop()
-        elements_list = builder.calculate_default_coplanar_layout(
-            transmitter_count=4,
-            receiver_count=4,
-            operating_frequency_ghz=79.0,
-            subarray_spacing_mm=10.0,
-        )
-        builder.synthesize_array_in_hfss(elements_list, operating_frequency_ghz=79.0)
+        if args.layout_json_path:
+            print(f"Loading custom layout from: {args.layout_json_path}")
+            with open(args.layout_json_path, "r") as f:
+                elements_list = json.load(f)
+        else:
+            print(f"No custom layout provided. Using default coplanar layout at {args.centre_freq} GHz...")
+            elements_list = builder.calculate_default_coplanar_layout(
+                transmitter_count=4,
+                receiver_count=4,
+                operating_frequency_ghz=args.centre_freq,
+                subarray_spacing_mm=10.0,
+            )
+        builder.synthesize_array_in_hfss(elements_list, operating_frequency_ghz=args.centre_freq)
     finally:
         builder.close()
