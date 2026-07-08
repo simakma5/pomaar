@@ -51,5 +51,6 @@ data/*
 *.ist
 # *.pdf
 
-# --- Temporary outputs ---
+# --- Temporary files/outputs ---
+*_notes.md
 src/pomaar/mimo_polarimetry/examples/*.json

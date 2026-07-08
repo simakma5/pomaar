@@ -1,1 +1,0 @@
-/home/martin/Documents/Obsidian Vault/PhD/Research/Polarimetric MIMO simulator.md

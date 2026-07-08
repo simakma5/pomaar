@@ -44,6 +44,7 @@ class MimoHfssBuilder:
         self.source_design_app = None
         self.target_design_app = None
         self.is_new_desktop = False
+        self.is_new_design = True
 
     def connect_desktop(self):
         """Starts or connects to an existing AEDT session via gRPC."""
@@ -264,7 +265,12 @@ class MimoHfssBuilder:
         # we check if the design exists. If so, we reuse it and clear its modeler.
         if self.target_design_name in design_list:
             if sys.stdin.isatty():
-                user_input = input(f"Design '{self.target_design_name}' already exists. Do you want to clear it and overwrite? (y/n) [default: y]: ")
+                user_input = input(
+                    (
+                        f"Design '{self.target_design_name}' already exists. "
+                        "Do you want to clear it and overwrite? (y/n) [default: y]: "
+                    )
+                )
             else:
                 user_input = "y"
             if user_input.strip().lower() in ["n", "no"]:
@@ -279,6 +285,7 @@ class MimoHfssBuilder:
                 new_desktop=False,
                 close_on_exit=False,
             )
+            self.is_new_design = False
 
             # Clear existing 3D bodies
             target_modeler = self.target_design_app.modeler
@@ -296,6 +303,7 @@ class MimoHfssBuilder:
             # Setup and sweep purging will be handled at the end of synthesis in configure_simulation_setup
         else:
             print(f"Creating new HFSS array design '{self.target_design_name}'...")
+            self.is_new_design = True
             try:
                 self.target_design_app = Hfss(
                     project=project_name,
@@ -664,15 +672,24 @@ class MimoHfssBuilder:
             self.target_design_app.assign_radiation_boundary_to_objects("Airbox", "Radiation_Box")
         except Exception as e:
             print(f"  Warning: Failed to assign radiation boundary ({e})")
-
-        print("  Hiding Airbox in layout view (making it fully transparent)...")
         try:
             airbox_obj.transparency = 1.0
         except Exception as e:
             print(f"  Warning: Failed to set Airbox transparency ({e})")
 
-        # Configure simulation setup and sweep in the target design
-        self.configure_simulation_setup()
+        # Configure simulation setup, sweep, and reports ONLY if we created a new design
+        if self.is_new_design:
+            # Configure simulation setup and sweep in the target design
+            self.configure_simulation_setup()
+
+            # Create automated post-processing reports
+            self.create_post_processing_reports()
+        else:
+            print(
+                "\n[INFO] Reusing existing design: Preserving all existing simulation setups and frequency sweeps."
+            )
+            # Recreate Infinite Sphere and missing reports (to heal the modeler deletion effects)
+            self.create_post_processing_reports()
 
         # Run Design Validation
         print("\nRunning HFSS built-in design validation...")
@@ -747,7 +764,8 @@ class MimoHfssBuilder:
 
         sweep_name = "Sweep"
         print(
-            f"Configuring interpolating frequency sweep '{sweep_name}' ({start_freq:.2f} GHz - {end_freq:.2f} GHz, 401 points)..."
+            f"Configuring interpolating frequency sweep '{sweep_name}' ({start_freq:.2f} GHz - {end_freq:.2f} GHz, 401",
+            "points)...",
         )
 
         # Try to delete default sweep if created automatically
@@ -769,6 +787,186 @@ class MimoHfssBuilder:
             save_fields=True,
             sweep_type="Interpolating",
         )
+
+    def create_post_processing_reports(self):
+        """Creates standard S-parameter and Far-Field reports in the target design."""
+        if not self.target_design_app:
+            raise RuntimeError("Array design not synthesized yet.")
+
+        print("\nCreating automated post-processing reports...")
+        try:
+            raw_excitations = self.target_design_app.excitation_names
+            # Strip mode suffixes (e.g. "Port_Rx_1_V:1" -> "Port_Rx_1_V") and deduplicate
+            port_names = sorted(list(set(p.split(":")[0] for p in raw_excitations if p)))
+        except Exception as e:
+            print(f"  Warning: Failed to retrieve excitation names ({e})")
+            port_names = []
+
+        if not port_names:
+            print("  Warning: No ports found. Skipping S-parameter reports.")
+            return
+
+        rx_ports = sorted([p for p in port_names if "Rx" in p])
+        tx_ports = sorted([p for p in port_names if "Tx" in p])
+        setup_sweep = "ArraySetup : Sweep"
+
+        # Get list of existing reports to avoid duplicate report generation
+        try:
+            existing_reports = list(self.target_design_app.post.all_report_names)
+        except Exception:
+            existing_reports = []
+
+        # 1. Reflections S-parameters (S_ii)
+        plot_name = "Reflections"
+        if plot_name not in existing_reports:
+            print("  Generating Reflections S-parameter report...")
+            reflections = [f"dB(S({p},{p}))" for p in port_names]
+            try:
+                self.target_design_app.post.create_report(
+                    expressions=reflections,
+                    setup_sweep_name=setup_sweep,
+                    plot_name=plot_name
+                )
+            except Exception as e:
+                print(f"  Warning: Failed to create Reflections report ({e})")
+        else:
+            print(f"  Preserving existing report '{plot_name}'")
+
+        # 2. Rx Crosstalk
+        if len(rx_ports) > 1:
+            plot_name = "Rx crosstalk"
+            if plot_name not in existing_reports:
+                print("  Generating Rx crosstalk report...")
+                rx_couplings = []
+                for i in range(len(rx_ports)):
+                    for j in range(i):
+                        rx_couplings.append(f"dB(S({rx_ports[i]},{rx_ports[j]}))")
+                try:
+                    self.target_design_app.post.create_report(
+                        expressions=rx_couplings,
+                        setup_sweep_name=setup_sweep,
+                        plot_name=plot_name
+                    )
+                except Exception as e:
+                    print(f"  Warning: Failed to create Rx crosstalk report ({e})")
+            else:
+                print(f"  Preserving existing report '{plot_name}'")
+
+        # 3. Tx Crosstalk
+        if len(tx_ports) > 1:
+            plot_name = "Tx crosstalk"
+            if plot_name not in existing_reports:
+                print("  Generating Tx crosstalk report...")
+                tx_couplings = []
+                for i in range(len(tx_ports)):
+                    for j in range(i):
+                        tx_couplings.append(f"dB(S({tx_ports[i]},{tx_ports[j]}))")
+                try:
+                    self.target_design_app.post.create_report(
+                        expressions=tx_couplings,
+                        setup_sweep_name=setup_sweep,
+                        plot_name=plot_name
+                    )
+                except Exception as e:
+                    print(f"  Warning: Failed to create Tx crosstalk report ({e})")
+            else:
+                print(f"  Preserving existing report '{plot_name}'")
+
+        # 4. Tx1-to-Rx Crosstalk
+        if tx_ports and rx_ports:
+            plot_name = "Tx1-to-Rx crosstalk"
+            if plot_name not in existing_reports:
+                tx1 = tx_ports[0]
+                print(f"  Generating Tx1-to-Rx crosstalk report...")
+                tx_to_rx = [f"dB(S({rx},{tx1}))" for rx in rx_ports]
+                try:
+                    self.target_design_app.post.create_report(
+                        expressions=tx_to_rx,
+                        setup_sweep_name=setup_sweep,
+                        plot_name=plot_name
+                    )
+                except Exception as e:
+                    print(f"  Warning: Failed to create Tx1-to-Rx crosstalk report ({e})")
+            else:
+                print(f"  Preserving existing report '{plot_name}'")
+
+        # 5. Far Field Setup and Radiation Patterns
+        sphere_name = "ArraySphere"
+        print(f"  Configuring Infinite Sphere '{sphere_name}'...")
+        try:
+            self.target_design_app.insert_infinite_sphere(
+                name=sphere_name,
+                phi_start=0, phi_stop=180, phi_step=5,
+                theta_start=0, theta_stop=360, theta_step=1,
+                units="deg"
+            )
+        except Exception as e:
+            print(f"  Warning: Failed to create infinite sphere '{sphere_name}' ({e})")
+
+        # Create general/nominal reports
+        # --- Realized gain 3D (3D Polar) ---
+        plot_name = "Realized gain 3D"
+        if plot_name not in existing_reports:
+            try:
+                print("  Generating Realized gain 3D report...")
+                vars_3d = {"Theta": ["All"], "Phi": ["All"], "Freq": [f"{self.centre_frequency_ghz}GHz"]}
+                self.target_design_app.post.create_report(
+                    expressions=["db(RealizedGainTotal)"],
+                    setup_sweep_name=setup_sweep,
+                    variations=vars_3d,
+                    primary_sweep_variable="Theta",
+                    secondary_sweep_variable="Phi",
+                    report_category="Far Fields",
+                    plot_name=plot_name,
+                    context=sphere_name,
+                    plot_type="3D Polar Plot"
+                )
+            except Exception as e:
+                print(f"  Warning: Failed to create Realized gain 3D report ({e})")
+        else:
+            print(f"  Preserving existing report '{plot_name}'")
+
+        # --- Realized gain (2D Polar Cuts Phi=0 and Phi=90) ---
+        plot_name = "Realized gain"
+        if plot_name not in existing_reports:
+            try:
+                print("  Generating Realized gain (2D cuts) report...")
+                vars_2d = {"Theta": ["All"], "Phi": ["0deg", "90deg"], "Freq": [f"{self.centre_frequency_ghz}GHz"]}
+                self.target_design_app.post.create_report(
+                    expressions=["db(RealizedGainTotal)"],
+                    setup_sweep_name=setup_sweep,
+                    variations=vars_2d,
+                    primary_sweep_variable="Theta",
+                    report_category="Far Fields",
+                    plot_name=plot_name,
+                    context=sphere_name,
+                    plot_type="Rectangular Plot"
+                )
+            except Exception as e:
+                print(f"  Warning: Failed to create Realized gain 2D cuts report ({e})")
+        else:
+            print(f"  Preserving existing report '{plot_name}'")
+
+        # --- XPD (2D Polar Cuts Phi=0 and Phi=90) ---
+        plot_name = "XPD"
+        if plot_name not in existing_reports:
+            try:
+                print("  Generating XPD (2D cuts) report...")
+                vars_2d = {"Theta": ["All"], "Phi": ["0deg", "90deg"], "Freq": [f"{self.centre_frequency_ghz}GHz"]}
+                self.target_design_app.post.create_report(
+                    expressions="db(RealizedGainTheta) - db(RealizedGainPhi)",
+                    setup_sweep_name=setup_sweep,
+                    variations=vars_2d,
+                    primary_sweep_variable="Theta",
+                    report_category="Far Fields",
+                    plot_name=plot_name,
+                    context=sphere_name,
+                    plot_type="Rectangular Plot"
+                )
+            except Exception as e:
+                print(f"  Warning: Failed to create XPD 2D cuts report ({e})")
+        else:
+            print(f"  Preserving existing report '{plot_name}'")
 
     def run_solve(self):
         """Triggers the HFSS simulation setup and solve."""
@@ -904,7 +1102,7 @@ class MimoHfssBuilder:
             pass
 
         source_setup = self.source_design_app.setup_names[0] if self.source_design_app.setup_names else None
-        opt_setup = self.source_design_app.optimizations.add(
+        _ = self.source_design_app.optimizations.add(
             calculation="pk2pk(cang_deg(rEphi))",
             ranges={
                 "Theta": ("-40deg", "40deg"),
