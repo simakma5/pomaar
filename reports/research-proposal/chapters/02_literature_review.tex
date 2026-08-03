@@ -673,10 +673,26 @@ By creating a prohibiting \gls{ebg}, \gls{gw} structures suppress parallel-plate
 This \enquote{contactless} property is a critical industrial enabler; it significantly relaxes the mechanical assembly tolerances that make traditional hollow waveguides cost-prohibitive for high-volume production.
 Through the adoption of metallized injection moulding and high-precision plastic stamping, the manufacturing complexity is shifted from individual assembly to the mould-design phase, allowing for the low-cost mass production of air-filled structures.
 Consequently, \gls{gw} technology, particularly in combination with the \gls{lip} technology, represents the emerging \enquote{gold standard} for next-generation \gls{mimo} arrays, providing the polarimetric fidelity and thermal robustness required for high-resolution automotive sensing within a commercially viable form factor~\parencite{renGapwaveguideAutomotiveImaging2023}.
+However, a major limitation of \gls{gw} and \gls{rgw} technologies is their large physical footprint.
+A single antenna element cell is typically much larger than its printed counterpart, especially due to the requisite mushroom structure fence needed to isolate parallel channels.
+This substantial size penalty makes the integration of large-aperture \gls{mimo} arrays highly impractical, if not entirely infeasible, within the constrained dimensions of automotive sensors.
 
 \paragraph{The compromise.}
 \gls{siw} architectures effectively bridge the gap between planar and volumetric designs.
 By synthesizing a dielectric-filled waveguide using periodic via fences, \gls{siw} provides the electromagnetic shielding and low-loss characteristics of metallic waveguides while retaining the manufacturability of standard substrate processes.
+While 3D metal waveguides indeed offer unmatched electromagnetic fidelity and lower insertion loss, they are mechanically complex, heavy, and expensive to assemble.
+\gls{siw} effectively acts as a bridge -- giving the shielded, low-radiation benefits of a closed waveguide but fully integrated into a compact, low-cost, planar \gls{pcb} footprint.
+
+Regarding the viability of \gls{siw} at millimetre-wave frequencies, concerns are often raised regarding \gls{pcb} manufacturing tolerances, cost, and field quality.
+However, beyond its superior electromagnetic properties (such as self-shielding and TM mode cancellation), this sensitivity is precisely why \gls{siw} is advantageous over other planar technologies like microstrip or stripline.
+The key advantage lies in how manufacturing tolerances affect performance.
+In microstrip or stripline structures, performance is highly sensitive to the chemical etching of extremely narrow traces, often only around \qty{150}{\um} wide.
+A standard \qty{\pm25}{\um} etching tolerance represents an \qty{18}{\percent} variation, which drastically alters line impedance and causes severe reflections and return loss.
+With \gls{siw}, the boundaries are instead defined by via fences.
+This shifts the tolerance from chemical etching to mechanical drilling or laser positioning, which is inherently much more precise.
+Furthermore, minor tolerances in via placement primarily affect the waveguide's cutoff frequency -- a parameter that is far less sensitive than microstrip or stripline impedance -- resulting in a much more robust, repeatable, and high-yield manufacturing process.
+It is reassuring that \gls{siw} are already widely utilized in millimetre-wave applications; the manufacturing supply chain is mature, and standard advanced \gls{pcb} fabricators handle these tolerances on a regular basis.
+
 The versatility of this platform is exemplified by~\textcite{zhaoSIWQuasiPyramidHorn2024}, who demonstrated that multi-layer \gls{pcb} stacks can be used to synthesize quasi-pyramidal horn antennas entirely within the substrate.
 
 Furthermore, the layered nature of these architectures facilitates advanced hybrid topologies.
