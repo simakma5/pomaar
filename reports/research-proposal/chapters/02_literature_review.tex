@@ -1,27 +1,28 @@
 \chapter{Literature review}
 \label{chap:literature-review}
 
-\lipsum[1-4]\todo{Replace with actual intro text}
+Although the foundational principles of radar polarimetry were established in the late twentieth century for remote sensing, satellite \gls{sar}, and meteorology~\parencite{leePolarimetricRadarImaging2017}, their application to automotive sensors operating in the W-band (\qtyrange{77}{81}{GHz}) represents an emerging research frontier.
+In conventional remote sensing, polarimetric decomposition serves as a benchmark for characterizing terrain textures, land cover, and atmospheric hydrometeors under high-altitude, far-field, plane-wave illumination.
+Translating these mathematical representations to automotive radar, however, introduces severe physical constraints: sensors operate at grazing incidence angles near the ground plane, amid intense multipath clutter, within near-to-intermediate field zones, and against dynamic, non-cooperative road users.
+
+Consequently, contemporary commercial automotive radars remain predominantly single-polarized, leaving their target classification capabilities fundamentally limited.
+While polarimetric sensing holds immense potential for resolving subtle structural and material signatures of dynamic \glspl{vru} -- such as pedestrians and cyclists -- realizing this advantage demands a holistic re-evaluation of the entire radar signal chain.
+Achieving polarimetric fidelity requires aligning physical electrodynamic scattering models with high-isolation antenna hardware and spatially synthesized array manifolds.
+
+To establish a comprehensive foundation for this research proposal, this chapter synthesizes the state of the art across three interconnected technical domains.
+First, \cref{sec:radar-polarimetry} reviews electrodynamic polarization representations -- including Jones vectors, Stokes parameters, and coherency matrices -- alongside coherent (Pauli, Krogager) and incoherent (Cloude--Pottier, Yamaguchi) target decomposition theories, evaluating their physical validity when transferred to dynamic road scatterers.
+Next, \cref{sec:frontend} examines millimetre-wave antenna typologies (microstrip patches, substrate-integrated waveguides, gap waveguides, and magneto-electric dipoles) across technology platforms, establishing how polarization purity and port isolation dictate physical element selection.
+Finally, \cref{sec:mimo-topologies} analyses \gls{mimo} virtual aperture synthesis, spatial multiplexing schemes, and array layouts, highlighting the trade-offs between angular resolution, phase-centre displacement, and polarization squint.
+
+The theoretical exposition throughout this chapter draws upon classical electrodynamics and polarimetry monographs~\parencite{zangwillModernElectrodynamics2012,leePolarimetricRadarImaging2017}, alongside specialized millimetre-wave automotive radar literature~\parencite{visentinPolarimetricRadarAutomotive2019}.
+
 
 \section{Radar polarimetry}
+\label{sec:radar-polarimetry}
 
-Although the foundational ideas of radar polarimetry date back to the 1970s and can be considered a mature concept -- with the 1980s and 1990s representing a golden period of theoretical and experimental development for \gls{sar} and meteorology~\parencite{leePolarimetricRadarImaging2017} -- its application potential in the automotive industry began to emerge only in the previous decade.
-In remote sensing, polarimetry has long been the standard for classifying terrain textures or hydrometeor shapes; however, transferring these techniques to the automotive domain presents unique challenges.
-Unlike the far-field, high-altitude geometries of \gls{sar}, automotive radar operates at grazing incidence angles with significant multipath interaction, in the near-to-intermediate field, and against highly dynamic, non-cooperative targets.
-
-Consequently, the field of polarimetric automotive radar remains in its infancy, lacking robust methods for classifying dynamic \glspl{vru} such as pedestrians and cyclists.
-Nonetheless, it holds a compelling promise for achieving higher reliability and sophistication in sensors for \gls{adas} and autonomous driving.
-This promise has captured the attention of major automotive companies and research institutes, prompting viability confirmations~\parencite{tillyRoadUserClassification2021} and proof-of-concept system implementations~\parencite{tintiFullyPolarimetricAutomotive2024}.
-The rapidly increasing innovation in this area is further evidenced by the recent emergence of monographs focusing specifically on polarimetric radar for automotive applications~\parencite{visentinPolarimetricRadarAutomotive2019}.
-
-Establishing a polarimetric framework for \gls{vru} classification, however, places stringent demands on the underlying radar architecture.
-The theoretical requirements for high polarization purity and \gls{xpd} directly inform the selection of radiating element types and feeding integration platforms, as will be discussed in detail in~\cref{sec:frontend}.
-Furthermore, the need for simultaneous acquisition of the full scattering matrix for dynamic scenes necessitates a sophisticated large-aperture \gls{mimo} configuration.
-The design of this \gls{mimo} topology and its impact on virtual aperture and polarimetric diversity will be the focus of~\cref{sec:mimo-topologies}.
-This introductory chapter therefore provides the theoretical and phenomenological motivation for the hardware and topological developments that follow.
-
-The exposition given in this chapter follows standard references to electrodynamics and radar polarimetry, such as~\textcite{zangwillModernElectrodynamics2012} and~\textcite{leePolarimetricRadarImaging2017}.
-Additionally, a specialized monograph on polarimetric radar for automotive applications by~\textcite{visentinPolarimetricRadarAutomotive2019}, is discussed to provide further context and detail.\todo{Add citations throughout the chapter.}
+Polarimetric radar leverages the vector nature of electromagnetic waves to extract target properties beyond simple scalar backscatter intensity.
+By measuring the transformation of transmitted polarization states upon interaction with a scatterer, polarimetry provides critical insights into object geometry, orientation, surface roughness, and material composition~\parencite{leePolarimetricRadarImaging2017}.
+This section reviews the mathematical frameworks governing wave polarization, target scattering matrices, and polarimetric decomposition theories relevant to automotive perception.
 
 
 \subsection{Fundamentals of radar polarimetry}
@@ -30,10 +31,6 @@ Additionally, a specialized monograph on polarimetric radar for automotive appli
 Electromagnetic waves can be decomposed into orthogonal linear, circular, or elliptical polarization states, each associated with a specific temporal evolution of the electric field vector.
 In radar applications, polarization serves as an additional dimension for characterizing scattering mechanisms: targets may preserve, transform, or depolarize the incident wave depending on their geometry, surface material, roughness, and orientation.
 These transformations provide valuable classification features that are absent in scalar radar measurements~\parencite{leePolarimetricRadarImaging2017}.
-
-% The description of polarization typically relies on the Jones vector for coherent fields and the Stokes vector or coherency matrix for partially coherent and incoherent fields.
-% At automotive millimetre-wave frequencies, the high coherence of \gls{fmcw} radars allows Jones and coherency representations to remain applicable.
-% The polarization purity of the transmitted and received waves, however, is strongly influenced by antenna \gls{xpd}, \gls{pcb} anisotropies, and mutual coupling -- highlighting the need for the careful array design discussed in~\cref{sec:frontend}.
 
 \paragraph{Time convention.}
 As common in engineering monographs, this text treats the convention of time as \emph{positive}, meaning that a scalar wave $w(\xi,t)$ propagating in the $\xi$ direction is expressed as $\exp\[\ii(\omega t - k\xi)\]$.
@@ -439,9 +436,115 @@ Anisotropy is particularly meaningful when the entropy is high ($H > 0.7$): in t
 When entropy is low, the second and third eigenvalues are typically too small for anisotropy to provide reliable information, limiting its interpretability in such cases.
 
 \paragraph{The $H/\alpha$ plane.}
-The joint analysis of polarimetric entropy $H$ and mean alpha angle $\bar{\alpha}$ provides a powerful two-dimensional feature space for target classification, commonly referred to as the $H/\alpha$ plane.
-This representation allows for intuitive visualization and separation of different scattering mechanisms, especially in \gls{sar} polarimetry, based on their polarimetric characteristics.
-    \todo{Add figure of H/alpha plane with typical target clusters.}
+The joint analysis of polarimetric entropy $H$ and mean alpha angle $\bar{\alpha}$ provides a powerful two-dimensional feature space for target classification, commonly referred to as the $H/\alpha$ plane, illustrated in \cref{fig:h-alpha-plane}.
+As shown in the classification space, the $(\bar{\alpha}, H)$ domain is partitioned into nine distinct operational zones corresponding to specific combinations of scattering physics and disorder.
+The horizontal axis categorizes the randomness of the scattering process into quasi-deterministic ($H < 0.5$), moderately random ($0.5 \le H < 0.9$), and highly random ($H \ge 0.9$) regimes.
+Concurrently, the vertical axis delineates the primary physical mechanism, ranging from surface scattering ($\bar{\alpha} < \ang{40}$) through volume diffusion ($\ang{40} \le \bar{\alpha} < \ang{50}$) to double-bounce reflections ($\bar{\alpha} \ge \ang{50}$).
+The shaded region denotes the non-feasible parameter space, bounded by the theoretical limits of the eigenvalue expansion.
+
+\begin{figure}[htbp]
+    \centering
+    \begin{tikzpicture}[scale=1.0, >=Stealth,
+        vbracket/.style={decorate, decoration={brace, amplitude=5pt}, thick},
+        hbracket/.style={decorate, decoration={brace, amplitude=5pt, mirror}, thick}]
+        
+        \def\W{9.0}
+        \def\H{7.2}
+        
+        % Colors
+        \definecolor{nonfeasible}{gray}{0.83}
+        
+        % Shaded non-feasible background outside the smooth continuous oval curve
+        \fill[nonfeasible] (0,0) -- (\W,0) -- (\W,\H) -- (0.58*\W, \H) 
+            .. controls (0.82*\W, \H) and (\W, 0.85*\H) .. (\W, 61/90*\H)
+            .. controls (\W, 0.44*\H) and (0.60*\W, 0.08*\H) .. (0,0) -- cycle;
+
+        % Main bounding box
+        \draw[thick] (0,0) rectangle (\W,\H);
+
+        % Feasibility boundary curve (smooth oval arc touching right axis H=1.0)
+        \draw[thick] (0,0) .. controls (0.60*\W, 0.08*\H) and (\W, 0.44*\H) .. (\W, 61/90*\H)
+            .. controls (\W, 0.85*\H) and (0.82*\W, \H) .. (0.58*\W, \H);
+
+        % Vertical division lines (dashed)
+        \draw[densely dashed] (0.5*\W, 0) -- (0.5*\W, \H);
+        \draw[densely dashed] (0.9*\W, 0) -- (0.9*\W, \H);
+
+        % Horizontal division lines (dashed)
+        % Low H region (Zones 7, 8, 9)
+        \draw[densely dashed] (0, 42/90*\H) -- (0.5*\W, 42/90*\H);
+        \draw[densely dashed] (0, 48/90*\H) -- (0.5*\W, 48/90*\H);
+        
+        % Medium H region (Zones 4, 5, 6)
+        \draw[densely dashed] (0.5*\W, 40/90*\H) -- (0.9*\W, 40/90*\H);
+        \draw[densely dashed] (0.5*\W, 50/90*\H) -- (0.9*\W, 50/90*\H);
+        
+        % High H region (Zones 1, 2, 3)
+        \draw[densely dashed] (0.9*\W, 40/90*\H) -- (\W, 40/90*\H);
+        \draw[densely dashed] (0.9*\W, 58/90*\H) -- (\W, 58/90*\H);
+
+        % Ticks and Labels - H Axis (Bottom)
+        \foreach \h in {0, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1} {
+            \draw (\h*\W, 0) -- (\h*\W, 0.12);
+            \node[below=2pt, font=\small] at (\h*\W, 0) {\ifdim\h pt=0pt 0\else\ifdim\h pt=1pt 1\else\h\fi\fi};
+        }
+        \node[right=4pt, font=\small] at (\W, 0.12) {$H$};
+
+        % Ticks and Labels - alpha Axis (Left)
+        \foreach \a in {0, 10, 20, 30, 40, 50, 60, 70, 80, 90} {
+            \draw (0, \a/90*\H) -- (0.12, \a/90*\H);
+            \node[left=2pt, font=\small] at (0, \a/90*\H) {\a};
+        }
+        \node[above left=2pt, font=\small] at (0, \H) {$\bar{\alpha}\,(^\circ)$};
+
+        % Zone Text Labels
+        % Zone 9
+        \node[font=\small] at (0.25*\W, 35/90*\H) {Bragg surface};
+        \node[font=\small] at (0.25*\W, 29/90*\H) {9};
+
+        % Zone 8
+        \node[font=\small] at (0.25*\W, 45/90*\H) {8 \quad Dipole};
+
+        % Zone 7
+        \node[font=\small] at (0.25*\W, 73/90*\H) {7};
+        \node[font=\small] at (0.25*\W, 67/90*\H) {Dihedral reflector};
+
+        % Zone 6
+        \node[font=\small] at (0.675*\W, 35/90*\H) {Random surface};
+        \node[font=\small] at (0.675*\W, 29/90*\H) {6};
+
+        % Zone 5
+        \node[font=\small] at (0.62*\W, 45/90*\H) {5};
+        \node[font=\small, align=center] at (0.76*\W, 45/90*\H) {Anisotropic\\particles};
+
+        % Zone 4
+        \node[font=\small] at (0.7*\W, 73/90*\H) {4};
+        \node[font=\small, align=center] at (0.7*\W, 64/90*\H) {Double reflection\\propagation effects};
+
+        % Zones 1, 2, 3
+        \node[font=\small] at (0.95*\W, 20/90*\H) {3};
+        \node[font=\small] at (0.93*\W, 52/90*\H) {2};
+        \node[font=\small] at (0.93*\W, 67/90*\H) {1};
+
+        % Outside Brackets - Left (alpha categories)
+        \draw[vbracket] (-1.1, 0) -- node[left=5pt, align=right, font=\small] {Surface\\scattering} (-1.1, 40/90*\H);
+        \draw[vbracket] (-1.1, 40/90*\H) -- node[left=5pt, align=right, font=\small] {Volume\\diffusion} (-1.1, 50/90*\H);
+        \draw[vbracket] (-1.1, 50/90*\H) -- node[left=5pt, align=right, font=\small] {Double\\bounce\\scattering} (-1.1, \H);
+
+        % Outside Brackets - Bottom (H categories, flipped)
+        \draw[hbracket] (0, -0.65) -- node[below=5pt, align=center, font=\small] {Quasi\\deterministic} (0.5*\W, -0.65);
+        \draw[hbracket] (0.5*\W, -0.65) -- node[below=5pt, align=center, font=\small] {Moderately\\random} (0.9*\W, -0.65);
+        \draw[hbracket] (0.9*\W, -0.65) -- node[below=5pt, align=center, font=\small] {Highly\\random} (\W, -0.65);
+
+        % Outside Annotations - Right
+        \node[right=6pt, align=left, font=\small] at (\W+0.1, 74/90*\H) {Complex\\structures};
+        \node[right=6pt, align=left, font=\small] at (\W+0.1, 49/90*\H) {Random\\anisotropic\\scatterers};
+        \node[right=6pt, align=left, font=\small] at (\W+0.1, 20/90*\H) {Nonfeasible\\region};
+
+    \end{tikzpicture}
+    \caption{Two-dimensional $H/\bar{\alpha}$ classification plane.}
+    \label{fig:h-alpha-plane}
+\end{figure}
 
 
 \subsubsection{Simple polarimetric descriptors}
