@@ -1,5 +1,5 @@
 \chapter{Literature review}
-\label{sec:literature-review}
+\label{chap:literature-review}
 
 \lipsum[1-4]\todo{Replace with actual intro text}
 
@@ -202,7 +202,7 @@ This geometric distinction naturally leads to the definition of the \emph{\gls{d
     \text{DOP} \coloneq \frac{\sqrt{g_1^2 + g_2^2 + g_3^2}}{g_0} = \sqrt{1-4\frac{\det(\vec J)}{\tr(\vec J)^2}}.
 \end{align}
 %\index{degree of polarization (DOP)}
-This metric serves as a key discriminant between stable \gls{vru} scatterers and distributed clutter, a feature that will be exploited in later chapters~\cref{sec:processing} for target classification.
+This metric serves as a key discriminant between stable \gls{vru} scatterers and distributed clutter, a feature that will be exploited later for target classification.
 By applying \emph{polarimetric decompositions} to the coherency matrix $\vec J$, the scattering process can be decoupled into constituent mechanisms, such as \emph{single-bounce}, \emph{double-bounce}, and \emph{volume scattering}.
 In the following sections, these decomposition theorems are utilized to extract robust polarimetric signatures, providing the feature set required for the classification models developed later in this work.
 
@@ -309,7 +309,6 @@ The resulting vector representation of the scattering matrix, $\vec S$, is refer
 \end{align}
 The primary advantage of this basis is that it provides a direct physical interpretation of elementary scattering mechanisms.
 Consequently, the squared magnitude of each Pauli component quantifies the contribution of a specific canonical mechanism to the total \gls{rcs}.
-Specifically:
 \begin{itemize}
     \item \emph{Single-bounce:} $|a|^2/2$ corresponds to odd-bounce scattering, typically arising from spheres, flat plates, or trihedral reflectors.
     In an automotive context, this mechanism dominates returns from flat surfaces, such as walls or the rear of a vehicle.
@@ -333,7 +332,7 @@ However, in the \emph{quasi-monostatic} scenarios relevant to this work -- where
 \todo{\textcite{bouwmeesterClassificationDynamicVulnerable2025} point out phase sensitivity of Pauli's decomposition.}
 
 \paragraph{Lexicographic basis.}
-An alternative representation frequently encountered in the literature is the \emph{lexicographic basis}, which is a scaled canonical basis of $\C^{2 \times 2}$:
+An alternative representation frequently encountered in the literature is the \emph{lexicographic basis}, which is a scaled canonical basis of $\mathbb{C}^{2 \times 2}$:
 \begin{align}
     \label{eq:lexicographic-basis}
     \Phi_L = \left\{
@@ -457,13 +456,13 @@ Perhaps the most fundamental polarimetric ratio, differential reflectivity quant
 It is defined logarithmically as
 \begin{align}
     \label{eq:differential-reflectivity}
-    Z_\mathrm{dr} = 10\log_{10}\(\frac{\langle |S_{11}|^2 \rangle}{\langle |S_{22}|^2 \rangle}\).
+    Z_\mathrm{DR} = 10\log_{10}\(\frac{\langle |S_{11}|^2 \rangle}{\langle |S_{22}|^2 \rangle}\).
 \end{align}
 In meteorology, this metric serves as a feature for classifying raindrop oblateness.
-In the automotive context, $Z_\mathrm{dr}$ provides a measure of the target's geometric orientation.
-Passenger vehicles, being predominantly horizontally oriented structures, typically exhibit positive $Z_\mathrm{dr}$.
-Conversely, pedestrians lack this stable horizontal dominance; their scattering response at \qty{79}{GHz} is distributed and fluctuating due to the roughness of clothing and limb motion~\parencite{deepRadarCrosssectionsPedestrians2020}, often resulting in a mean $Z_\mathrm{dr}$ near $0\,\mathrm{dB}$.
-Thus, $Z_\mathrm{dr}$ acts as a robust discriminator for separating vehicles from non-horizontal clutter.
+In the automotive context, $Z_\mathrm{DR}$ provides a measure of the target's geometric orientation.
+Passenger vehicles, being predominantly horizontally oriented structures, typically exhibit positive $Z_\mathrm{DR}$.
+Conversely, pedestrians lack this stable horizontal dominance; their scattering response at \qty{79}{GHz} is distributed and fluctuating due to the roughness of clothing and limb motion~\parencite{deepRadarCrosssectionsPedestrians2020}, often resulting in a mean $Z_\mathrm{DR}$ near $0\,\mathrm{dB}$.
+Thus, $Z_\mathrm{DR}$ acts as a robust discriminator for separating vehicles from non-horizontal clutter.
 
 \paragraph{Linear depolarization ratio.}
 The \gls{ldr} measures the system's ability to detect cross-polarized energy relative to the co-polarized return.
@@ -812,10 +811,10 @@ Key figures of merit for evaluating \gls{mimo} topologies include:
 \begin{itemize}
     \item \emph{Virtual aperture:} Set of unique transmitter-receiver channels in the resulting virtual array.
     The aperture is often evaluated as the overall size of the virtual array, corresponding directly to the resulting \emph{angular resolution}.
-    \item \emph{\gls{fov}:} The angular region over which the array can reliably detect and resolve targets, determined by the physical and virtual array geometry and element spacing.
-    \item \emph{\gls{dof}:} The number of independent channels available for signal processing, which influences the ability to perform tasks like \emph{direction-of-arrival estimation} and \emph{parameter identifiability}.
+    \item \emph{\Gls{fov}:} The angular region over which the array can reliably detect and resolve targets, determined by the physical and virtual array geometry and element spacing.
+    \item \emph{\Gls{dof}:} The number of independent channels available for signal processing, which influences the ability to perform tasks like \emph{direction-of-arrival estimation} and \emph{parameter identifiability}.
     \item \emph{Element spacing:} The spacing between virtual elements, affecting \emph{grating lobes} and \emph{ambiguity}, especially in sparse layout, where the Shannon-Nyquist spatial sampling criterion is deliberately violated.
-    \item \emph{\gls{sll}:} The level of side-lobes in the virtual array's beampattern, impacting \emph{clutter rejection} and \emph{target detection}.
+    \item \emph{\Gls{sll}:} The level of side-lobes in the virtual array's beampattern, impacting \emph{clutter rejection} and \emph{target detection}.
     \item \emph{Mutual coupling:} The interaction between physical elements, which can distort the intended virtual array response, leading to \emph{errors in angle estimation} or \emph{degraded detection performance}.
     \item \emph{Implementation complexity:} The practical feasibility of the physical layout and multiplexing scheme, considering hardware constraints.
 \end{itemize}

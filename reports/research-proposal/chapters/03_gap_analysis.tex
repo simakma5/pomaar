@@ -1,11 +1,25 @@
 \chapter{Research gap analysis}
-\label{ch:research-gaps}
+\label{chap:research-gaps}
+
+The literature synthesis conducted in \cref{chap:literature-review} reveals a fundamental disconnect between theoretical radar polarimetry and its practical implementation in automotive millimetre-wave sensors.
+While polarimetric decomposition methods are well established in stationary remote sensing and \gls{sar}, their direct application to dynamic road environments is hampered by grazing incidence geometry, severe clutter coupling, micro-Doppler dynamics, and strict multiplexing constraints.
+Concurrently, modern \gls{mimo} radar topologies and front-end antenna structures are overwhelmingly optimized for scalar angular resolution, treating polarization as an unmanaged or secondary parameter.
+This results in array manifolds plagued by cross-polar leakage, phase-centre displacement, and polarization squint across the virtual aperture.
+
+To resolve these combined challenges, this chapter establishes the academic and methodological framework of the doctoral project.
+First, \cref{sec:hypotheses} translates the identified limitations into a structured hierarchy of primary and secondary research questions, detailing the domain transfer hurdles from remote sensing to automotive radar.
+\Cref{sec:gaps-identified} categorizes the precise technical gaps spanning polarimetric target models, front-end antenna hardware, and \gls{mimo} array synthesis.
+\Cref{sec:proposed-solutions} outlines the proposed technical methodology, including perturbation analysis for algorithm-driven antenna requirements, a polarimetric scattering simulator, and \enquote{polarimetry-first} virtual array topologies.
+Finally, \cref{sec:feasibility-study} presents a feasibility study and initial design development of an aperture-coupled series-fed array, evaluating high-coupling element matching, progressive phase compensation, and corporate feed transitions at X-band as a baseline for W-band scaling.
 
 
 \section{Formulation of hypotheses and research questions}
+\label{sec:hypotheses}
 
-\todo{Add intro text.}
+Addressing the key bottlenecks of automotive polarimetry requires formulating precise, testable hypotheses that link physical scattering physics to array manifold design.
+This section outlines the overarching primary research question alongside three supporting sub-questions, and articulates the physical domain transfer challenges encountered when adapting remote sensing polarimetry to dynamic, near-field automotive scenarios.
 
+\todo{Update research questions.}
 \begin{custombox}{Research questions}
     \begin{itemize}
         \item \textbf{Primary research question:} Can the integration of a high-resolution $12 \times 16$ \gls{mimo} architecture with Doppler-resolved polarimetric processing significantly enhance the classification accuracy of dynamic \glspl{vru}?
@@ -15,46 +29,37 @@
     \end{itemize}
 \end{custombox}
 
-\begin{custombox}[orange]{To do: add research questions}
-    The decomposition techniques reviewed above were historically developed for \gls{sar} and remote sensing, operating under assumptions of static scenes, far-field plane wave incidence, and high-altitude geometries (steep incidence angles).
+\subsection{Domain transfer challenges}
 
-    Transferring these methods to the automotive domain introduces specific challenges:
-    \begin{enumerate}
-        \item \textbf{Grazing incidence:} Automotive radars operate near the ground.
-        At grazing angles, the Brewster angle effect can suppress vertical polarization returns from the road surface, artificially inflating $Z_{\mathrm{DR}}$ and distorting the $\alpha$ parameter.
-        \item \textbf{Coherent integration time:} In \gls{sar}, the integration time is long enough to form a well-defined covariance matrix.
-        In dynamic automotive scenarios, the "target" (e.g. a cyclist) moves across range cells rapidly.
-        Estimating $\vec T$ requires averaging over a window that assumes stationarity, a condition often violated by fast-moving \glspl{vru}.
-        \item \textbf{Micro-Doppler coupling:} Standard decomposition ignores Doppler.
-        For \glspl{vru}, the polarimetric signature is time-variant and coupled with the micro-Doppler signature (e.g. the swinging arm of a pedestrian has a different polarization response than the torso).
-    \end{enumerate}
-    This suggests that while classical decompositions provide the \emph{basis} for feature extraction, they must be extended to the joint Doppler-polarization domain -- a topic underexplored in current literature and central to the processing framework proposed in this research.
-\end{custombox}
+The polarimetric decomposition techniques reviewed in \cref{sec:incoherent-decomposition} were historically developed for \gls{sar} and spaceborne remote sensing, operating under implicit assumptions of static scenes, far-field plane-wave incidence, and steep incidence angles.
+Transferring these mathematical formulations to W-band automotive radar introduces several physical and operational challenges:
 
-\begin{custombox}[orange]{To-do: add section on Doppler-resolved polarimetric signatures}
-    \begin{itemize}
-        \item Motivation: Introduce time-varying and micro-Doppler effects that are lost when averaging over Doppler channels.
-        \item Micro-Doppler and dynamic scattering: Discuss human gait, limb motion, bicycle rotation, etc., as examples of polarization-Doppler coupling.
-        \item Joint angle-Doppler-polarization processing: Explain representation in multidimensional spaces (e.g. polarimetric time-frequency signatures).
-        \item Current state of the art: Summarize recent developments in Doppler-resolved polarimetry, emphasizing underexplored dynamic analysis.
-        \item Challenges: Data sparsity, synchronization, calibration drift, coherent alignment, and \gls{mimo} virtual array non-idealities.
-    \end{itemize}
-\end{custombox}
+\begin{enumerate}
+    \item \textbf{Grazing incidence and surface suppression.} Automotive radars operate near the ground plane (\qtyrange{0.3}{1.5}{m} mounting height), resulting in grazing incidence angles (\qtyrange[range-units=repeat]{85}{89}{\degree}). At these angles, pseudo-Brewster angle and rough surface scattering mechanisms dictate that vertical polarization backscatter from asphalt and concrete exceeds horizontal returns. This surface anisotropy, which was demonstrated by \textcite{visentinPolarimetricRadarAutomotive2019,bouwmeesterRoadSurfaceConditions2023}, artificially inflates differential reflectivity $Z_{\mathrm{DR}}$ and biases target decomposition parameters such as the Pauli $\alpha$ angle, distorting the inferred physical scattering mechanism.
+    \item \textbf{Nonstationary across coherent integration intervals.} In satellite or airborne \gls{sar}, the observation duration over a homogeneous land-cover parcel is sufficiently long to accumulate independent samples for forming a well-conditioned coherency matrix $\vec T$ (or covariance matrix $\vec J$). In dynamic automotive driving scenarios, targets such as pedestrians or cyclists move across spatial resolution cells on millisecond timescales. Estimating the coherency matrix via spatial or temporal windowing assumes local stationarity -- a condition frequently violated by fast-moving \glspl{vru} and rapidly evolving clutter.
+    \item \textbf{Micro-Doppler and polarimetric coupling.} Standard polarimetric target decompositions treat the target as a single static or rigid body, disregarding velocity distribution. However, for articulate \glspl{vru}, the polarimetric signature is inherently time-variant and coupled with the micro-Doppler spectrum. For example, a pedestrian's torso exhibits a stable co-polarized single-bounce response, whereas swinging limbs generate transient cross-polarized depolarization at distinct Doppler offsets.
+\end{enumerate}
 
-\begin{custombox}[orange]{To-do: add some talk on \enquote{automotive hurdles}}
-    Automotive scenes differ fundamentally from the operating conditions assumed in polarimetric radar theory:
-    \begin{itemize}
-        \item Short range (5--60 m): transition region between near-field and far-field, invalidating plane-wave assumptions.
-        \item High dynamics: scattering matrices evolve on millisecond timescales due to limb motion and ego-vehicle motion.
-        \item Multipath dominance: ground reflections and vehicle surfaces introduce depolarization not predicted by classical models.
-        \item Multiplexing constraints: sequential polarimetric switching increases Doppler ambiguity when combined with \gls{tdm}-\gls{mimo}.
-    \end{itemize}
-    These discrepancies justify the development of \emph{new polarimetric methods}, potentially including Doppler-resolved polarimetric processing and joint spatial-polarimetric feature extraction.
-\end{custombox}
+These discrepancies indicate that while classical remote sensing decompositions provide a foundational framework, they cannot be directly ingested by automotive classification pipelines without explicitly accounting for grazing geometry, nonstationary, and micro-Doppler coupling.
+
+\subsection{Doppler-resolved polarimetry and automotive operational hurdles}
+
+Expanding polarimetric analysis into the joint Doppler-polarization domain offers a promising path forward, but it must contend with severe hardware and environmental constraints unique to vehicle integration:
+
+\begin{itemize}
+    \item \textbf{Near-field wavefront curvature.} Operating ranges in urban driving (\qtyrange{5}{60}{m}) fall within the transition region between the near-field and far-field for large \gls{mimo} virtual apertures. Plane-wave incidence assumptions break down, introducing range-dependent phase errors across the array manifold that corrupt cross-polar phase calibration if left uncompensated.
+    \item \textbf{Multipath dominance and depolarization.} Ground reflections, metallic vehicle bodies, and roadside structures create multi-path propagation channels. Double-bounce reflections off the road surface and vehicle undercarriages introduce spurious cross-polar energy, generating depolarization characteristics not accounted for by free-space target models.
+    \item \textbf{Multiplexing constraints and Doppler ambiguity.} Achieving dual-polarized operation in a \gls{mimo} system requires switching polarizations either across transmit pulses or receive channels. In \gls{tdm}-\gls{mimo}, sequential polarization switching extends the \gls{pri} per virtual channel, compounding phase wrapping and velocity ambiguity in high-speed traffic.
+\end{itemize}
+
+These operational hurdles justify the development of joint spatial-Doppler-polarimetric processing schemes and \enquote{polarimetry-first} array manifolds designed specifically to preserve phase coherence and polarimetric fidelity under tight automotive form factors.
+
 
 \section{Research gaps identified in literature}
+\label{sec:gaps-identified}
 
-\todo{Add intro text.}
+Although individual aspects of millimetre-wave radar, \gls{mimo} virtual aperture synthesis, and polarimetric decomposition have been studied independently, their intersection remains largely unmapped.
+This section summarizes the three critical gaps identified in current literature: the lack of Doppler-resolved spatial scattering models, the absence of algorithm-driven front-end requirements, and the omission of polarization purity in \gls{mimo} topology synthesis.
 
 
 \subsection{Gaps in polarimetric models}
@@ -76,17 +81,14 @@ Using a standard $3 \times 4$ \gls{mimo} configuration (producing $12$ virtual c
 \end{itemize}
 By feeding these Doppler-resolved polarimetric power maps into a convolutional neural network, an F1-score of $98.2\%$ was achieved, statistically outperforming single-polarization baselines and confirming the utility of the feature set.
 
-\begin{custombox}[orange]{To-do: Olexander's comment}
-    It would be very interesting also to use polarimetry to detect: water/ice on the road; edges of the road; milestones with optical reflector \enquote{cataphote} -- might have clear trihedral behaviour at short mm waves; road signs vs trees (single reflection against volume scattering; lampposts vs pedestrians).
-\end{custombox}
+\paragraph{Environmental clutter semantics and road features.}
+Beyond \gls{vru} limb motion, polarimetric signatures offer unique physical mechanisms for environmental scene understanding and road infrastructure classification.
+For instance, specular road surface reflections can differentiate dry pavement from water or black ice through co-polar ratio anomalies ($Z_{\mathrm{DR}}$).
+Similarly, optical retroreflectors (cataphotes) on guide posts and milestones might exhibit distinct trihedral (odd-bounce) returns at short millimetre waves, whereas road signs present single-plane reflections in contrast to the volume scattering of roadside foliage and the multi-path depolarization of metal lampposts.
 
 \paragraph{The spatial resolution bottleneck.}
 Despite validating the phenomenological benefits of polarimetric micro-Doppler, the current state of the art faces a critical limitation regarding spatial separability.
-To manage the computational load and the limited angular resolution of a standard $12$-channel virtual array, the processing pipeline proposed by~\textcite{bouwmeesterClassificationDynamicVulnerable2025} relies on a \enquote{dominant target} selection strategy:
-\begin{quote}
-    \enquote{The angle for which the sum of the squared absolute values of the scattering matrix is maximum is computed\dots
-    This procedure effectively selects the dominant target within a range-Doppler cell, thus removing the angular dimension from the processed measurement data.}
-\end{quote}
+To manage the computational load and the limited angular resolution of a standard $12$-channel virtual array, the processing pipeline proposed by~\textcite{bouwmeesterClassificationDynamicVulnerable2025} relies on a \enquote{dominant target} selection strategy. By computing the angle that maximizes the sum of the squared absolute values of the scattering matrix, this procedure isolates the strongest scatterer within a range-Doppler cell and removes the angular dimension from the processed measurement data.
 
 While this approach served as an effective stop-gap to demonstrate the value of Doppler-resolved polarimetry given specific hardware constraints, it is insufficient for complex urban environments.
 In a realistic traffic scene, a \gls{vru} is frequently spatially adjacent to strong static reflectors (e.g. fences, guardrails, or parked vehicles).
@@ -120,8 +122,10 @@ Currently, no established array topology exists that is mathematically optimized
 
 
 \section{Proposed solutions and design choices}
+\label{sec:proposed-solutions}
 
-\todo{Add intro text.}
+To systematically close the identified research gaps, a top-down engineering methodology is proposed.
+Rather than relying on trial-and-error hardware iteration, this section presents an algorithm-driven perturbation analysis to derive lower bounds on antenna specifications, a modular simulation framework to model target scattering alongside array phase-centre errors, and novel \enquote{polarimetry-first} virtual array topologies.
 
 
 \subsection{Derivation of antenna requirements via perturbation analysis}
@@ -243,56 +247,59 @@ In summary, while the literature points toward \gls{gw} and \gls{med} as the fut
 
 
 \section{Feasibility study and preliminary development}
+\label{sec:feasibility-study}
 
-\todo{Add intro text.}
+To ground the proposed signal processing framework and topology synthesis in physical hardware, an initial experimental and simulation study was conducted.
+This section details the development of a hybrid polarimetric scattering simulator and presents the electromagnetic design, parametric tuning, and full-wave verification of an aperture-coupled series-fed patch array baseline.
 
 
 \subsection{Polarimetric scattering simulation model}
 \label{sec:scattering-simulator}
 
-To accurately model the full polarimetric response of electrically large target scenes and validate the decomposition algorithms prior to hardware testing, a dedicated simulation platform will be constructed.
-The proposed technical pipeline employs a hybrid methodology, bridging full-wave electromagnetic data with an asymptotic ray-tracing solver.
+To accurately model the full polarimetric response of electrically large target scenes%
+    \footnote{Here, \enquote{electrically large target scenes} refers to isolated targets, such as a traffic sign located \qty{3}{\metre} from the antenna array, rather than complex automotive environments containing complex targets and environmental clutter. This representation remains valuable because even simple scenes are computationally intractable in full-wave solvers, necessitating the use of asymptotic solvers.}
+and validate the decomposition algorithms prior to hardware testing, a dedicated simulation platform will be constructed.
+The proposed technical pipeline employs a hybrid methodology, bridging full-wave electromagnetic data with an asymptotic ray-tracing solver within a unified software environment.
 This approach ensures that array-level hardware physics are correctly accounted for while remaining computationally feasible for large-scale environments.
 The pipeline is divided into three primary stages.
 
-\begin{custombox}[orange]{To-do: Olexander's comment}
-    I would not dive into this subject, its is multiple PhDs on its own.
-    I would rather model scatterer as a black box with some polarization properties and see which antennas are needed to reconstruct them from measured \gls{mimo} data.
-\end{custombox}
-
 \paragraph{Antenna modelling via full-wave characterization.}
-Rather than simulating the entire scene in a computationally expensive full-wave environment, a full-wave solver, namely CST Studio Suite,%
-    \todo{Cite CST.}
-will be utilized exclusively to characterize the \gls{mimo} array.
+Rather than simulating the entire scene in a computationally expensive full-wave environment, a full-wave solver, namely the \gls{hfss} solver from the Ansys Electronics Desktop suite~\parencite{ansysAedt2025}, will be utilized exclusively to characterize the \gls{mimo} array.
 This step is critical to capture exact electromagnetic properties that theoretical models cannot synthesize accurately, including mutual coupling, edge effects, and precise phase centre locations.
 As a preliminary validation step, the simulator will replicate the \qty{28}{\giga\hertz} dual-polarized array specified by~\textcite{fandiantoroExperimentalStudyPolarimetric2025}.
 This involves constructing an $8 \times 8$ array of dual-polarized elements (yielding a $16 \times 16$ port configuration) and extracting the complex embedded element patterns for all ports to serve as sources in the subsequent scattering simulation.
 
 \paragraph{Scene scattering and propagation.}
-Because targets such as \glspl{vru} are electrically massive at millimetre-wave frequencies, the scene scattering will be evaluated using an asymptotic ray-tracing solver, primarily Altair Feko.%
-    \todo{Cite Feko.}
-The complex radiation patterns extracted from the full-wave simulation will be imported as far-field sources and assigned to the respective transmitting and receiving coordinates in the virtual scene.
-Using canonical shapes initially (e.g. spheres and dihedral corner reflectors) to validate the response, the solver will compute the full polarimetric scattering matrix for each transmitter-receiver pair.
-While Feko is prioritized for its superior handling of edge diffractions and creeping waves, CST's native asymptotic solver remains a viable fallback to mitigate potential data friction regarding coordinate systems and polarization vectors between the Dassault and Altair ecosystems.
+Because targets such as \glspl{vru} are electrically massive at millimetre-wave frequencies, scene scattering will be evaluated using SBR+, an advanced \gls{sbr} solver integrated directly into the Ansys Electronics Desktop environment.
+SBR+ traces electromagnetic rays from the transmitter to the target and back to the receiver via one-way coupling, accurately accounting for multiple surface reflections, edge diffractions, and creeping waves.
+Operating within a single enterprise suite provides seamless integration: the complex 3D embedded radiation patterns calculated by \gls{hfss} are directly linked as far-field sources assigned to the transmitter and receiver coordinates in the SBR+ scene.
+Initial validation will employ canonical shapes (e.g. spheres and dihedral corner reflectors) to verify the polarimetric scattering matrix extracted for each channel pair.
 
-\paragraph{Data processing and polarimetric decomposition.}
-The final stage involves processing the frequency-domain channel responses generated by the asymptotic solver.
-Custom scripts will synthesize the \gls{fmcw} radar signals by applying the appropriate time delays and phase shifts, generating a raw radar data cube that spans fast time, slow time, and spatial channels.
-Subsequent processing will apply \gls{mimo} imaging algorithms, such as back-projection, to form the spatial image.
-Once the coherency matrices are constructed, established polarimetric decompositions -- such as the Yamaguchi four-component or Yamaguchi--Singh six-component methods used by \textcite{fandiantoroExperimentalStudyPolarimetric2025} -- will be applied to classify the scattering mechanisms across the target.
-This effectively closes the loop between hardware non-idealities and algorithmic classification performance.
+\paragraph{Integrated FMCW radar synthesis.}
+A major architectural advantage of utilizing SBR+ within Ansys Electronics Desktop is its native support for dedicated \gls{fmcw} radar analysis setups.
+Rather than manually synthesizing chirps, time delays, and phase shifts via external scripts, the SBR+ solver is configured directly with physical radar waveform parameters -- including sweep bandwidth, centre frequency, chirp duration, pulse repetition interval (\gls{pri}), number of chirps per frame, and frame period.
+The solver automatically computes the multichannel \gls{fmcw} response and outputs raw Range-Doppler maps directly.
+This eliminates tedious manual signal synthesis in Python, enabling post-processing scripts to focus directly on virtual array channel recombination, spatial imaging (e.g. back-projection), and target feature extraction.
 
-\begin{custombox}[orange]{To-do: Olexander's comment}
-    \begin{itemize}
-        \item Decomposition is an advanced step.
-        I would start with simple (power only) measurement technique to reconstruct polarimetric properties of the scatterer - similar to what Mate is doing now, but Mate has dual pol antennas in each measurement point.
-        How to do the same power-only with receive antennas displaced from each other?
-        how to calibrate out phase shift due to the antenna displacement?
-        \item The bloody question here: how to do averaging (mathematical operation $\langle a\rangle$)?
-        Averaging in time -- but car is moving.
-        Averaging over multiple image cells -- like in \gls{sar} -- but we do not have so many cells\dots
-    \end{itemize}
-\end{custombox}
+
+\subsubsection{Staged simulation strategy}
+\label{sec:staged-simulation-strategy}
+
+To guarantee systematic progress and mitigate algorithmic risk, the evaluation of simulated and measured radar data will follow a staged processing pipeline, transitioning from fundamental power-based observables to advanced coherent decompositions.
+
+\paragraph{Power-only reconstruction and phase calibration.}
+Before deploying complex coherent target decompositions, initial simulations will establish a baseline using power-only polarimetric metrics (e.g. co-polar and cross-polar power ratios).
+This initial stage focuses on resolving fundamental hardware-level challenges associated with single-polarized interleaved \gls{mimo} architectures, where orthogonal receive antennas are spatially displaced rather than sharing a common phase centre:
+\begin{itemize}
+    \item \textbf{Inter-element phase calibration:} Physical displacement between horizontal and vertical elements introduces an angle- and range-dependent path delay across the virtual array manifold. To enable accurate power ratio extraction across displaced channels, a dedicated calibration routine will be developed to compensate for these spatial phase shifts prior to channel combination.
+    \item \textbf{Ensemble matrix averaging limits:} A critical theoretical challenge in calculating the polarimetric coherency matrix $\vec T = \langle \vec k_P \cdot \vec k_P^\dagger \rangle$ is defining the ensemble averaging operator $\langle \cdot \rangle$. In spaceborne \gls{sar}, averaging is performed spatially over large homogeneous terrain patches. In automotive radar, however, targets occupy only a few Range-Doppler resolution cells, restricting spatial multi-looking. Simultaneously, target motion and ego-vehicle dynamics cause rapid aspect angle variations that decorrelate phase within milliseconds, invalidating long temporal integration. The initial simulation phase will test localized Doppler-domain smoothing and spatial filtering techniques to form well-conditioned estimates under these constrained conditions.
+\end{itemize}
+
+\paragraph{Coherent polarimetric decomposition.}
+Building upon the calibrated Range-Doppler data cubes and initial power-only baseline, the second phase will implement full coherent target decomposition techniques.
+Custom post-processing scripts will apply \gls{mimo} spatial imaging algorithms (e.g. back-projection beamforming) to form full-aperture complex images.
+Subsequently, multi-component incoherent decompositions -- such as the Yamaguchi four-component or Yamaguchi--Singh six-component methods -- will be applied to isolate physical scattering mechanisms (single-bounce, double-bounce, volume, and helix scattering) across dynamic \glspl{vru}.
+This staged approach bridges initial power-only measurements with advanced polarimetric signal processing, explicitly validating how antenna non-idealities impact final target classification performance.
 
 
 \subsection{Preliminary antenna design and development}
@@ -347,7 +354,8 @@ However, the slot must remain strictly sub-resonant (ideally $\approx \lambda_{\
 If a half-wavelength slot ($\lambda_{\mathrm{g}}/2$) is required to achieve matching, it typically indicates that the feed substrate is too thick or its permittivity too low.
 The slot width has a minor influence on coupling, and a standard aspect ratio of approximately $10:1$ is maintained, though modifying the slot to an hourglass or bow-tie shape can increase magnetic polarizability without expanding the physical footprint.
 Finally, the feed stub length past the slot is used to tune out excess slot reactance.
-Although classical one-dimensional theory dictates a length slightly less than $\lambda_{\mathrm{g}}/4$, localized dielectric loading and fringing capacitance can reduce the actual physical length to merely \qtyrange{35}{40}{\percent} of the theoretical quarter-wavelength. Shortening the stub rotates the impedance locus downwards in the capacitive direction on the Smith chart.
+Although classical one-dimensional theory dictates a length slightly less than $\lambda_{\mathrm{g}}/4$, localized dielectric loading and fringing capacitance can reduce the actual physical length to merely \qtyrange{35}{40}{\percent} of the theoretical quarter-wavelength.
+Shortening the stub rotates the impedance locus downwards in the capacitive direction on the Smith chart.
 
 In practice, several tuning strategies can be employed.
 Rather than forcing a high-Q match exactly at $Z = 1$, the coupling can be intentionally increased by lengthening the slot.

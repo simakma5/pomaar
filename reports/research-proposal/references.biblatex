@@ -353,7 +353,7 @@
 }
 
 @article{bouwmeesterRoadSurfaceConditions2023,
-  title = {Road {{Surface Conditions Identification}} via {{H}} α {{A Decomposition}} and {{Its Application}} to Mm-{{Wave Automotive Radar}}},
+  title = {Road {{Surface Conditions Identification}} via {{H}} $\alpha$ {{A Decomposition}} and {{Its Application}} to Mm-{{Wave Automotive Radar}}},
   author = {Bouwmeester, Wietse and Fioranelli, Francesco and Yarovoy, Alexander G.},
   date = {2023},
   journaltitle = {IEEE Transactions on Radar Systems},
@@ -364,7 +364,7 @@
   url = {https://ieeexplore.ieee.org/document/10152486},
   urldate = {2025-09-25},
   abstract = {A novel approach based on the entropy-alpha-anisotropy decomposition, also known as the H\textbackslash alpha A decomposition, for the recognition of road surface conditions using automotive radar is presented. To apply the H\textbackslash alpha A decomposition to automotive radar data, a dedicated signal processing pipeline has been developed. To investigate its effectiveness, fully polarimetric measurements of surface scattering were performed in lab conditions as well as outdoors on actual road surface material under various conditions. A high-level analysis using the Euclidean distances between cluster centroids and the standard deviations of the H , \textbackslash alpha , and A features is performed, and it is shown that the proposed pipeline can provide an opportunity for classification of road surfaces, leading to enhanced road safety. Finally, the effect of neglecting the cross-polar components of the fully polarimetric measurements is considered. It is shown that in this case, the A feature cannot be used anymore. Despite this, the H and \textbackslash alpha features can still be used and several road surface conditions can still be distinguished from each other at the cost of less separation between the classes, thus leading to a trade-off between classification accuracy and radar system cost/complexity.},
-  keywords = {Automotive,classification,HαA decomposition,polarimetry,radar,Radar,Radar polarimetry,recognition,road surface condition,Roads,Rough surfaces,Scattering,Surface roughness},
+  keywords = {Automotive,classification,H/alpha/A decomposition,polarimetry,radar,Radar,Radar polarimetry,recognition,road surface condition,Roads,Rough surfaces,Scattering,Surface roughness},
   file = {/home/martin/Zotero/storage/JQM382A7/Bouwmeester et al. - 2023 - Road Surface Conditions Identification via H α A Decomposition and Its Application to mm-Wave Automo.pdf}
 }
 
@@ -3515,3 +3515,22 @@
   file = {/home/martin/Zotero/storage/9Q4IVP72/Priyalatha et al. - 2023 - Compact modified hourglass-shaped aperture-coupled antenna for radar applications.pdf}
 }
 
+@software{ansysAedt2025,
+  author = {{Ansys, Inc.}},
+  title = {Ansys {E}lectronics {D}esktop},
+  version = {2025.R1},
+  organization = {Ansys, Inc.},
+  location = {Canonsburg, PA, USA},
+  year = {2025},
+  url = {https://www.ansys.com}
+}
+
+@software{cstStudioSuite2026,
+  author = {{Dassault Syst{\`e}mes}},
+  title = {{CST} {S}tudio {S}uite},
+  version = {2026 (SP5)},
+  organization = {Dassault Syst{\`e}mes},
+  location = {V{\'e}lizy-Villacoublay, France},
+  year = {2026},
+  url = {https://www.3ds.com/products/simulia/cst-studio-suite}
+}
