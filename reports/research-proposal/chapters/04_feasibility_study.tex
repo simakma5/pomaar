@@ -16,7 +16,7 @@ Rather than attempting to achieve absolute electromagnetic perfection across all
 
 
 \subsection{Derivation of antenna requirements via perturbation analysis}
-\label{subsec:perturbation-analysis}
+\label{sec:perturbation-analysis}
 
 To establish rigorous hardware specifications, the research proposes a top-down perturbation analysis on standard polarimetric decomposition algorithms.
 By systematically injecting calibrated noise and measurement errors -- such as amplitude imbalances, absolute phase deviations, and cross-channel phase errors -- into ideal scattering matrices $\vec S$, the sensitivity and breakdown thresholds of target decomposition methods (e.g. Pauli, Cloude--Pottier, Yamaguchi) will be mapped.
@@ -24,7 +24,7 @@ The resulting error bounds will be directly translated into minimum required ant
 
 
 \subsection{Hybrid polarimetric simulation platform}
-\label{subsec:simulation-platform}
+\label{sec:simulation-platform}
 
 To execute the perturbation analysis and study the effects of physical element displacement, a dedicated simulation platform is constructed within the Ansys Electronics Desktop suite~\parencite{ansysAedt2025}.
 The simulation platform employs a hybrid methodology bridging full-wave electromagnetic data with asymptotic ray-tracing to model isolated targets%
@@ -46,12 +46,12 @@ Initial validation employs canonical shapes (e.g. spheres and dihedral corner re
 \paragraph{Integrated FMCW radar synthesis.}
 A major architectural advantage of utilizing SBR+ within Ansys Electronics Desktop is its native support for dedicated \gls{fmcw} radar analysis setups.
 Rather than manually synthesizing chirps, time delays, and phase shifts via external scripts, the SBR+ solver is configured directly with physical radar waveform parameters -- including sweep bandwidth, centre frequency, chirp duration, pulse repetition interval (\gls{pri}), number of chirps per frame, and frame period.
-The solver automatically computes the multichannel \gls{fmcw} response and outputs raw Range-Doppler maps directly.
+The solver automatically computes the multichannel \gls{fmcw} response and outputs raw range-Doppler maps directly.
 This eliminates tedious manual signal synthesis in Python, enabling post-processing scripts to focus directly on virtual array channel recombination, spatial imaging (e.g. back-projection), and target feature extraction.
 
 
 \subsection{Polarimetry-first MIMO topologies}
-\label{subsec:polarimetry-first-topologies}
+\label{sec:polarimetry-first-topologies}
 
 While the academic literature is rich with novel, optimization-driven antenna concepts, the development of robust polarimetric processing algorithms benefits from a stable hardware baseline.
 By utilizing established uniform topologies or industry-standard sparse reference designs, system variability is minimized.
@@ -119,7 +119,7 @@ These overlapping virtual phase centres could potentially serve as a high-fideli
 
 
 \subsection{Choice of radiating element and feeding platforms}
-\label{subsec:element-choice}
+\label{sec:element-choice}
 
 The survey of the literature, carried out in \cref{sec:frontend}, captures a vast and rapidly evolving design space for \qty{79}{GHz} automotive radar.
 It is evident that emerging technologies, particularly \gls{gw} as an integration platform and \gls{med} as radiating elements, are maturing into robust solutions that address the traditional losses and bandwidth limitations of millimetre-wave circuitry.
@@ -158,7 +158,7 @@ This section details the staged simulation processing pipeline, addresses power-
 
 
 \subsection{Staged simulation strategy: from power-only extraction to full decomposition}
-\label{subsec:staged-simulation-strategy}
+\label{sec:staged-simulation-strategy}
 
 To guarantee systematic progress and mitigate algorithmic risk, the evaluation of simulated and measured radar data follows a staged processing pipeline, transitioning from fundamental power-based observables to advanced coherent decompositions.
 
@@ -167,18 +167,18 @@ Before deploying complex coherent target decompositions, initial simulations est
 This initial stage focuses on resolving fundamental hardware-level challenges associated with single-polarized interleaved \gls{mimo} architectures, where orthogonal receive antennas are spatially displaced rather than sharing a common phase centre:
 \begin{itemize}
     \item \textbf{Inter-element phase calibration:} Physical displacement between horizontal and vertical elements introduces an angle- and range-dependent path delay across the virtual array manifold. To enable accurate power ratio extraction across displaced channels, a dedicated calibration routine is developed to compensate for these spatial phase shifts prior to channel combination.
-    \item \textbf{Ensemble matrix averaging limits:} A critical theoretical challenge in calculating the polarimetric coherency matrix $\vec T = \langle \vec k_P \cdot \vec k_P^\dagger \rangle$ is defining the ensemble averaging operator $\langle \cdot \rangle$. In spaceborne \gls{sar}, averaging is performed spatially over large homogeneous terrain patches. In automotive radar, however, targets occupy only a few Range-Doppler resolution cells, restricting spatial multi-looking. Simultaneously, target motion and ego-vehicle dynamics cause rapid aspect angle variations that decorrelate phase within milliseconds, invalidating long temporal integration. The initial simulation phase tests localized Doppler-domain smoothing and spatial filtering techniques to form well-conditioned estimates under these constrained conditions.
+    \item \textbf{Ensemble matrix averaging limits:} A critical theoretical challenge in calculating the polarimetric coherency matrix $\vec T = \langle \vec k_P \cdot \vec k_P^\dagger \rangle$ is defining the ensemble averaging operator $\langle \cdot \rangle$. In spaceborne \gls{sar}, averaging is performed spatially over large homogeneous terrain patches. In automotive radar, however, targets occupy only a few range-Doppler resolution cells, restricting spatial multi-looking. Simultaneously, target motion and ego-vehicle dynamics cause rapid aspect angle variations that decorrelate phase within milliseconds, invalidating long temporal integration. The initial simulation phase tests localized Doppler-domain smoothing and spatial filtering techniques to form well-conditioned estimates under these constrained conditions.
 \end{itemize}
 
 \paragraph{Advanced processing phase: coherent polarimetric decomposition.}
-Building upon the calibrated Range-Doppler data cubes and initial power-only baseline, the second phase implements full coherent target decomposition techniques.
+Building upon the calibrated range-Doppler data cubes and initial power-only baseline, the second phase implements full coherent target decomposition techniques.
 Custom post-processing scripts apply \gls{mimo} spatial imaging algorithms (e.g. back-projection beamforming) to form full-aperture complex images.
 Subsequently, multi-component incoherent decompositions -- such as the Yamaguchi four-component or Yamaguchi--Singh six-component methods -- are applied to isolate physical scattering mechanisms (single-bounce, double-bounce, volume, and helix scattering) across dynamic \glspl{vru}.
 This staged approach bridges initial power-only measurements with advanced polarimetric signal processing, explicitly validating how antenna non-idealities impact final target classification performance.
 
 
 \subsection{Initial target scattering simulation results}
-\label{subsec:initial-scattering-results}
+\label{sec:initial-scattering-results}
 
 \todo{Insert initial SBR+ target scattering simulation results here.}
 This subsection will present the initial simulation results obtained using the Ansys HFSS + SBR+ radar simulation framework.
@@ -186,7 +186,7 @@ Target responses for canonical scatterers (dihedral corner reflectors, spheres) 
 
 
 \subsection{Preliminary antenna design and development}
-\label{subsec:preliminary-antenna-design}
+\label{sec:preliminary-antenna-design}
 
 The transition from standard automotive radar to a fully polarimetric imaging system imposes stringent boundary conditions on the antenna element, primarily driven by a fundamental conflict between electromagnetic purity and industrial mass-producibility.
 The core research question underpinning this design phase is the following: what constitutes a robust polarimetric antenna within the constraints of an automotive form factor?
@@ -199,7 +199,7 @@ This baseline serves as the foundational stage in an iterative development strat
 
 
 \subsubsection{Architectural rationale and element design}
-\label{subsubsec:element-design}
+\label{sec:element-design}
 
 The primary advantage of the aperture-coupled patch antenna architecture is its ability to physically and electromagnetically isolate the radiating patch from the feed network.
 By separating the respective dielectric layers with a common ground plane, energy transfers magnetically through a ground-plane slot.
@@ -250,7 +250,7 @@ Furthermore, changing the slot length alters its reactance, which must be counte
 
 
 \subsubsection{Series-feed synthesis}
-\label{subsubsec:series-feed-synthesis}
+\label{sec:series-feed-synthesis}
 
 Transitioning from a single aperture-coupled patch to a series-fed array transforms the structure from a localized load into a cascaded microwave network.
 In a series configuration, intermediate elements do not possess individual tuning stubs; the feedline simply traverses the slot and continues.
@@ -318,7 +318,7 @@ Spacing is therefore restricted to the $0.5\lambda_{0}$ to $0.7\lambda_{0}$ rang
 
 
 \subsubsection{High-coupling elements and series impedance matching}
-\label{subsubsec:high-coupling-elements}
+\label{sec:high-coupling-elements}
 
 Achieving the high coupling levels required for tapered arrays (where \gls{rapr} exceeds \qty{70}{\percent}) introduces complex series slot impedances ($Z_{\mathrm{slot}} = R_{\mathrm{slot}} + \ii X_{\mathrm{slot}}$) that generate reflections and disrupt the travelling-wave distribution.
 
@@ -353,7 +353,7 @@ In all cases, the slot length is swept with fine resolution to ensure the optimi
 
 
 \subsubsection{Simulation results and architectural transition}
-\label{subsubsec:simulation-results-transition}
+\label{sec:simulation-results-transition}
 
 An $N = 8$ series-fed travelling-wave array was synthesized at \qty{9.7}{GHz} using modified-hourglass slots, localized trace thinning, and integrated series transformers, and characterized using full-wave electromagnetic simulation sweeps of the progressive phase shift.
 The return loss and bandwidth results of the phase sweep are summarized in \cref{tab:return_loss_bandwidth}.
