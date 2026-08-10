@@ -384,12 +384,12 @@ The resulting vector representation of the scattering matrix, $\vec S$, is refer
 The primary advantage of this basis is that it provides a direct physical interpretation of elementary scattering mechanisms.
 Consequently, the squared magnitude of each Pauli component quantifies the contribution of a specific canonical mechanism to the total \gls{rcs}.
 \begin{itemize}
-    \item \emph{Single-bounce:} $|a|^2/2$ corresponds to odd-bounce scattering, typically arising from spheres, flat plates, or trihedral reflectors ($\vec S_{\text{odd}}$).
+    \item \textit{Single-bounce:} $|a|^2/2$ corresponds to odd-bounce scattering, typically arising from spheres, flat plates, or trihedral reflectors ($\vec S_{\text{odd}}$).
     In an automotive context, this mechanism dominates returns from flat surfaces, such as walls or the rear of a vehicle.
-    \item \emph{Double-bounce:} $|b|^2/2$ corresponds to even-bounce scattering derived from dihedral structures ($\vec S_{\text{even}}$).
+    \item \textit{Double-bounce:} $|b|^2/2$ corresponds to even-bounce scattering derived from dihedral structures ($\vec S_{\text{even}}$).
     This is commonly observed in the corner-like features of a car (e.g., window frames and side mirrors) or the ground-wall interaction of a curb.
-    \item \emph{Cross-polar:} $|c|^2/2$ represents the cross-polarization energy induced by dihedrals or dipoles rotated by $\ang{45}$ around the radar line-of-sight ($\vec S_{\text{even}}(\ang{45})$).
-    \item \emph{Asymmetric:} $|d|^2/2$ accounts for non-reciprocal scattering mechanisms with asymmetric depolarizing effects.
+    \item \textit{Cross-polar:} $|c|^2/2$ represents the cross-polarization energy induced by dihedrals or dipoles rotated by $\ang{45}$ around the radar line-of-sight ($\vec S_{\text{even}}(\ang{45})$).
+    \item \textit{Asymmetric:} $|d|^2/2$ accounts for non-reciprocal scattering mechanisms with asymmetric depolarizing effects.
 \end{itemize}
 
 In strict monostatic configurations, the principle of reciprocity applies, theoretically forcing the fourth component to zero; practically, it will contain noise or system artefacts.
@@ -948,10 +948,10 @@ This diversity is particularly beneficial for overcoming target scintillation (i
 Notably, research was carried out to also explore hybrid approaches that combine the benefits of both co-located and distributed \gls{mimo}.
 For example, \textcite{xuIterativeGeneralizedLikelihoodRatio2007} discuss systems that leverage both coherent processing and spatial diversity, highlighting the following advantages:
 \begin{itemize}
-    \item \emph{Spatial diversity:} widely-separated antennas in distributed \gls{mimo} configurations help mitigate target scintillation and improve detection reliability.
-    \item \emph{Flexible transmit beampattern design:} co-located \gls{mimo} enables optimization of the transmit covariance matrix, allowing power to be focused in directions of interest while minimizing correlation of backscattered signals.
+    \item \textit{Spatial diversity:} Widely-separated antennas in distributed \gls{mimo} configurations help mitigate target scintillation and improve detection reliability.
+    \item \textit{Flexible transmit beampattern design:} Co-located \gls{mimo} enables optimization of the transmit covariance matrix, allowing power to be focused into directions of interest while minimizing correlation of backscattered signals.
     This leads to significant improvements in adaptive processing techniques.
-    \item \emph{Enhanced resolution and clutter rejection:} \gls{mimo} radar scheme can achieve higher spatial resolution and improved clutter suppression compared to conventional radar systems.
+    \item \textit{Enhanced resolution and clutter rejection:} \gls{mimo} radar scheme can achieve higher spatial resolution and improved clutter suppression compared to conventional radar systems.
 \end{itemize}
 
 The concept of combining several widely separated subarrays with each subarray containing closely spaced antennas is nowadays often implemented via \emph{multi-aperture multiplexing} and has been successfully applied in \emph{cooperative automotive radars}, improving angular resolution and field of view~\parencite{liangCooperativeAutomotiveRadars2022}.
@@ -985,14 +985,14 @@ Non-uniform virtual element spacing can lead to grating lobes, ambiguities, or d
 The \gls{mimo} design problem can be formalized as follows: given a desired virtual array configuration (e.g. uniform linear array with specific aperture and element spacing), determine the physical transmit and receive antenna placements and the multiplexing scheme that will synthesize this virtual array.
 Key figures of merit for evaluating \gls{mimo} topologies include:
 \begin{itemize}
-    \item \emph{Virtual aperture:} Set of unique transmitter-receiver channels in the resulting virtual array.
+    \item \textit{Virtual aperture:} Set of unique transmitter-receiver channels in the resulting virtual array.
     The aperture is often evaluated as the overall size of the virtual array, corresponding directly to the resulting \emph{angular resolution}.
-    \item \emph{\Gls{fov}:} The angular region over which the array can reliably detect and resolve targets, determined by the physical and virtual array geometry and element spacing.
-    \item \emph{\Gls{dof}:} The number of independent channels available for signal processing, which influences the ability to perform tasks like \emph{direction-of-arrival estimation} and \emph{parameter identifiability}.
-    \item \emph{Element spacing:} The spacing between virtual elements, affecting \emph{grating lobes} and \emph{ambiguity}, especially in sparse layout, where the Shannon-Nyquist spatial sampling criterion is deliberately violated.
-    \item \emph{\Gls{sll}:} The level of side-lobes in the virtual array's beampattern, impacting \emph{clutter rejection} and \emph{target detection}.
-    \item \emph{Mutual coupling:} The interaction between physical elements, which can distort the intended virtual array response, leading to \emph{errors in angle estimation} or \emph{degraded detection performance}.
-    \item \emph{Implementation complexity:} The practical feasibility of the physical layout and multiplexing scheme, considering hardware constraints.
+    \item \textit{\Gls{fov}:} The angular region over which the array can reliably detect and resolve targets, determined by the physical and virtual array geometry and element spacing.
+    \item \textit{\Gls{dof}:} The number of independent channels available for signal processing, which influences the ability to perform tasks like \emph{direction-of-arrival estimation} and \emph{parameter identifiability}.
+    \item \textit{Element spacing:} The spacing between virtual elements, affecting \emph{grating lobes} and \emph{ambiguity}, especially in sparse layout, where the Shannon-Nyquist spatial sampling criterion is deliberately violated.
+    \item \textit{\Gls{sll}:} The level of side-lobes in the virtual array's beampattern, impacting \emph{clutter rejection} and \emph{target detection}.
+    \item \textit{Mutual coupling:} The interaction between physical elements, which can distort the intended virtual array response, leading to \emph{errors in angle estimation} or \emph{degraded detection performance}.
+    \item \textit{Implementation complexity:} The practical feasibility of the physical layout and multiplexing scheme, considering hardware constraints.
 \end{itemize}
 
 
@@ -1045,6 +1045,6 @@ To address the aperture limitations of uniform arrays, structured sparse arrays 
 Unlike the random or highly irregular sparse arrays found in theoretical literature, industrially supported sparse designs rely on specific, repeatable patterns to extend the virtual aperture.
 These designs offer a pragmatic compromise: they achieve the improved angular resolution necessary for modern sensing while maintaining enough structural regularity to be reliably calibrated in mass production.
 
-\paragraph{Bridge to research gaps and proposed methodology.}
+\paragraph{Conclusion.}
 The open challenges in front-end polarization purity, phase-centre alignment, and 2D \gls{mimo} topology synthesis identified throughout this review directly motivate the research gap formulation in \cref{chap:research-gaps} and the top-down \enquote{polarimetry-first} methodology detailed in \cref{chap:feasibility-study}.
 

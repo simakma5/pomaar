@@ -1,4 +1,4 @@
-\chapter{Research gap analysis}
+\chapter{Research gap analysis and problem formulation}
 \label{chap:research-gaps}
 
 The literature synthesis conducted in \cref{chap:literature-review} reveals a fundamental disconnect between theoretical radar polarimetry and its practical implementation in automotive millimetre-wave sensors.
@@ -6,11 +6,10 @@ While polarimetric decomposition methods are well established in stationary remo
 Concurrently, modern \gls{mimo} radar topologies and front-end antenna structures are overwhelmingly optimized for scalar angular resolution, treating polarization as an unmanaged or secondary parameter.
 This results in array manifolds plagued by cross-polar leakage, phase-centre displacement, and polarization squint across the virtual aperture.
 
-To establish a rigorous theoretical and problem-oriented foundation for this research, this chapter categorizes the identified gaps, evaluates the physical domain transfer challenges, and formulates the core hypotheses and research questions.
+To establish a rigorous theoretical and problem-oriented foundation for this research, this chapter categorizes the identified gaps, evaluates the physical domain transfer challenges and operational hurdles, and formulates the core hypotheses and research questions.
 First, \cref{sec:gaps-identified} synthesizes the state-of-the-art limitations across polarimetric target models, front-end antenna hardware, and \gls{mimo} array topologies.
-Next, \cref{sec:domain-transfer} details the physical challenges encountered when transferring remote sensing polarimetry to low-altitude automotive geometries.
-\Cref{sec:automotive-hurdles} outlines the operational constraints of dynamic road scenes, including near-field curvature and \gls{tdm}-\gls{mimo} multiplexing limits.
-Finally, \cref{sec:hypotheses} translates these challenges into a structured hierarchy of primary and secondary research questions governing this doctoral work.
+Next, \cref{sec:domain-transfer} details the physical, geometric, kinematic, and hardware hurdles encountered when transferring remote sensing polarimetry to dynamic, low-altitude automotive radar environments.
+Finally, \cref{sec:hypotheses} translates these combined challenges into a set of core research questions governing this doctoral work.
 
 
 \section{Research gaps identified in literature}
@@ -35,15 +34,15 @@ Recent experimental work has validated the conjecture that resolving polarimetry
 As demonstrated by \textcite{bouwmeesterClassificationDynamicVulnerable2025}, the scattering mechanisms of \glspl{vru} are not constant but evolve across the gait cycle.
 Using a standard $3 \times 4$ \gls{mimo} configuration (producing $12$ virtual channels) in a diagonal polarization basis, the study confirmed that specific micro-Doppler components exhibit unique polarimetric behaviours:
 \begin{itemize}
-    \item \emph{Cyclists:} While the frame and rider exhibit dominant odd-bounce scattering (high Pauli $a$ and $b$ features), the rear wheel introduces a distinct cross-polarized response (Pauli $c$ feature) corresponding to a dihedral mechanism, likely due to the spoke-rim interaction.
-    \item \emph{Pedestrians:} The torso and forward-swinging limbs exhibit predominantly co-polarized returns, whereas backward-swinging limbs show weak depolarization.
+    \item \textit{Cyclists:} While the frame and rider exhibit dominant co-polarized returns (high Pauli $a$ and $b$ features), the rear wheel introduces a distinct cross-polarized response (Pauli $c$ feature) corresponding to a rotated-dihedral mechanism, likely due to the spoke-rim interaction.
+    \item \textit{Pedestrians:} The torso and forward-swinging limbs exhibit predominantly co-polarized returns, whereas backward-swinging limbs show weak depolarization.
 \end{itemize}
 By feeding these Doppler-resolved polarimetric power maps into a convolutional neural network, an F1-score of $98.2\%$ was achieved, statistically outperforming single-polarization baselines and confirming the utility of the feature set.
 
 \paragraph{Environmental clutter semantics and road features.}
 Beyond \gls{vru} limb motion, polarimetric signatures offer unique physical mechanisms for environmental scene understanding and road infrastructure classification.
 For instance, specular road surface reflections can differentiate dry pavement from water or black ice through co-polar ratio anomalies ($Z_{\mathrm{DR}}$).
-Similarly, optical retroreflectors (cataphotes) on guide posts and milestones might exhibit distinct trihedral (odd-bounce) returns at short millimetre waves, whereas road signs present single-plane reflections in contrast to the volume scattering of roadside foliage and the multi-path depolarization of metal lampposts.
+Similarly, optical retroreflectors (cataphotes) on guide posts and milestones might exhibit distinct trihedral returns at short millimetre waves, whereas road signs present single-bounce reflections in contrast to the volume scattering of roadside foliage and the multi-path depolarization of metal lampposts.
 
 \paragraph{The spatial resolution bottleneck.}
 Despite validating the phenomenological benefits of polarimetric micro-Doppler, the current state of the art faces a critical limitation regarding spatial separability.
@@ -52,7 +51,7 @@ To manage the computational load and the limited angular resolution of a standar
 While this approach served as an effective stop-gap to demonstrate the value of Doppler-resolved polarimetry given specific hardware constraints, it is insufficient for complex urban environments.
 In a realistic traffic scene, a \gls{vru} is frequently spatially adjacent to strong static reflectors (e.g. fences, guardrails, or parked vehicles).
 If a pedestrian and a static object co-exist within the same range-Doppler bin, the polarimetric signature of the dominant clutter will mask the subtler polarimetric features of the \gls{vru} limbs.
-Consequently, low-resolution estimates of entropy $H$ and anisotropy $A$ (or similar classification features) become contaminated, rendering the classification features ambiguous.
+Consequently, low-resolution estimates of classification features become contaminated, rendering them ambiguous.
 To advance beyond this limitation, the radar architecture must possess sufficient angular resolution to spatially isolate dynamic \glspl{vru} from clutter \emph{before} polarimetric feature extraction.
 
 
@@ -82,49 +81,38 @@ As far as the current literature indicates, apart from preliminary investigation
 Currently, no established array topology exists that is mathematically optimized from its inception to preserve the fidelity of the full scattering matrix while simultaneously maximizing spatial resolution and multiplexing feasibility.
 
 
-\section{Domain transfer challenges: from SAR to automotive radar}
+\section{Domain transfer challenges}
 \label{sec:domain-transfer}
 
-The polarimetric decomposition techniques reviewed in \cref{sec:incoherent-decomposition} were historically developed for \gls{sar} and spaceborne remote sensing, operating under implicit assumptions of static scenes, far-field plane-wave incidence, and steep incidence angles.
-Transferring these mathematical formulations to W-band automotive radar introduces several physical and operational challenges:
-
-\begin{enumerate}
-    \item \textbf{Grazing incidence and surface suppression.} Automotive radars operate near the ground plane (\qtyrange{0.3}{1.5}{m} mounting height), resulting in grazing incidence angles (\qtyrange[range-units=repeat]{85}{89}{\degree}). At these angles, pseudo-Brewster angle and rough surface scattering mechanisms dictate that vertical polarization backscatter from asphalt and concrete exceeds horizontal returns. This surface anisotropy, which was demonstrated by \textcite{visentinPolarimetricRadarAutomotive2019,bouwmeesterRoadSurfaceConditions2023}, artificially inflates differential reflectivity $Z_{\mathrm{DR}}$ and biases target decomposition parameters such as the Pauli $\alpha$ angle, distorting the inferred physical scattering mechanism.
-    \item \textbf{Non-stationarity across coherent integration intervals.} In satellite or airborne \gls{sar}, the observation duration over a homogeneous land-cover parcel is sufficiently long to accumulate independent samples for forming a well-conditioned coherency matrix $\vec T$ (or covariance matrix $\vec J$). In dynamic automotive driving scenarios, targets such as pedestrians or cyclists move across spatial resolution cells on millisecond timescales. Estimating the coherency matrix via spatial or temporal windowing assumes local stationarity -- a condition frequently violated by fast-moving \glspl{vru} and rapidly evolving clutter.
-    \item \textbf{Micro-Doppler and polarimetric coupling.} Standard polarimetric target decompositions treat the target as a single static or rigid body, disregarding velocity distribution. However, for articulate \glspl{vru}, the polarimetric signature is inherently time-variant and coupled with the micro-Doppler spectrum. For example, a pedestrian's torso exhibits a stable co-polarized single-bounce response, whereas swinging limbs generate transient cross-polarized depolarization at distinct Doppler offsets.
-\end{enumerate}
-
-These discrepancies indicate that while classical remote sensing decompositions provide a foundational framework, they cannot be directly ingested by automotive classification pipelines without explicitly accounting for grazing geometry, non-stationarity, and micro-Doppler coupling.
-
-
-\section{Automotive operational hurdles}
-\label{sec:automotive-hurdles}
-
-Expanding polarimetric analysis into the joint Doppler-polarization domain offers a promising path forward, but it must contend with severe hardware and environmental constraints unique to vehicle integration:
+The polarimetric decomposition techniques reviewed in \cref{sec:incoherent-decomposition} were historically developed for airborne and spaceborne \gls{sar} and remote sensing, operating under implicit assumptions of static scenes, far-field plane-wave incidence, and steep incidence angles.
+Transferring these mathematical formulations to W-band automotive radar introduces a distinct set of physical, geometric, kinematic, and hardware operational challenges:
 
 \begin{itemize}
-    \item \textbf{Near-field wavefront curvature.} Operating ranges in urban driving (\qtyrange{5}{60}{m}) fall within the transition region between the near-field and far-field for large \gls{mimo} virtual apertures. Plane-wave incidence assumptions break down, introducing range-dependent phase errors across the array manifold that corrupt cross-polar phase calibration if left uncompensated.
-    \item \textbf{Multipath dominance and depolarization.} Ground reflections, metallic vehicle bodies, and roadside structures create multi-path propagation channels. Double-bounce reflections off the road surface and vehicle undercarriages introduce spurious cross-polar energy, generating depolarization characteristics not accounted for by free-space target models.
-    \item \textbf{Multiplexing constraints and Doppler ambiguity.} Achieving dual-polarized operation in a \gls{mimo} system requires switching polarizations either across transmit pulses or receive channels. In \gls{tdm}-\gls{mimo}, sequential polarization switching extends the \gls{pri} per virtual channel, compounding phase wrapping and velocity ambiguity in high-speed traffic.
+    \item \emph{Grazing incidence:} Automotive radars operate near the ground plane (\qtyrange{0.3}{1.5}{m} mounting height), resulting in grazing incidence angles (\qtyrange[range-units=repeat]{85}{89}{\degree}). At these angles, pseudo-Brewster angle phenomena and rough-surface scattering dictate that vertical polarization backscatter from asphalt and concrete significantly exceeds horizontal returns. This surface anisotropy, demonstrated by \textcite{visentinPolarimetricRadarAutomotive2019,bouwmeesterRoadSurfaceConditions2023}, artificially inflates differential reflectivity $Z_{\mathrm{DR}}$ and biases target decomposition parameters, distorting the inferred physical scattering mechanism.
+    \item \emph{Near-field wavefront curvature:} Operational ranges in urban driving scenarios (\qtyrange{5}{60}{m}) frequently fall within the transition region between near-field and far-field for large \gls{mimo} virtual apertures. Plane-wave incidence assumptions break down, introducing range-dependent spherical phase curvature across the array manifold that corrupts cross-polar phase calibration if uncompensated.
+    \item \emph{Multipath dominance:} Low mounting heights, metallic vehicle bodies, and roadside structures create multi-path propagation channels. Even-bounce reflections off the road surface and vehicle undercarriages introduce spurious cross-polar energy, generating depolarization characteristics not accounted for by free-space target models.
+    \item \emph{Nonstationarity:} In remote sensing \gls{sar}, observation durations over homogeneous terrain parcels are sufficiently long to accumulate independent samples for forming well-conditioned coherency matrices $\vec T$ (or covariance matrices $\vec J$). In dynamic driving scenarios, targets move across spatial resolution cells on millisecond timescales. Estimating coherency matrices via spatial or temporal windowing assumes local stationarity -- a condition constantly violated by fast-moving \glspl{vru} and rapidly evolving road clutter.
+    \item \emph{Micro-Doppler coupling:} Standard polarimetric target decompositions treat scatterers as rigid, single-velocity bodies. For articulate \glspl{vru}, however, the polarimetric signature is inherently time-variant and coupled with the Doppler spectrum. For example, a pedestrian's torso exhibits a stable co-polarized single-bounce response, whereas swinging limbs generate transient cross-polarized depolarization at distinct Doppler offsets.
+    \item \emph{MIMO multiplexing constraints:} Achieving dual-polarized operation in a \gls{mimo} radar requires multiplexing polarizations across transmit pulses or receive channels. In \gls{tdm} \gls{mimo}, sequential polarization switching extends the \gls{pri} per virtual channel, compounding phase wrapping and velocity ambiguity in high-speed traffic.
 \end{itemize}
 
-These operational hurdles justify the development of joint spatial-Doppler-polarimetric processing schemes and \enquote{polarimetry-first} array manifolds designed specifically to preserve phase coherence and polarimetric fidelity under tight automotive form factors.
+These combined physical and operational hurdles demonstrate that remote sensing decompositions cannot be directly ingested by automotive classification pipelines without explicitly accounting for grazing geometry, spherical wavefronts, nonstationarity, micro-Doppler coupling, and multiplexing limits.
 
 
 \section{Formulation of hypotheses and research questions}
 \label{sec:hypotheses}
 
 Addressing the key bottlenecks of automotive polarimetry requires formulating precise, testable hypotheses that link physical scattering physics to array manifold design.
-Building upon the literature gaps and domain transfer challenges established above, this section outlines the overarching primary research question alongside three supporting sub-questions:
+Building upon the literature gaps and domain transfer challenges established above, this section outlines the central research questions governing this doctoral work:
 
-\todo{Update research questions.}
 \begin{custombox}{Research questions}
     \begin{itemize}
-        \item \textbf{Primary research question:} Can the integration of a high-resolution $12 \times 16$ \gls{mimo} architecture with Doppler-resolved polarimetric processing significantly enhance the classification accuracy of dynamic \glspl{vru}?
-        \item \textbf{Secondary research question 1:} What is the optimal choice of polarization basis for polarimetric automotive radar?
-        \item \textbf{Secondary research question 2:} What are the fundamental lower bounds on antenna requirements (e.g. cross-polarization discrimination, phase centre alignment), as derived from the sensitivity and robustness of polarimetric decomposition algorithms?
-        \item \textbf{Secondary research question 3:} How can \gls{mimo} topologies be optimized specifically for polarimetric fidelity -- establishing \enquote{polarimetry-first} array designs -- to mitigate the detrimental effects of phase centre displacement and cross-polar coupling?
+        \item \textbf{Research question 1:} Can the integration of a high-resolution $12 \times 16$ \gls{mimo} architecture with Doppler-resolved polarimetric processing significantly enhance the classification accuracy of dynamic \glspl{vru}?
+        \item \textbf{Research question 2:} Which polarimetric decomposition methods are most robust to the non-stationary, grazing-incidence, and multipath-dominated conditions of automotive radar, and how can they be adapted to exploit Doppler-resolved features for improved \gls{vru} classification?
+        \item \textbf{Research question 3:} What are the fundamental lower bounds on antenna requirements, as derived from the sensitivity and robustness of polarimetric decomposition algorithms?
+        \item \textbf{Research question 4:} How can \gls{mimo} topologies be optimized specifically for polarimetric fidelity to mitigate the detrimental effects of phase centre displacement and cross-polar coupling?
     \end{itemize}
 \end{custombox}
 
-These research questions establish a direct bridge to the technical methodology and preliminary feasibility studies presented in \cref{chap:proposed-methodology}.
+\paragraph{Conclusion.}
+These research questions establish a direct bridge to the technical methodology and preliminary feasibility studies presented in \cref{chap:feasibility-study}.
