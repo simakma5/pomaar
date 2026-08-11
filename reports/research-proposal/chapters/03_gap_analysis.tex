@@ -22,7 +22,7 @@ This section summarizes the three critical gaps identified in current literature
 \subsection{Gaps in polarimetric models}
 \label{sec:gaps-models}
 
-The decomposition methods discussed in~\cref{sec:coherent-decomposition,sec:incoherent-decomposition} generally treat the radar target as a singular spatial entity.
+The decomposition methods discussed in~\cref{sec:target-decomposition} generally treat the radar target exclusively as a spatial entity.
 However, for dynamic \gls{vru} classification, a purely spatial perspective is insufficient.
 Pedestrians and cyclists are articulate structures characterized by complex motion, generating a unique spectral signature known as the \emph{micro-Doppler} effect.
 
@@ -46,7 +46,8 @@ Similarly, optical retroreflectors (cataphotes) on guide posts and milestones mi
 
 \paragraph{The spatial resolution bottleneck.}
 Despite validating the phenomenological benefits of polarimetric micro-Doppler, the current state of the art faces a critical limitation regarding spatial separability.
-To manage the computational load and the limited angular resolution of a standard $12$-channel virtual array, the processing pipeline proposed by~\textcite{bouwmeesterClassificationDynamicVulnerable2025} relies on a \enquote{dominant target} selection strategy. By computing the angle that maximizes the sum of the squared absolute values of the scattering matrix, this procedure isolates the strongest scatterer within a range-Doppler cell and removes the angular dimension from the processed measurement data.
+To manage the computational load and the limited angular resolution of a standard $12$-channel virtual array, the processing pipeline proposed by~\textcite{bouwmeesterClassificationDynamicVulnerable2025} relies on a \enquote{dominant target} selection strategy.
+By computing the angle that maximizes the sum of the squared absolute values of the scattering matrix, this procedure isolates the strongest scatterer within a range-Doppler cell and removes the angular dimension from the processed measurement data.
 
 While this approach served as an effective stop-gap to demonstrate the value of Doppler-resolved polarimetry given specific hardware constraints, it is insufficient for complex urban environments.
 In a realistic traffic scene, a \gls{vru} is frequently spatially adjacent to strong static reflectors (e.g. fences, guardrails, or parked vehicles).
@@ -84,16 +85,25 @@ Currently, no established array topology exists that is mathematically optimized
 \section{Domain transfer challenges}
 \label{sec:domain-transfer}
 
-The polarimetric decomposition techniques reviewed in \cref{sec:incoherent-decomposition} were historically developed for airborne and spaceborne \gls{sar} and remote sensing, operating under implicit assumptions of static scenes, far-field plane-wave incidence, and steep incidence angles.
+The polarimetric decomposition techniques reviewed in \cref{sec:target-decomposition} were historically developed for airborne and spaceborne \gls{sar} and remote sensing, operating under implicit assumptions of static scenes, far-field plane-wave incidence, and steep incidence angles.
 Transferring these mathematical formulations to W-band automotive radar introduces a distinct set of physical, geometric, kinematic, and hardware operational challenges:
 
 \begin{itemize}
-    \item \emph{Grazing incidence:} Automotive radars operate near the ground plane (\qtyrange{0.3}{1.5}{m} mounting height), resulting in grazing incidence angles (\qtyrange[range-units=repeat]{85}{89}{\degree}). At these angles, pseudo-Brewster angle phenomena and rough-surface scattering dictate that vertical polarization backscatter from asphalt and concrete significantly exceeds horizontal returns. This surface anisotropy, demonstrated by \textcite{visentinPolarimetricRadarAutomotive2019,bouwmeesterRoadSurfaceConditions2023}, artificially inflates differential reflectivity $Z_{\mathrm{DR}}$ and biases target decomposition parameters, distorting the inferred physical scattering mechanism.
-    \item \emph{Near-field wavefront curvature:} Operational ranges in urban driving scenarios (\qtyrange{5}{60}{m}) frequently fall within the transition region between near-field and far-field for large \gls{mimo} virtual apertures. Plane-wave incidence assumptions break down, introducing range-dependent spherical phase curvature across the array manifold that corrupts cross-polar phase calibration if uncompensated.
-    \item \emph{Multipath dominance:} Low mounting heights, metallic vehicle bodies, and roadside structures create multi-path propagation channels. Even-bounce reflections off the road surface and vehicle undercarriages introduce spurious cross-polar energy, generating depolarization characteristics not accounted for by free-space target models.
-    \item \emph{Nonstationarity:} In remote sensing \gls{sar}, observation durations over homogeneous terrain parcels are sufficiently long to accumulate independent samples for forming well-conditioned coherency matrices $\vec T$ (or covariance matrices $\vec J$). In dynamic driving scenarios, targets move across spatial resolution cells on millisecond timescales. Estimating coherency matrices via spatial or temporal windowing assumes local stationarity -- a condition constantly violated by fast-moving \glspl{vru} and rapidly evolving road clutter.
-    \item \emph{Micro-Doppler coupling:} Standard polarimetric target decompositions treat scatterers as rigid, single-velocity bodies. For articulate \glspl{vru}, however, the polarimetric signature is inherently time-variant and coupled with the Doppler spectrum. For example, a pedestrian's torso exhibits a stable co-polarized single-bounce response, whereas swinging limbs generate transient cross-polarized depolarization at distinct Doppler offsets.
-    \item \emph{MIMO multiplexing constraints:} Achieving dual-polarized operation in a \gls{mimo} radar requires multiplexing polarizations across transmit pulses or receive channels. In \gls{tdm} \gls{mimo}, sequential polarization switching extends the \gls{pri} per virtual channel, compounding phase wrapping and velocity ambiguity in high-speed traffic.
+    \item \emph{Grazing incidence:} Automotive radars operate near the ground plane (\qtyrange{0.3}{1.5}{m} mounting height), resulting in grazing incidence angles (\qtyrange[range-units=repeat]{85}{89}{\degree}).
+    At these angles, pseudo-Brewster angle phenomena and rough-surface scattering dictate that vertical polarization backscatter from asphalt and concrete significantly exceeds horizontal returns.
+    This surface anisotropy, demonstrated by \textcite{visentinPolarimetricRadarAutomotive2019,bouwmeesterRoadSurfaceConditions2023}, artificially inflates differential reflectivity $Z_{\mathrm{DR}}$ and biases target decomposition parameters, distorting the inferred physical scattering mechanism.
+    \item \emph{Near-field wavefront curvature:} Operational ranges in urban driving scenarios (\qtyrange{5}{60}{m}) frequently fall within the transition region between near-field and far-field for large \gls{mimo} virtual apertures.
+    Plane-wave incidence assumptions break down, introducing range-dependent spherical phase curvature across the array manifold that corrupts cross-polar phase calibration if uncompensated.
+    \item \emph{Multipath dominance:} Low mounting heights, metallic vehicle bodies, and roadside structures create multi-path propagation channels.
+    Even-bounce reflections off the road surface and vehicle undercarriages introduce spurious cross-polar energy, generating depolarization characteristics not accounted for by free-space target models.
+    \item \emph{Nonstationarity:} In remote sensing \gls{sar}, observation durations over homogeneous terrain parcels are sufficiently long to accumulate independent samples for forming well-conditioned coherency matrices $\vec T$ (or covariance matrices $\vec J$).
+    In dynamic driving scenarios, targets move across spatial resolution cells on millisecond timescales.
+    Estimating coherency matrices via spatial or temporal windowing assumes local stationarity -- a condition constantly violated by fast-moving \glspl{vru} and rapidly evolving road clutter.
+    \item \emph{Micro-Doppler coupling:} Standard polarimetric target decompositions treat scatterers as rigid, single-velocity bodies.
+    For articulate \glspl{vru}, however, the polarimetric signature is inherently time-variant and coupled with the Doppler spectrum.
+    For example, a pedestrian's torso exhibits a stable co-polarized single-bounce response, whereas swinging limbs generate transient cross-polarized depolarization at distinct Doppler offsets.
+    \item \emph{MIMO multiplexing constraints:} Achieving dual-polarized operation in a \gls{mimo} radar requires multiplexing polarizations across transmit pulses or receive channels.
+    In \gls{tdm} \gls{mimo}, sequential polarization switching extends the \gls{pri} per virtual channel, compounding phase wrapping and velocity ambiguity in high-speed traffic.
 \end{itemize}
 
 These combined physical and operational hurdles demonstrate that remote sensing decompositions cannot be directly ingested by automotive classification pipelines without explicitly accounting for grazing geometry, spherical wavefronts, nonstationarity, micro-Doppler coupling, and multiplexing limits.

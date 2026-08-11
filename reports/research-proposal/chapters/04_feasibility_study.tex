@@ -12,7 +12,7 @@ Next, \cref{sec:feasibility-study} details the staged simulation strategy, prese
 \label{sec:proposed-solutions}
 
 To bridge the gap between front-end antenna hardware and polarimetric signal processing, this research establishes an algorithm-driven design methodology.
-Rather than attempting to achieve absolute electromagnetic perfection across all scan angles, the project derives the fundamental lower bounds of antenna performance required for robust target classification.
+Rather than attempting to achieve absolute electromagnetic perfection across all scan angles, the project will derive the fundamental lower bounds of antenna performance required for robust target classification.
 
 
 \subsection{Derivation of antenna requirements via perturbation analysis}
@@ -27,15 +27,15 @@ The resulting error bounds will be directly translated into minimum required ant
 \label{sec:simulation-platform}
 
 To execute the perturbation analysis and study the effects of physical element displacement, a dedicated simulation platform is constructed within the Ansys Electronics Desktop suite~\parencite{ansysAedt2025}.
-The simulation platform employs a hybrid methodology bridging full-wave electromagnetic data with asymptotic ray-tracing to model isolated targets%
-    \footnote{Here, \enquote{isolated targets} refers to electrically large scatterers (such as a traffic sign at \qty{3}{m} range) rather than full urban clutter scenes, maintaining computational tractability while capturing real antenna physics.}
+The simulation platform employs a hybrid methodology bridging full-wave electromagnetic data with asymptotic ray-tracing to model electrically large scenes%
+    \footnote{Here, \enquote{electrically large scenes} refers to isolated targets (such as a traffic sign at \qty{3}{m} range) rather than full urban clutter scenes, maintaining computational tractability while capturing real antenna physics.}
 while accounting for array-level mutual coupling and phase-centre displacement.
-The simulation pipeline is structured in three primary stages:
+The simulation pipeline is structured in the following three primary stages.
 
 \paragraph{Antenna modelling via full-wave characterization.}
 Rather than assuming ideal isotropic or dipolar radiation, the \gls{hfss} full-wave solver is utilized exclusively to model the \gls{mimo} antenna array.
 This step captures exact physical properties that theoretical models omit, including mutual coupling between ports, edge effects, and precise 3D embedded radiation patterns.
-As an initial validation baseline, the simulator models the \qty{28}{\giga\hertz} dual-polarized array reported by \textcite{fandiantoroExperimentalStudyPolarimetric2025}, comprising an $8 \times 8$ array of dual-polarized elements ($16 \times 16$ port network), extracting the complex polarimetric embedded element patterns for all channels.
+As an initial validation baseline, the simulator models the \qty{28}{\giga\hertz} dual-polarized array reported by \textcite{fandiantoroExperimentalStudyPolarimetric2025}, comprising an $8 \times 8$ array of dual-polarized elements, extracting the complex polarimetric embedded element patterns for all channels.
 
 \paragraph{Scene scattering and propagation.}
 Scene scattering is evaluated using SBR+, an advanced \gls{sbr} solver integrated directly into Ansys Electronics Desktop.
@@ -47,7 +47,7 @@ Initial validation employs canonical shapes (e.g. spheres and dihedral corner re
 A major architectural advantage of utilizing SBR+ within Ansys Electronics Desktop is its native support for dedicated \gls{fmcw} radar analysis setups.
 Rather than manually synthesizing chirps, time delays, and phase shifts via external scripts, the SBR+ solver is configured directly with physical radar waveform parameters -- including sweep bandwidth, centre frequency, chirp duration, pulse repetition interval (\gls{pri}), number of chirps per frame, and frame period.
 The solver automatically computes the multichannel \gls{fmcw} response and outputs raw range-Doppler maps directly.
-This eliminates tedious manual signal synthesis in Python, enabling post-processing scripts to focus directly on virtual array channel recombination, spatial imaging (e.g. back-projection), and target feature extraction.
+This eliminates manual signal synthesis, enabling post-processing scripts to focus directly on virtual array channel recombination, spatial imaging (e.g. back-projection), and target feature extraction.
 
 
 \subsection{Polarimetry-first MIMO topologies}
@@ -138,7 +138,7 @@ To align with this objective, the following design decisions have been establish
 
     \item \textbf{Selection of radiating mechanism.}
     Within the planar domain, the design strategy envisions a multi-layer \gls{siw} stack-up as the high-performance contender.
-    Specifically, slotted radiation serves as the main mechanism, potentially augmented with parasitic patches on the top layer to shape the individual beam pattern and improve impedance bandwidth, a technique supported by recent studies on hybrid \gls{siw}-patch topologies, such as works of~\textcite{puskely5GSIWBasedPhased2022,yangMillimeterWaveDualPolarizedDifferentially2020}.
+    Specifically, slotted radiation serves as the main mechanism, augmented with parasitic patches on the top layer to shape the individual beam pattern and improve impedance bandwidth, a technique supported by recent studies on hybrid \gls{siw}-patch topologies, such as works of~\textcite{puskely5GSIWBasedPhased2022,yangMillimeterWaveDualPolarizedDifferentially2020}.
     This approach strikes a balance between the isolation benefits of \gls{siw} and the low profile of printed elements.
 
     \item \textbf{Iterative development strategy.}
@@ -166,8 +166,13 @@ To guarantee systematic progress and mitigate algorithmic risk, the evaluation o
 Before deploying complex coherent target decompositions, initial simulations establish a baseline using power-only polarimetric metrics (e.g. co-polar and cross-polar power ratios).
 This initial stage focuses on resolving fundamental hardware-level challenges associated with single-polarized interleaved \gls{mimo} architectures, where orthogonal receive antennas are spatially displaced rather than sharing a common phase centre:
 \begin{itemize}
-    \item \textbf{Inter-element phase calibration:} Physical displacement between horizontal and vertical elements introduces an angle- and range-dependent path delay across the virtual array manifold. To enable accurate power ratio extraction across displaced channels, a dedicated calibration routine is developed to compensate for these spatial phase shifts prior to channel combination.
-    \item \textbf{Ensemble matrix averaging limits:} A critical theoretical challenge in calculating the polarimetric coherency matrix $\vec T = \langle \vec k_P \cdot \vec k_P^\dagger \rangle$ is defining the ensemble averaging operator $\langle \cdot \rangle$. In spaceborne \gls{sar}, averaging is performed spatially over large homogeneous terrain patches. In automotive radar, however, targets occupy only a few range-Doppler resolution cells, restricting spatial multi-looking. Simultaneously, target motion and ego-vehicle dynamics cause rapid aspect angle variations that decorrelate phase within milliseconds, invalidating long temporal integration. The initial simulation phase tests localized Doppler-domain smoothing and spatial filtering techniques to form well-conditioned estimates under these constrained conditions.
+    \item \textbf{Inter-element phase calibration:} Physical displacement between horizontal and vertical elements introduces an angle- and range-dependent path delay across the virtual array manifold.
+    To enable accurate power ratio extraction across displaced channels, a dedicated calibration routine is developed to compensate for these spatial phase shifts prior to channel combination.
+    \item \textbf{Ensemble matrix averaging limits:} A critical theoretical challenge in calculating the polarimetric coherency matrix $\vec T = \langle \vec k_P \cdot \vec k_P^\dagger \rangle$ is defining the ensemble averaging operator $\langle \cdot \rangle$.
+    In spaceborne \gls{sar}, averaging is performed spatially over large homogeneous terrain patches.
+    In automotive radar, however, targets occupy only a few range-Doppler resolution cells, restricting spatial multi-looking.
+    Simultaneously, target motion and ego-vehicle dynamics cause rapid aspect angle variations that decorrelate phase within milliseconds, invalidating long temporal integration.
+    The initial simulation phase tests localized Doppler-domain smoothing and spatial filtering techniques to form well-conditioned estimates under these constrained conditions.
 \end{itemize}
 
 \paragraph{Advanced processing phase: coherent polarimetric decomposition.}
@@ -180,9 +185,83 @@ This staged approach bridges initial power-only measurements with advanced polar
 \subsection{Initial target scattering simulation results}
 \label{sec:initial-scattering-results}
 
-\todo{Insert initial SBR+ target scattering simulation results here.}
-This subsection will present the initial simulation results obtained using the Ansys HFSS + SBR+ radar simulation framework.
-Target responses for canonical scatterers (dihedral corner reflectors, spheres) and representative automotive targets will be evaluated under varying aspect angles and polarization configurations to validate the power-only reconstruction and inter-element phase calibration algorithms.
+To validate the SBR+ ray-tracing simulation pipeline prior to deploying complex full-wave array characterizations, an initial feasibility study was conducted using a parametric beam model.
+By utilizing ideal Gaussian radiation patterns to illuminate target geometries within Ansys Electronics Desktop, this simplified framework enables rapid, isolated evaluation of polarimetric scattering signatures under controlled aspect-angle sweeps and spatial rotation configurations.
+These preliminary simulations serve the main purpose of verifying that the SBR+ solver accurately captures the theoretical scattering physics of canonical targets established in \cref{sec:canonical-scatterers} and illustrating the systematic polarimetric distortion induced during off-boresight measurements.
+
+\paragraph{Canonical double-bounce scattering validation.}
+The initial benchmark evaluates the polarimetric backscattering response of an unrotated, broadside-illuminated dihedral corner reflector, as illustrated in \cref{fig:sbr_parametric_dihedral_unrotated}.
+\Cref{fig:sbr_parametric_dihedral_unrotated_magnitude} displays the co- and cross-polarized backscattered magnitude across frequency, demonstrating strong co-polar returns -- $S_\HH$ and $S_\VV$, normalized to \qty{0}{\dB} -- alongside high polarization purity, with cross-polarized leakage, $S_\HV$ and $S_\VH$, suppressed below \qty{-80}{\dB}.
+Complementing the magnitude, the phase response in \cref{fig:sbr_parametric_dihedral_unrotated_phase} confirms the foundational physics of even-bounce scattering: the co-polarized channels exhibit an almost exact $\uppi$ phase difference ($\arg(S_\VV) - \arg(S_\HH) = \uppi$).
+This empirical result matches the analytical Sinclair matrix from \cref{eq:canonical-even-bounce-0}.
+In the Pauli feature space introduced in \cref{sec:coherent-decomposition}, this unrotated dihedral populates exclusively the double-bounce component ($b = \sqrt{2}\sigma_{\text{dih}}$), while the single-bounce ($a$), cross-polar ($c$), and asymmetry ($d$) components remain zero, validating the polarimetric fidelity of the simulation platform.%
+    \todo{Verify that!}
+
+\begin{figure}
+    \centering
+    \begin{subfigure}{\linewidth}
+        \centering
+        \input{images/sbr_parametric_dihedral_unrotated_magnitude.pgf}
+        \caption{Magnitude.}
+        \label{fig:sbr_parametric_dihedral_unrotated_magnitude}
+    \end{subfigure}
+    \\
+    \begin{subfigure}{\linewidth}
+        \centering
+        \input{images/sbr_parametric_dihedral_unrotated_phase.pgf}
+        \caption{Phase.}
+        \label{fig:sbr_parametric_dihedral_unrotated_phase}
+    \end{subfigure}
+    \caption{Co-polar response of an unrotated dihedral corner reflector.}
+    \label{fig:sbr_parametric_dihedral_unrotated}
+\end{figure}
+
+\paragraph{Target self-rotation and Pauli trajectory.}
+To examine the orientation-dependent behaviour of non-spherical targets, \cref{fig:sbr_parametric_dihedral_self_rotation} depicts the simulated scattering parameter magnitudes as the dihedral corner reflector is physically rotated by an angle $\theta \in [\ang{0}, \ang{180}]$ around the radar line of sight.
+As predicted by the spatial rotation transformation in \cref{eq:canonical-even-bounce-rotated}, the scattering matrix undergoes a continuous energy transfer between co-polarized and cross-polarized states.
+At cardinal alignments ($\theta \in \{\ang{0}, \ang{90}, \ang{180}\}$), the target acts as a pure co-polar double-bounce scatterer -- $S_\HH = -S_\VV$ and $S_\HV = S_\VH = 0$.
+Conversely, at oblique orientations ($\theta \in \{\ang{45}, \ang{135}\}$), the co-polarized channels are completely suppressed ($S_\HH = S_\VV = 0$), and all backscattered energy is transferred into the cross-polarized channels ($S_\HV = S_\VH = \sigma_{\text{dih}}$), matching the $\ang{45}$-rotated dihedral matrix in \cref{eq:canonical-even-bounce-45}.
+In Pauli feature space, this rotation maps a smooth trajectory from the double-bounce mechanism ($b = \sqrt{2}\sigma_{\text{dih}}\cos 2\theta$) to the cross-polar mechanism ($c = \sqrt{2}\sigma_{\text{dih}}\sin 2\theta$).%
+    \todo{Verify that!}
+This simulation confirms that the SBR+ framework faithfully models orientation-induced polarimetric modulation, which is essential for characterizing dynamic vehicle body panels and articulate \gls{vru} motion.
+
+\begin{figure}
+    \centering
+    \input{images/sbr_parametric_dihedral_self_rotation.pgf}
+    \caption{Changing polarimetric response of a rotating dihedral corner reflector.}
+    \label{fig:sbr_parametric_dihedral_self_rotation}
+\end{figure}
+
+\paragraph{Aspect-angle displacement and geometric polarization distortion.}
+Beyond target self-rotation, the feasibility study evaluates the impact of target spatial displacement across the radar field of view on measured polarimetric signatures.%
+    \footnote{Here, spatial aspect-angle displacement refers to a change in target position along a spherical grid around the radar origin at fixed range, evaluated along the principal azimuth plane ($\phi = \ang{0}$) and a diagonal plane ($\theta = \phi$). While implemented by moving the target in the simulation scene, the resulting electrodynamic projection is identical to off-boresight electronic beam steering in a polarimetric phased array or digital MIMO beamformer.}
+
+\Cref{fig:sbr_parametric_dihedral_angular_scan} presents the resulting backscattered magnitude profiles of the unrotated dihedral corner reflector as a function of angular aspect offset, comparing principal azimuth displacement against diagonal displacement.
+The plot displays four distinct traces corresponding to co-polar and cross-polar responses along both trajectories.
+Note that although eight individual channel parameters exist, co-polar as well as cross-polar pairs overlap perfectly due to the equal-magnitude symmetry of unrotated even-bounce scattering established previously in \cref{fig:sbr_parametric_dihedral_unrotated_magnitude}.
+
+\begin{figure}
+    \centering
+    \input{images/sbr_parametric_dihedral_angular_scan.pgf}
+    \caption{Magnitude roll-off in the polarimetric response of an unrotated dihedral corner reflector over angular scans.}
+    \label{fig:sbr_parametric_dihedral_angular_scan}
+\end{figure}
+
+As shown in \cref{fig:sbr_parametric_dihedral_angular_scan}, target displacement along the principal azimuth plane produces a gradual, symmetric RCS roll-off dictated purely by the physical projected area of the dihedral aperture, while cross-polar leakage remains deeply suppressed below \qty{-80}{\dB}.
+In contrast, displacing the target along a diagonal aspect trajectory induces a severe polarimetric degradation: the co-polarized returns experience a rapid, steep attenuation, closing the gap between co- and cross-polarized responses and introducing artificial cross-polarized leakage.
+
+The fundamental electrodynamic cause of this disparity lies in the spatial orientation of the linear polarization basis vectors relative to the target geometry during 3D angular displacement.
+When the target moves strictly along a principal plane (azimuth or elevation in the $(\H, \V)$ basis), the electric field polarization vectors remain aligned with the dihedral's orthogonal vertex planes, preserving basis orthogonality.
+However, when the target is positioned along a diagonal trajectory (combining simultaneous azimuth and elevation offsets), the incident wave vector's local polarization frame undergoes a 3D spatial tilt relative to the target's physical axes.
+This geometric projection forces the incident linear polarization vector to decompose into both co- and cross-polarized components at the target surface, introducing an apparent polarimetric distortion.
+Notably, if the system were operated in a diagonal linear basis ($\pm \ang{45}$), this spatial behaviour would invert -- displaying high polarization stability along diagonal aspect trajectories and severe distortion along principal planes.
+
+\paragraph{Implications for polarimetric MIMO array synthesis.}
+This spatial aspect phenomenon highlights a critical systemic challenge in polarimetric radar perception: observed target signatures are inherently coupled with spatial target position and radar beam steering geometry.
+Whether a target is situated off-boresight in the scene or illuminated by an electronically steered beam of a polarimetric phased array, off-axis operation subjects the measurement to geometric polarization projection.
+In a practical \gls{mimo} radar, if the array manifold additionally suffers from spatial phase-centre displacement or polarization squint between $\H$ and $\V$ channels, digital beamforming off-boresight will compound this geometric projection with array-level phase errors.
+This combined distortion artificially leaks double-bounce energy into volume or helix scattering components during incoherent target decompositions (e.g. Freeman--Durden or Yamaguchi), potentially degrading target classification performance.
+These simulation findings directly justify the core research objective of this doctoral project: the synthesis of \enquote{polarimetry-first} \gls{mimo} topologies (\cref{sec:polarimetry-first-topologies}) that minimize virtual channel phase-centre disparities, ensuring that measured polarimetric signatures reflect true target physics rather than spatial array manifold artifacts.
 
 
 \subsection{Preliminary antenna design and development}
@@ -300,7 +379,7 @@ Additionally, the slot must remain sub-resonant, and second-pass optimization is
 
 \paragraph{Phase matching.}
 To generate a standard automotive fan beam pointing broadside without grating lobes, the physical and electrical spacing must be decoupled.
-The element spacing $d$ must be kept at approximately $0.5\lambda_{0}$, and strictly below $\lambda_{0}$, to prevent grating lobes, while the elements must be fed in phase, requiring a $2\pi+\Phi_{\mathrm{prog}}$ electrical delay, where $\Phi_{\mathrm{prog}}$ is the intended progressive phase.
+The element spacing $d$ must be kept at approximately $0.5\lambda_{0}$, and strictly below $\lambda_{0}$, to prevent grating lobes, while the elements must be fed in phase, requiring a $2\uppi+\Phi_{\mathrm{prog}}$ electrical delay, where $\Phi_{\mathrm{prog}}$ is the intended progressive phase.
 Because the guided wavelength is shorter than the free-space wavelength in the substrate, meanders or U-bends are routed between the slots to physically lengthen the line.
 In travelling-wave arrays, tuning elements to different coupling levels shifts their transmission and radiation phases, and realizing an accurate beam pattern requires tracking the radiation phase, $\angle E_{\mathrm{rad}}$, of each element.
 To maintain the progressive phase, $\Phi_{\mathrm{prog}}$, the electrical length, $\Delta\Phi_{\mathrm{feed}}$, of the feedline segment between elements $i$ and $i+1$ is synthesized as
