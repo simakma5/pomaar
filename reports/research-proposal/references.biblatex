@@ -3534,3 +3534,153 @@
   year = {2026},
   url = {https://www.3ds.com/products/simulia/cst-studio-suite}
 }
+
+@thesis{huynenPhenomenologicalTheoryRadar1970,
+  title = {Phenomenological Theory of Radar Targets},
+  author = {Huynen, Jean Richard},
+  date = {1970},
+  institution = {Delft University of Technology},
+  url = {https://repository.tudelft.nl/record/uuid:e4a140a0-c175-45a7-ad41-29b28361b426},
+  urldate = {2026-08-10},
+  langid = {english}
+}
+
+@book{chandrasekharRadiativeTransfer1960,
+  title = {Radiative {{Transfer}}},
+  author = {Chandrasekhar, S.},
+  date = {1960-05-09},
+  publisher = {Dover Publications},
+  isbn = {978-0-486-60590-6},
+  langid = {english},
+  pagetotal = {416},
+  annotation = {Open Library ID: OL28022891M}
+}
+
+@article{guissardMuellerKennaughMatrices1994,
+  title = {Mueller and {{Kennaugh}} Matrices in Radar Polarimetry},
+  author = {Guissard, A.},
+  date = {1994-05},
+  journaltitle = {IEEE Transactions on Geoscience and Remote Sensing},
+  shortjournal = {IEEE Trans. Geosci. Remote Sens.},
+  volume = {32},
+  number = {3},
+  pages = {590--597},
+  issn = {1558-0644},
+  doi = {10.1109/36.297977},
+  url = {https://ieeexplore.ieee.org/document/297977},
+  urldate = {2026-08-10},
+  abstract = {This paper is concerned with the notions of the Mueller matrix and the Kennaugh (or Stokes scattering) matrix, that are commonly used in the field of radar polarimetry. Although these two matrices are quite similar, there exists a basic difference between them that seems to have been overlooked by a number of researchers, resulting in a great deal of confusion. An attempt is made to clarify this point and to present the basic relationships of radar polarimetry in a compact form.{$<>$}},
+  keywords = {Electromagnetic scattering,Frequency,Instruments,Optical scattering,Phase measurement,Polarization,Power measurement,Radar measurements,Radar polarimetry,Radar scattering},
+  file = {/home/martin/Zotero/storage/G4N5NJS7/Guissard - 1994 - Mueller and Kennaugh matrices in radar polarimetry.pdf}
+}
+
+@article{freemanThreecomponentScatteringModel1998,
+  title = {A Three-Component Scattering Model for Polarimetric {{SAR}} Data},
+  author = {Freeman, A. and Durden, S.L.},
+  date = {1998-05},
+  journaltitle = {IEEE Transactions on Geoscience and Remote Sensing},
+  shortjournal = {IEEE Trans. Geosci. Remote Sens.},
+  volume = {36},
+  number = {3},
+  pages = {963--973},
+  issn = {1558-0644},
+  doi = {10.1109/36.673687},
+  url = {https://ieeexplore.ieee.org/document/673687},
+  urldate = {2026-08-10},
+  abstract = {An approach has been developed that involves the fit of a combination of three simple scattering mechanisms to polarimetric SAR observations. The mechanisms are canopy scatter from a cloud of randomly oriented dipoles, evenor double-bounce scatter from a pair of orthogonal surfaces with different dielectric constants and Bragg scatter from a moderately rough surface. This composite scattering model is used to describe the polarimetric backscatter from naturally occurring scatterers. The model is shown to describe the behavior of polarimetric backscatter from tropical rain forests quite well by applying it to data from NASA/Jet Propulsion Laboratory's (JPLs) airborne polarimetric synthetic aperture radar (AIRSAR) system. The model fit allows clear discrimination between flooded and nonflooded forest and between forested and deforested areas, for example. The model is also shown to be usable as a predictive tool to estimate the effects of forest inundation and disturbance on the fully polarimetric radar signature. An advantage of this model fit approach is that the scattering contributions from the three basic scattering mechanisms can be estimated for clusters of pixels in polarimetric SAR images. Furthermore, it is shown that the contributions of the three scattering mechanisms to the HH, HV, and VV backscatter can be calculated from the model fit. Finally, this model fit approach is justified as a simplification of more complicated scattering models, which require many inputs to solve the forward scattering problem.},
+  keywords = {Backscatter,Clouds,Dielectric constant,NASA,Propulsion,Radar scattering,Rain,Rough surfaces,Surface fitting,Surface roughness},
+  file = {/home/martin/Zotero/storage/F5TM9H49/Freeman and Durden - 1998 - A three-component scattering model for polarimetric SAR data.pdf}
+}
+
+@inproceedings{dongPolarimetricImageClassification1996,
+  title = {Polarimetric Image Classification Using Optimal Decomposition of Radar Polarization Signatures},
+  booktitle = {{{IGARSS}} '96. 1996 {{International Geoscience}} and {{Remote Sensing Symposium}}},
+  author = {Dong, Yunhan and Forster, B. and Ticehurst, C.},
+  date = {1996-05},
+  volume = {3},
+  pages = {1556-1558 vol.3},
+  doi = {10.1109/IGARSS.1996.516729},
+  url = {https://ieeexplore.ieee.org/document/516729/citations},
+  urldate = {2026-08-10},
+  abstract = {The technique of weighted least squares (WLS) is used to obtain the optimal decomposition of radar polarization signatures, in which, backscatter is assumed to consist of odd, double, Bragg and cross scattering mechanisms. The results of the decomposition agree with our understanding of radar backscatter, providing information for polarimetric image classification.},
+  eventtitle = {{{IGARSS}} '96. 1996 {{International Geoscience}} and {{Remote Sensing Symposium}}},
+  keywords = {Backscatter,Image classification,Matrix decomposition,Polarization,Radar imaging,Radar measurements,Radar polarimetry,Radar scattering,Sea surface,Synthetic aperture radar},
+  file = {/home/martin/Zotero/storage/RLF9SCU4/Dong et al. - 1996 - Polarimetric image classification using optimal decomposition of radar polarization signatures.pdf}
+}
+
+@book{zylSyntheticApertureRadar2011,
+  title = {Synthetic {{Aperture Radar Polarimetry}}},
+  author = {family=Zyl, given=Jakob J., prefix=van, useprefix=false},
+  date = {2011},
+  publisher = {Wiley},
+  location = {Hoboken, NJ},
+  abstract = {This book describes the application of polarimetric synthetic aperture radar to earth remote sensing based on research at the NASA Jet Propulsion Laboratory (JPL). This book synthesizes all current research to provide practical information~for both the newcomer and the expert in radar polarimetry.~The text~offers a~concise description of the mathematical fundamentals illustrated with many examples using SAR data, with a main focus on~remote sensing of the earth. The book begins with~basics of synthetic aperture radar to provide the basis for understanding how polarimetric SAR images are formed and gives an introduction~to the fundamentals of radar polarimetry. It goes on to discuss more advanced polarimetric concepts that allow one to infer more information about the terrain being imaged. In order to analyze data quantitatively, the signals must be calibrated carefully, which the book addresses in~a chapter summarizing the basic calibration algorithms. The book concludes with examples of applying polarimetric analysis to scattering from rough surfaces, to infer soil moisture from radar signals.},
+  isbn = {978-1-118-11511-4},
+  langid = {english},
+  pagetotal = {312}
+}
+
+@incollection{cloudeUniquenessTargetDecomposition1992,
+  title = {Uniqueness of {{Target Decomposition Theorems}} in {{Radar Polarimetry}}},
+  booktitle = {Direct and {{Inverse Methods}} in {{Radar Polarimetry}}: {{Part}} 1},
+  author = {Cloude, S. R.},
+  editor = {Boerner, Wolfgang-M. and Brand, Hans and Cram, Leonard A. and Holm, William A. and Stein, David E. and Wiesbeck, Werner and Keydel, Wolfgang and Giuli, Dino and Gjessing, Dag T. and Molinet, Frédéric A.},
+  date = {1992},
+  pages = {267--296},
+  publisher = {Springer Netherlands},
+  location = {Dordrecht},
+  doi = {10.1007/978-94-010-9243-2_10},
+  url = {https://doi.org/10.1007/978-94-010-9243-2_10},
+  urldate = {2026-08-10},
+  abstract = {A key question in radar polarimetry is the existence of a target dichotomy ie. the existence of more than one target decomposition theory. In this paper we show, by using a coherency matrix approach, that there is no target dichotomy and subsequently only one unique target decomposition. We illustrate its usefulness by giving two examples; the scattering of light by small anisotropic particles and rough surface scattering under physical optics.},
+  isbn = {978-94-010-9243-2},
+  langid = {english},
+  keywords = {Mueller Matrix,Pauli Matrice,Physical Optic,Radar Target,Target Dichotomy}
+}
+
+@article{cloudeConceptPolarizationEntropy1995,
+  title = {Concept of Polarization Entropy in Optical Scattering},
+  author = {Cloude, Shane R. and Pottier, Eric},
+  date = {1995-06-01},
+  journaltitle = {Optical Engineering},
+  shortjournal = {Opt. Eng.},
+  volume = {34},
+  pages = {1599--1610},
+  issn = {0091-3286},
+  doi = {10.1117/12.202062},
+  url = {https://ui.adsabs.harvard.edu/abs/1995OptEn..34.1599C},
+  urldate = {2026-08-10},
+  abstract = {We consider the application of the general theory of unitary matrices to problems of wave scattering involving polarized waves. Having outlined useful parameterizations of the low dimensional groups associated with these unitary matrices, we develop a general processing strategy, which we suggest has application in the extraction of physical information from a range of scattering matrices in optics. Examples are presented of applying the unitary matrix structure to problems of single and multiple scattering from a cloud of random particles. The techniques are best suited to characterization of depolarizing systems, where the scattered waves undergo a change of degree as well as polarization state. The degree of disorder of the system is then quantified by a scalar, the polarimetric entropy, defined from the eigenvalues of a scattering matrix that ranges from 0 for systems with zero scattering to 1 for perfect depolarizers. Further, we show that the unitary matrix parameterization can be used to extract important system information from the eigenvectors of this matrix.},
+  annotation = {ADS Bibcode: 1995OptEn..34.1599C}
+}
+
+@article{krogagerNewDecompositionRadar1990,
+  title = {New Decomposition of the Radar Target Scattering Matrix},
+  author = {Krogager, E.},
+  date = {1990-08-30},
+  journaltitle = {Electronics Letters},
+  shortjournal = {Electron. Lett.},
+  volume = {26},
+  number = {18},
+  pages = {1525--1527},
+  publisher = {{The Institution of Engineering and Technology}},
+  doi = {10.1049/el:19900979},
+  url = {https://digital-library.theiet.org/doi/abs/10.1049/el%3A19900979},
+  urldate = {2026-08-10},
+  abstract = {A new decomposition of the complex radar target scattering matrix resolves a 2 × 2 complex scattering matrix into three components that provide a clearer picture of the physical mechanisms behind the scattering and, thereby, a clearer picture of the target itself.}
+}
+
+@inproceedings{cameronFeatureMotivatedPolarization1990,
+  title = {Feature Motivated Polarization Scattering Matrix Decomposition},
+  booktitle = {{{IEEE International Conference}} on {{Radar}}},
+  author = {Cameron, W.L. and Leung, L.K.},
+  date = {1990-05},
+  pages = {549--557},
+  doi = {10.1109/RADAR.1990.201088},
+  url = {https://ieeexplore.ieee.org/document/201088},
+  urldate = {2026-08-10},
+  abstract = {A method of decomposing the polarization scattering matrix into parts corresponding to nonreciprocal, asymmetric, and symmetric scatterers is presented. The decomposition is used to classify scattering matrices into one of eleven classes. The decomposition and classification scheme is applied to fully polarimetric, millimeter-wave measurement data. Results for a simple array of scatterers and for a truck are shown.{$<>$}},
+  eventtitle = {{{IEEE International Conference}} on {{Radar}}},
+  keywords = {Aerospace electronics,Matrix decomposition,Polarization,Radar measurements,Radar polarimetry,Radar scattering,Signal resolution,Spatial resolution,Symmetric matrices,Vectors},
+  file = {/home/martin/Zotero/storage/3UGD82XN/Cameron and Leung - 1990 - Feature motivated polarization scattering matrix decomposition.pdf}
+}

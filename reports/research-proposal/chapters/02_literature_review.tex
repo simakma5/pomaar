@@ -33,13 +33,13 @@ In radar applications, polarization serves as an additional dimension for charac
 These transformations provide valuable classification features that are absent in scalar radar measurements~\parencite{leePolarimetricRadarImaging2017}.
 
 \paragraph{Time convention.}
-As common in engineering monographs, this text treats the convention of time as \emph{positive}, meaning that a scalar wave $w(\xi,t)$ propagating in the $\xi$ direction is expressed as $\exp\[\ii(\omega t - k\xi)\]$.
+As common in engineering monographs, this text treats the convention of time as \emph{positive}, meaning that a scalar wave $\psi(\xi,t)$ propagating in the $\xi$ direction is expressed as $\exp\[\ii(\omega t - k\xi)\]$.
 This is in contrast to physics literature, which often adopts a \emph{negative time} convention, leading to $\exp\[\ii(k\xi - \omega t)\]$.
 
 
 \subsubsection{Polarization of electromagnetic waves}
 
-While the full propagation of electromagnetic energy is governed by Maxwell's equations, for radar polarimetry it suffices to consider the solution for a monochromatic plane wave propagating in a direction given by the wave vector $\vec k = k\vec e_k$ with angular frequency $\omega = 2\pi f$.
+While the full propagation of electromagnetic energy is governed by Maxwell's equations, for radar polarimetry it suffices to consider the solution for a monochromatic plane wave propagating in a direction given by the wave vector $\vec k = k\vec e_k$ with angular frequency $\omega = 2\uppi f$.
 Such electric and magnetic vector fields, $\vec E$ and $\vec B$, trace out an ellipse in the plane perpendicular to the direction of propagation $\vec k$, and can be expressed as~\parencite{zangwillModernElectrodynamics2012}
 \begin{align}
     \vec E(\vec r, t) &= \vec E_\perp\exp\[\ii(\omega t - \vec k\cdot \vec r)\]
@@ -113,14 +113,16 @@ This basis is favoured by several researchers~\parencite{zang77GHzFully2024,hamb
 On the other hand, linear polarization bases preserve structural target orientation, providing critical classification features for asymmetric scatterers such as vehicle bodies, roadside barriers, and articulate \gls{vru} limbs.
 While most researchers adopt the traditional horizontal-vertical linear basis~\parencite{tintiFullyPolarimetricAutomotive2024,visentinCalibrationFullyPolarimetric2017}, alternative orientations have also been demonstrated, such as the diagonal linear basis employed by \textcite{bouwmeesterClassificationDynamicVulnerable2025} to isolate cross-polarized micro-Doppler signatures across the gait cycle.
 
-In this doctoral work, the horizontal-vertical ($H/V$) linear polarization basis is selected as the primary physical measurement baseline.
-Crucially, acquiring the full complex monostatic backscattering matrix $\vec S$ in the $H/V$ basis incurs no loss of generality: any alternative polarization basis $\vec S'$ can be synthesized offline through a unitary basis transformation,
+In this doctoral work, the horizontal-vertical linear polarization basis $(\H, \V)$ is selected as the primary physical measurement baseline ($1 \equiv \H, 2 \equiv \V$).
+Crucially, acquiring the full complex monostatic backscattering matrix $\vec S$ in any given basis incurs no loss of generality: any alternative polarization basis $\vec S'$ (such as circular or diagonal) can be synthesized offline through a unitary basis transformation,
 \begin{equation}
     \label{eq:basis-transformation}
     \vec S' = \vec U^\T \vec S \vec U,
 \end{equation}
 where $\vec U$ is the complex unitary transformation matrix linking the respective polarization state vectors~\parencite{leePolarimetricRadarImaging2017}.
 This mathematical property ensures complete analytical flexibility during signal post-processing without necessitating physical hardware modifications.
+Furthermore, fundamental target spectral properties introduced later -- such as polarimetric entropy, anisotropy, and total backscattered power (span) -- remain strictly invariant under unitary transformations.
+Consequently, while basic wave electrodynamics in \cref{sec:polarimetry-fundamentals} are expressed in an arbitrary orthogonal basis $(1, 2)$, all subsequent target scattering models, canonical primitives, second-order operators ($\vec T, \vec C$), and target descriptors are expressed in this $(\H, \V)$ linear basis.
 
 \paragraph{From theoretical scattering to observed signatures.}
 While the Sinclair matrix $\vec S$ provides a deterministic description of target scattering in an ideal environment, the transition to practical automotive sensing introduces two significant layers of complexity: hardware-induced distortion and the stochastic nature of distributed targets.
@@ -159,7 +161,7 @@ Taking the time-averaged%
 outer product of the Jones vector yields the Hermitian positive semidefinite wave covariance matrix $\vec J$, often called the \emph{coherency matrix}:
 \begin{align}
     \label{eq:coherency-matrix}
-    \vec J = \langle \vec E_J \cdot \vec E_J^\dagger \rangle = \begin{bmatrix}
+    \vec J = \left\langle \vec E_J \cdot \vec E_J^\dagger \right\rangle = \begin{bmatrix}
         \langle |E_1|^2 \rangle & \langle E_1 E_2^* \rangle \\
         \langle E_2 E_1^* \rangle & \langle |E_2|^2 \rangle
     \end{bmatrix},
@@ -289,23 +291,42 @@ In the following sections, these decomposition theorems are utilized to extract 
 \subsection{Polarimetric target decomposition}
 \label{sec:target-decomposition}
 
-The Sinclair and coherency matrices derived in~\cref{sec:polarimetry-fundamentals} contain the complete polarimetric information of a target.
-However, in their raw matrix form, they offer little direct insight into the physical geometry of the scatterer.
-\emph{Target decomposition} theorems aim to invert this relationship, expressing the measured matrix as a linear combination of canonical scattering mechanisms -- such as flat plates, dihedrals, or dipoles -- thereby extracting semantic features for classification.
+The fundamental objective of target decomposition in radar polarimetry and remote sensing is the extraction of physical, structural, and material parameters from the observed backscattering of electromagnetic waves by surface and volume elements.
+While deterministic, point-like scatterers can be fully characterized by the $2 \times 2$ Sinclair scattering matrix $\vec S$ derived in~\cref{sec:sinclair-matrix}, most real-world targets require a multivariate statistical representation.
+In dynamic environments, target scattering is influenced by the combined effects of coherent speckle noise, spatial/temporal decorrelation, and additive thermal noise.
+For such scatterers, single-matrix descriptions fail, necessitating second-order statistical operators -- most notably the $3 \times 3$ target coherency matrix~$\vec T$.
+This matrix accounts for local statistical variations and serves as the lowest-order operator suitable for parameter extraction from complex targets.
 
-These methods are broadly categorized into \emph{coherent decompositions}, which operate on the Sinclair scattering matrix of deterministic targets, and \emph{incoherent decompositions}, which operate on the second-order statistics of distributed targets.
+This statistical averaging process introduces the concept of the \enquote{distributed target}, as opposed to a stationary, deterministic \enquote{pure single target}.
+To invert such scattering data for target classification or physical parameter estimation, decomposition theorems aim to express the observed matrix as a combination of average or dominant scattering mechanisms, subject to sensible physical constraints, such as invariance to transformations of the wave polarization basis.
+
+Target decomposition theorems were first formalized in radar polarimetry by \textcite{huynenPhenomenologicalTheoryRadar1970}, though their theoretical origins trace back to Chandrasekhar's classical work on light scattering by anisotropic particles~\parencite{chandrasekharRadiativeTransfer1960}.
+Since these foundational studies, numerous decomposition frameworks have been developed to isolate distinct physical mechanisms.
+These methods can be broadly categorized into four fundamental classes of theorems:
+\begin{enumerate}
+    \item \textit{Coherent decompositions:} Operating directly on the complex Sinclair scattering matrix $\vec S$ of deterministic targets, these methods aim to express backscattering as a linear combination of elementary canonical mechanisms (e.g. Pauli, Krogager, Cameron).
+    \item \textit{Kennaugh matrix decompositions:} This class exploits the dichotomy of the Kennaugh matrix
+        \footnote{The Kennaugh matrix is a $4 \times 4$ real matrix derived from the Stokes parameters for monostatic backscattering radar operating under the \gls{bsa} convention, which relates the transmitted wave to the received voltage via the radar power equation~\parencite{guissardMuellerKennaughMatrices1994}.}
+    to separate target responses into pure single-target components and N-target depolarizing residue.
+    Examples of such decompositions, which will not be further elaborated, include those by Huynen and Barnes.
+    \item \textit{Eigenvalue spectral decompositions:} Utilizing statistical matrix diagonalization and spectral analysis of the coherency matrix $\vec T$, some of the most successful methods, first introduced by~\textcite{cloudeConceptPolarizationEntropy1995}, extract orthogonal scattering modes and entropy without pre-assumed physical models.
+    \item \textit{Model-based decompositions:} Methods have also been developed to decompose the complex backscattering into physical scattering models rather than purely mathematical constructs, such as surface, double-bounce, and volume in the work of~\textcite{freemanThreecomponentScatteringModel1998}, or double-bounce, Bragg, odd-bounce, and cross scattering by~\textcite{dongPolarimetricImageClassification1996}.
+\end{enumerate}
+
+The following subsections evaluate these categories in detail, beginning with the canonical scattering primitives that form their physical foundation.
 
 
 \subsubsection{Canonical polarimetric scatterers}
 \label{sec:canonical-scatterers}
 
 Before evaluating complex target decomposition schemes or calibration algorithms, it is essential to define the polarimetric responses of elementary, canonical scatterers.
-Canonical targets possess well-defined, deterministic geometry, yielding exact analytical forms for their Sinclair scattering matrices $\vec S$ in the linear polarization basis.
+Canonical targets possess well-defined, deterministic geometries, yielding exact analytical forms for their Sinclair scattering matrices $\vec S$.
+In accordance with the selection in \cref{sec:sinclair-matrix}, the following primitives are defined in the horizontal-vertical linear polarization basis $(\H, \V)$, where $S_\HH$ denotes the co-polar horizontal response, $S_\VV$ the co-polar vertical response, and $S_\HV = S_\VH$ the cross-polar responses under monostatic reciprocity.
 These canonical scatterers serve a dual purpose: they represent the fundamental building blocks onto which complex scatterers (such as vehicles and \glspl{vru}) are decomposed, and they constitute the physical reference standards required for polarimetric sensor calibration.
 
 \paragraph{Odd-bounce scatterers.}
 Targets that reflect the incident wave an odd number of times (most commonly single-bounce or triple-bounce) preserve the relative phase between orthogonal linear electric field components upon backscattering.
-For a perfectly conducting sphere, flat specular plate, or trihedral corner reflector at broadside incidence, the co-polarized returns are identical in amplitude and phase ($S_{\mathrm{HH}} = S_{\mathrm{VV}}$), while cross-polarized coupling is zero ($S_{\mathrm{HV}} = S_{\mathrm{VH}} = 0$).
+For a perfectly conducting sphere, flat specular plate, or trihedral corner reflector at broadside incidence, the co-polarized returns are identical in amplitude and phase ($S_\HH = S_\VV$), while cross-polarized coupling is zero ($S_\HV = S_\VH = 0$).
 The corresponding scattering matrix is proportional to the identity matrix:
 \begin{equation}
     \label{eq:canonical-odd-bounce}
@@ -317,9 +338,10 @@ Trihedral corner reflectors are particularly vital for automotive radar testing 
 
 \paragraph{Even-bounce scatterers.}
 A dihedral corner reflector induces two sequential reflections before returning energy to the radar.%
-    \footnote{The same mechanism described in this section occurs for any even number of reflections, such as a four-bounce reflection off a wall-corner-wall configuration. However, for automotive radar, the dihedral is the most common and practical realization of this mechanism, hence the focus on this configuration.}
-Reflecting off two metallic surfaces introduces a $\pi$ phase reversal between the electric field component parallel to the vertex line and the component perpendicular to it.
-When a dihedral is aligned with the antenna polarization axis ($\theta = \ang{0}$), it yields equal co-polar amplitudes with opposite phase ($S_{\mathrm{HH}} = -S_{\mathrm{VV}}$) and zero cross-polarization ($S_{\mathrm{HV}} = S_{\mathrm{VH}} = 0$):
+    \footnote{The same mechanism described in this section occurs for any even number of reflections, such as a four-bounce reflection off a wall-corner-wall configuration.
+    However, for automotive radar, the dihedral is the most common and practical realization of this mechanism, hence the focus on this configuration.}
+Reflecting off two metallic surfaces introduces a $\uppi$ phase reversal between the electric field component parallel to the vertex line and the component perpendicular to it.
+When a dihedral is aligned with the antenna polarization axis ($\theta = \ang{0}$), it yields equal co-polar amplitudes with opposite phase ($S_\HH = -S_\VV$) and zero cross-polarization ($S_\HV = S_\VH = 0$):
 \begin{equation}
     \label{eq:canonical-even-bounce-0}
     \vec S_{\text{even}}(\ang{0}) = \sigma_{\text{dih}} \begin{bmatrix} 1 & 0 \\ 0 & -1 \end{bmatrix}.
@@ -342,7 +364,7 @@ Crucially, orienting the dihedral at $\theta = \ang{45}$ rotates the polarizatio
     \label{eq:canonical-even-bounce-45}
     \vec S_{\text{even}}(\ang{45}) = \sigma_{\text{dih}} \begin{bmatrix} 0 & 1 \\ 1 & 0 \end{bmatrix}.
 \end{equation}
-In this configuration, the co-polarized channels are completely suppressed ($S_{\mathrm{HH}} = S_{\mathrm{VV}} = 0$), while all backscattered energy is transferred into the cross-polarized channels ($S_{\mathrm{HV}} = S_{\mathrm{VH}} = \sigma_{\text{dih}}$).
+In this configuration, the co-polarized channels are completely suppressed ($S_\HH = S_\VV = 0$), while all backscattered energy is transferred into the cross-polarized channels ($S_\HV = S_\VH = \sigma_{\text{dih}}$).
 Consequently, $\ang{45}$-rotated dihedrals are indispensable calibration standards for evaluating system \gls{xpd}, measuring cross-channel leakage, and calibrating transmit-receive phase offsets.
 
 \paragraph{Dipoles and oriented thin wires.}
@@ -352,8 +374,19 @@ For a thin dipole oriented at an angle $\theta$ relative to the horizontal axis,
     \label{eq:canonical-dipole}
     \vec S_{\text{dip}}(\theta) = \sigma_{\text{dip}} \begin{bmatrix} \cos^2\theta & \sin\theta\cos\theta \\ \sin\theta\cos\theta & \sin^2\theta \end{bmatrix}.
 \end{equation}
-For a horizontal dipole ($\theta = \ang{0}$), only $S_{\mathrm{HH}}$ is excited, whereas a vertical dipole ($\theta = \ang{90}$) yields pure $S_{\mathrm{VV}}$ backscatter.
+For a horizontal dipole ($\theta = \ang{0}$), only $S_\HH$ is excited, whereas a vertical dipole ($\theta = \ang{90}$) yields pure $S_\VV$ backscatter.
 Dipole-like scattering provides strong orientation-dependent features, which are particularly relevant when characterizing extended infrastructure and limb motion in dynamic \glspl{vru}.
+
+\paragraph{Helix scatterers.}
+A helical structure or chiral scatterer interacts selectively with circularly polarized waves, reflecting one sense of circular polarization while absorbing or transmitting the opposite sense.
+Whereas the dihedral serves as a selective canonical primitive native to the linear basis, the helix scatterer is a prime example of a response that is canonical to the \emph{circular polarization basis}.
+In its native circular basis, the scattering matrix of a left-handed or right-handed helix takes a pure single-element form:
+\begin{equation}
+    \label{eq:canonical-helix-circ}
+    \vec S_{\text{helix}}^{\text{circ}} = \sigma_{\text{helix}} \begin{bmatrix} 1 & 0 \\ 0 & 0 \end{bmatrix}_{\text{circ}} \quad \text{or} \quad \sigma_{\text{helix}} \begin{bmatrix} 0 & 0 \\ 0 & 1 \end{bmatrix}_{\text{circ}}.
+\end{equation}
+When transformed into the linear $(\H, \V)$ basis via unitary basis transformation, this response manifests as equal-amplitude co-polar and cross-polar returns with a $\pm \uppi/2$ phase shift in the cross-polarized channels, where the positive sign corresponds to LHC and the negative sign to RHC, in line with standard \gls{ieee} radar polarimetry conventions.
+This non-reflection-symmetric, complex cross-channel phase shift provides the physical foundation for chiral target detection and volume-helix decompositions.
 
 
 \subsubsection{Coherent decomposition}
@@ -375,10 +408,10 @@ The resulting vector representation of the scattering matrix, $\vec S$, is refer
 \begin{align}
     \label{eq:pauli-vector-4d}
     \vec k_P \coloneq \frac{1}{\sqrt{2}} \begin{bmatrix}
-        S_{11} + S_{22} \\
-        S_{11} - S_{22} \\
-        S_{12} + S_{21} \\
-        \ii(S_{12} - S_{21})
+        S_\HH + S_\VV \\
+        S_\HH - S_\VV \\
+        S_\HV + S_\VH \\
+        \ii(S_\HV - S_\VH)
     \end{bmatrix} = \begin{bmatrix} a \\ b \\ c \\ d \end{bmatrix}.
 \end{align}
 The primary advantage of this basis is that it provides a direct physical interpretation of elementary scattering mechanisms.
@@ -387,7 +420,7 @@ Consequently, the squared magnitude of each Pauli component quantifies the contr
     \item \textit{Single-bounce:} $|a|^2/2$ corresponds to odd-bounce scattering, typically arising from spheres, flat plates, or trihedral reflectors ($\vec S_{\text{odd}}$).
     In an automotive context, this mechanism dominates returns from flat surfaces, such as walls or the rear of a vehicle.
     \item \textit{Double-bounce:} $|b|^2/2$ corresponds to even-bounce scattering derived from dihedral structures ($\vec S_{\text{even}}$).
-    This is commonly observed in the corner-like features of a car (e.g., window frames and side mirrors) or the ground-wall interaction of a curb.
+    This is commonly observed in the corner-like features of a car (e.g. window frames and side mirrors) or the ground-wall interaction of a curb.
     \item \textit{Cross-polar:} $|c|^2/2$ represents the cross-polarization energy induced by dihedrals or dipoles rotated by $\ang{45}$ around the radar line-of-sight ($\vec S_{\text{even}}(\ang{45})$).
     \item \textit{Asymmetric:} $|d|^2/2$ accounts for non-reciprocal scattering mechanisms with asymmetric depolarizing effects.
 \end{itemize}
@@ -397,11 +430,11 @@ In the ideal scenario of $d=0$, the Pauli vector reduces to a three-dimensional 
 \begin{align}
     \label{eq:pauli-vector-3d}
     \vec k_P = \frac{1}{\sqrt{2}} \begin{bmatrix}
-        S_{11} + S_{22} \\
-        S_{11} - S_{22} \\
-        2S_{12}
+        S_\HH + S_\VV \\
+        S_\HH - S_\VV \\
+        2S_\HV
     \end{bmatrix}.
-\end{align}~\parencite{cloudeReviewTargetDecomposition1996}
+\end{align}
 However, in the \emph{quasi-monostatic} scenarios relevant to this work -- where transmit and receive antennas are closely spaced but not co-located -- the asymmetry term $d$ may contain non-negligible system noise or phase imbalances which must be accounted for during calibration.
 As demonstrated by \textcite{bouwmeesterClassificationDynamicVulnerable2025}, the Pauli decomposition relies heavily on inter-channel phase coherence; uncompensated phase errors across displaced array elements distort the relative weights of the single-bounce and double-bounce components.
 
@@ -416,20 +449,20 @@ An alternative representation frequently encountered in the literature is the \e
         2\begin{bmatrix} 0 & 0 \\ 0 & 1 \end{bmatrix}
     \right\}.
 \end{align}
-This basis orders the target vector elements as $\vec k_L = [S_{11}, S_{12}, S_{21}, S_{22}]^\T$.
-While is the native format for many radar hardware interfaces and is convenient for system calibration, it lacks the direct physical interpretability of the Pauli basis.
+This basis orders the target vector elements as $\vec k_L = [S_\HH, S_\HV, S_\VH, S_\VV]^\T$ with a similar option of reduction to a three-dimensional representation under reciprocity, $\vec k_L = [S_\HH, 2S_\HV, S_\VV]^\T$.
+While this is the native format for many radar hardware interfaces and is convenient for system calibration, it lacks the direct physical interpretability of the Pauli basis.
 
-\paragraph{Alternative decompositions.}
-While Krogager and Cameron proposed alternative coherent decompositions -- such as Krogager's approach using circular polarization to decompose targets into sphere, diplane, and helix components%
-    \footnote{
-        This is analogous to the Pauli decomposition but employs a circular polarization basis, which can be advantageous for identifying certain target geometries.
-        While the components share similar interpretations (single-bounce and double-bounce), the helix component is physically distinct from Pauli's \enquote{tilted-wall component}; it captures chiral or asymmetric scattering mechanisms that are not explicitly represented as a unique shape in the Pauli basis.
-    }
--- the Pauli basis remains the standard for coherent preprocessing due to its orthogonality and computational efficiency.
+\paragraph{Alternative coherent decompositions.}
+While the Pauli decomposition is framed in the linear basis, alternative coherent target decompositions operate in different polarization bases.
+Most notably, the \emph{Krogager decomposition}~\parencite{krogagerNewDecompositionRadar1990} operates explicitly in the circular polarization basis.
+Krogager decomposes the complex Sinclair matrix into a linear combination of three physical primitives native to circular polarization: a sphere, an aligned diplane, and a right- or left-handed helix, directly exploiting the single-element canonical form of the helix scatterer introduced in \cref{sec:canonical-scatterers}.
+By operating in circular polarization, Krogager's method achieves complete roll invariance around the radar line-of-sight and directly decouples odd-bounce, even-bounce, and chiral/helical scattering mechanisms.
+Similarly, \textcite{cameronFeatureMotivatedPolarization1990} developed a symmetry-based coherent decomposition classifying targets into fundamental physical symmetry classes.
+Despite these advantages, the Pauli decomposition remains the standard for linear-array preprocessing due to its direct orthogonality in linear hardware channels and lower computational overhead.
 
 
-\subsubsection{Incoherent decomposition}
-\label{sec:incoherent-decomposition}
+\subsubsection{Cloude--Pottier decomposition}
+\label{sec:cloude-pottier-decomposition}
 
 In the context of \gls{vru} classification, targets are rarely simple point scatterers.
 A pedestrian, for instance, is a complex aggregate of limbs with varying orientations and materials, possibly moving within a single resolution cell, creating a \emph{distributed target}.
@@ -440,7 +473,7 @@ To analyse such targets, it is necessary to move from the coherent vector $\vec 
     }
 \begin{align}
     \label{eq:pauli-coherency-matrix}
-    \vec T = \langle \vec k_P \cdot \vec k_P^\dagger \rangle,
+    \vec T = \left\langle \vec k_P \cdot \vec k_P^\dagger \right\rangle,
 \end{align}
 where $\langle\cdot\rangle$ denotes statistical averaging over an arbitrary dimension.%
     \footnote{
@@ -449,15 +482,22 @@ where $\langle\cdot\rangle$ denotes statistical averaging over an arbitrary dime
     }
 This matrix is Hermitian positive semidefinite and, as such, is always diagonalizable by a unitary matrix $\vec U$, formed by orthonormal eigenvectors of $\vec T$, and the diagonalized matrix $\vec D$ features non-negative real entries on its main diagonal, which are the eigenvalues of $\vec T$.
 
-It is worth noting that $\vec T$ is, under unitary transformation, mathematically equivalent to any matrix formed by an outer product of the Sinclair scattering matrix, regardless of the decomposition basis used for vector representation.
-This means that the lexicographic basis introduced in~\cref{eq:lexicographic-basis}, as well as the Krogager circular and Cameron bases discussed above, can all be employed, making the following analysis techniques broadly applicable.
+\paragraph{Target covariance matrix.}
+Alternatively, taking the ensemble average of the outer product of the lexicographic vector $\vec k_L$ from \cref{eq:lexicographic-basis} yields the $4 \times 4$ (or $3 \times 3$ under reciprocity) \emph{target covariance matrix}:
+\begin{align}
+    \label{eq:target-covariance-matrix}
+    \vec C \coloneq \left\langle \vec k_L \cdot \vec k_L^\dagger \right\rangle.
+\end{align}
+While the Pauli coherency matrix $\vec T$ is preferred for physical target decomposition due to its orthogonal mechanism basis, the covariance matrix $\vec C$ is the native format for multichannel radar hardware receivers and raw signal calibration.
+Crucially, $\vec C$ and $\vec T$ are unitarily equivalent; that is, $\vec T = \vec U_{P \to L} \vec C \vec U_{P \to L}^\dagger$.
+More generally, any second-order target matrix formed by the ensemble outer product of a scattering vector -- regardless of whether constructed from the Pauli, lexicographic, Krogager circular, or Cameron basis -- is unitarily equivalent, preserving total power (span) and spectral invariants such as eigenvalues and polarimetric entropy.
 
 The most established method for analysing the coherency matrix, originally developed by Cloude and Pottier in 1997 for \gls{sar} imaging and remote sensing, is the \emph{Cloude--Pottier decomposition}, which assumes that there is always a dominant average scattering mechanism in each cell.
 To generate estimates of the average target scattering matrix parameters, this method employs the eigenvalue expansion; that is
 \begin{align}
     \vec T = \sum_{i=1}^3 \lambda_i \vec e_i \vec e_i^\dagger,
 \end{align}
-where are the eigenvalues, sorted in descending order ($\lambda_1 \ge \lambda_2 \ge \lambda_3$), and $\vec e_i$ are the orthogonal eigenvectors.
+where $\lambda_i$ are the eigenvalues, sorted in descending order ($\lambda_1 \ge \lambda_2 \ge \lambda_3$), and $\vec e_i$ are the orthogonal eigenvectors.
 
 \paragraph{Noise subspace reduction.}
 In a practical measurement utilizing the full 4D Pauli vector from \cref{eq:pauli-vector-4d}, the coherency matrix is $4 \times 4$ with four eigenvalues.
@@ -502,7 +542,7 @@ This feature effectively categorizes scattering mechanisms into three primary ty
 \end{itemize}
 It should be noted that $\alpha$ strongly depends on the angle of incidence; flat surfaces tend to yield lower $\alpha$ values at normal incidence and higher values at grazing angles due to varying reflection coefficients.
 
-Finally, the \emph{polarimetric anisotropy} in another parameter defined as an eigenvalue ratio, constructed as a complementary description to entropy.
+Finally, the \emph{polarimetric anisotropy} is another parameter defined as an eigenvalue ratio, constructed as a complementary description to entropy.
 It characterizes the relative importance of the second and third eigenvalues with respect to their descending arrangement:
 \begin{align}
     A = \frac{\lambda_2 - \lambda_3}{\lambda_2 + \lambda_3}.
@@ -625,10 +665,69 @@ The shaded region denotes the non-feasible parameter space, bounded by the theor
 \end{figure}
 
 
+\subsubsection{Model-based incoherent decompositions}
+\label{sec:model-based-decompositions}
+
+While the Cloude--Pottier eigenvalue spectral expansion provides an elegant, basis-invariant framework for quantifying scattering entropy $H$ and mechanism angle $\bar{\alpha}$, it operates purely mathematically without prescribing explicit physical primitives.
+To directly estimate the absolute power contributions of canonical scattering mechanisms from distributed targets, \emph{model-based incoherent decompositions} fit the observed target coherency matrix $\vec T$ (or target covariance matrix $\vec C$) to a linear combination of pre-defined physical scattering models.
+
+\paragraph{Freeman--Durden three-component decomposition.}
+The foundational model-based framework was established by \textcite{freemanThreecomponentScatteringModel1998} to estimate physical scattering powers directly from the target covariance matrix $\vec C$.
+Formulated for reflection-symmetric media where cross-polarized correlations vanish, $\langle S_\HH S_\HV^* \rangle = \langle S_\VV S_\HV^* \rangle = 0$, the $3 \times 3$ reciprocal covariance matrix $\vec C$ is decomposed into a linear combination of three uncorrelated physical mechanisms:
+\begin{equation}
+    \label{eq:freeman-durden-decomposition}
+    \vec C = f_{\mathrm{s}} \vec C_{\mathrm{s}} + f_{\mathrm{d}} \vec C_{\mathrm{d}} + f_{\mathrm{v}} \vec C_{\mathrm{v}},
+\end{equation}
+where the real coefficients $f_{\mathrm{s}}$, $f_{\mathrm{d}}$, and $f_{\mathrm{v}}$ scale the contribution of each of the following models.
+\begin{itemize}
+    \item \textit{Volume (canopy) scattering:} $\vec C_{\mathrm{v}}$ models volumetric clutter (such as tree foliage or vegetation canopy) as an ensemble of randomly oriented, thin cylindrical dipoles. Assuming a uniform orientation distribution over $[-\uppi, \uppi]$, this yields an isotropic volume covariance matrix.
+    \item \textit{Double-bounce scattering:} $\vec C_{\mathrm{d}}$ models dihedral-like reflections off orthogonal corner surfaces, incorporating distinct attenuation and reflection coefficients for horizontal and vertical polarizations via the complex ratio $\alpha$.
+    \item \textit{Surface scattering:} $\vec C_{\mathrm{s}}$ models smooth or slightly rough dielectric surfaces using first-order Bragg surface scattering, parameterized by the complex co-polar amplitude ratio $\beta = R_{\mathrm{V}} / R_{\mathrm{H}}$.
+\end{itemize}
+In the lexicographic covariance basis from \cref{eq:lexicographic-basis}, the constituent component covariance matrices are given by
+\begin{equation}
+    \label{eq:freeman-durden-matrices}
+    \vec C_{\mathrm{v}} = \frac{1}{8} \begin{bmatrix} 3 & 0 & 1 \\ 0 & 2 & 0 \\ 1 & 0 & 3 \end{bmatrix}, \quad
+    \vec C_{\mathrm{d}} = \begin{bmatrix} |\alpha|^2 & 0 & \alpha \\ 0 & 0 & 0 \\ \alpha^* & 0 & 1 \end{bmatrix}, \quad
+    \vec C_{\mathrm{s}} = \begin{bmatrix} |\beta|^2 & 0 & \beta \\ 0 & 0 & 0 \\ \beta^* & 0 & 1 \end{bmatrix}.
+\end{equation}
+By solving the resulting system of equations under physical feasibility constraints ($f_{\mathrm{s}}, f_{\mathrm{d}}, f_{\mathrm{v}} \ge 0$), the total backscattered span $P_{\mathrm{total}} = \tr(\vec C)$ is partitioned into surface power $P_{\mathrm{s}} = f_{\mathrm{s}}(1 + |\beta|^2)$, double-bounce power $P_{\mathrm{d}} = f_{\mathrm{d}}(1 + |\alpha|^2)$, and volume power $P_{\mathrm{v}} = f_{\mathrm{v}}$.
+
+\paragraph{Yamaguchi four-component decomposition.}
+While the Freeman--Durden model operates effectively over natural reflection-symmetric terrain, the assumption of reflection symmetry frequently breaks down in complex urban environments.
+Oriented metallic structures, vehicle bodywork, curb corners, and many other man-made scatterers induce non-zero cross-polar correlations ($\langle S_\HH S_\HV^* \rangle \neq 0$ and $\langle S_\VV S_\HV^* \rangle \neq 0$), causing three-component models to incorrectly attribute cross-polar energy to volume clutter.
+
+To overcome this limitation, \textcite{yamaguchiFourcomponentScatteringModel2005} expanded the framework into a four-component decomposition by incorporating a \emph{helix scattering} model and introducing orientation-adaptive volume scattering:
+\begin{equation}
+    \label{eq:yamaguchi-four-component}
+    \vec C = f_{\mathrm{s}} \vec C_{\mathrm{s}} + f_{\mathrm{d}} \vec C_{\mathrm{d}} + f_{\mathrm{v}} \vec C_{\mathrm{v}} + f_{\mathrm{h}} \vec C_{\mathrm{h}}.
+\end{equation}
+The core innovations of the Yamaguchi decomposition comprise:
+\begin{itemize}
+    \item \textit{Helix scattering component:} $\vec C_{\mathrm{h}}$ accounts for non-reflection-symmetric scattering mechanisms, such as quarter-wave phase shifts, chiral interactions, and circular depolarization generated by complex metallic geometries viewed at oblique angles. Drawing directly from the helix canonical scatterer defined in \cref{sec:canonical-scatterers}, the helix power coefficient $f_{\mathrm{h}}$ is extracted directly from the cross-channel correlation.
+    \item \textit{Orientation-adaptive volume scattering:} Yamaguchi $\vec C_{\mathrm{v}}$ replaces the rigid uniform dipole assumption with orientation \glspl{pdf}. By evaluating the co-polar power ratio $\langle |S_\HH|^2 \rangle / \langle |S_\VV|^2 \rangle$, the volume matrix adapts to horizontal dipole dominance (e.g. horizontal vehicle structures), vertical dipole dominance (e.g. roadside posts and standing crops), or uniform random dipoles, preventing the overestimation of volume clutter over oriented man-made targets.
+\end{itemize}
+In the $3 \times 3$ coherency matrix representation ($\vec T$), the helix matrix is expressed as
+\begin{equation}
+    \label{eq:helix-matrix}
+    \vec C_{\pm\mathrm{h}} = \frac{1}{4} \begin{bmatrix}
+        1 & \mp\ii\sqrt{2} & -1 \\
+        \pm\ii\sqrt{2} & 2 & \mp\ii\sqrt{2} \\
+        -1 & \pm\ii\sqrt{2} & 1
+    \end{bmatrix},
+\end{equation}
+where the plus and minus signs denote left-handed and right-handed helix covariance matrices, respectively. By absorbing non-reflection-symmetric cross-channel energy into $f_{\mathrm{h}}$ and refining the volume model $\vec C_{\mathrm{v}}$, the Yamaguchi decomposition eliminates negative power artifacts and provides robust physical parameter extraction in complex urban scenes.
+
+\paragraph{Relevance to automotive millimetre-wave radar.}
+Model-based decompositions offer a powerful, physically intuitive framework for imaging scene understanding.
+By isolating the power coefficients $(P_{\mathrm{s}}, P_{\mathrm{d}}, P_{\mathrm{v}}, P_{\mathrm{h}})$, the radar can physically segregate specular road reflections ($P_{\mathrm{s}}$ dominance) and curb/wall interactions ($P_{\mathrm{d}}$ dominance) from roadside foliage ($P_{\mathrm{v}}$ dominance) and complex vehicle or \gls{vru} returns ($P_{\mathrm{h}}$ and $P_{\mathrm{d}}$ mix).
+In dynamic driving scenarios, tracking these physical power components across range-Doppler cells avoids the need for full $3 \times 3$ matrix diagonalization per detection while possibly retaining high semantic discriminability.
+
+
 \subsubsection{Simple polarimetric descriptors}
 \label{sec:simple-polarimetric-descriptors}
 
-While the target decomposition theorems discussed in~\cref{sec:coherent-decomposition} and~\cref{sec:incoherent-decomposition} offer rigorous physical interpretations of the scattering mechanisms, their computational complexity -- requiring eigenvalue decomposition of the $3\times3$ coherency matrix for every resolution cell -- can be prohibitive for real-time automotive applications constrained by embedded hardware resources.
+While the target decomposition theorems discussed in~\cref{sec:target-decomposition} offer rigorous physical interpretations of the scattering mechanisms, their computational complexity -- requiring eigenvalue decomposition of the $3\times3$ coherency matrix for every resolution cell -- can be prohibitive for real-time automotive applications constrained by embedded hardware resources.
 Consequently, simple polarimetric descriptors -- originally developed for hydrometeor classification~\parencite{bringiPolarimetricDopplerWeather2001} based on power ratios and correlation coefficients -- can offer low-complexity proxies for target classification.
 However, the translation of these metrics from meteorological bands (S/C/X-band) to automotive millimetre-wave frequencies (\qtyrange{77}{81}{GHz}) requires careful consideration of wavelength-scale roughness and system limitations.
 
@@ -637,7 +736,7 @@ Perhaps the most fundamental polarimetric ratio, differential reflectivity quant
 It is defined logarithmically as
 \begin{align}
     \label{eq:differential-reflectivity}
-    Z_\mathrm{DR} = 10\log_{10}\(\frac{\langle |S_{11}|^2 \rangle}{\langle |S_{22}|^2 \rangle}\).
+    Z_\mathrm{DR} = 10\log_{10}\(\frac{\langle |S_\HH|^2 \rangle}{\langle |S_\VV|^2 \rangle}\).
 \end{align}
 In meteorology, this metric serves as a feature for classifying raindrop oblateness.
 In the automotive context, $Z_\mathrm{DR}$ provides a measure of the target's geometric orientation.
@@ -647,10 +746,12 @@ Thus, $Z_\mathrm{DR}$ acts as a robust discriminator for separating vehicles fro
 
 \paragraph{Linear depolarization ratio.}
 The \gls{ldr} measures the system's ability to detect cross-polarized energy relative to the co-polarized return.
-It is defined as
+For the horizontal-vertical polarization basis, it is defined as
 \begin{align}
     \label{eq:linear-depolarization-ratio}
-    \mathrm{LDR} = 10\log_{10}\(\frac{\langle |S_{21}|^2 \rangle}{\langle |S_{22}|^2 \rangle}\).
+    \mathrm{LDR}_\H &= 10\log_{10}\(\frac{\langle |S_\HV|^2 \rangle}{\langle |S_\HH|^2 \rangle}\),
+&
+    \mathrm{LDR}_\V &= 10\log_{10}\(\frac{\langle |S_\VH|^2 \rangle}{\langle |S_\VV|^2 \rangle}\).
 \end{align}
 An ideal monostatic radar observing a sphere or a flat plate at normal incidence results in zero cross-polarization ($\mathrm{LDR} \to -\infty$).
 In contrast, complex targets with intricate geometries, such as bicycles, induce significant depolarization due to multiple scattering and non-orthogonal structural components~\parencite{bouwmeesterClassificationDynamicVulnerable2025}.
@@ -658,10 +759,10 @@ This can result in elevated \gls{ldr} values compared to flat plates, though det
 Practically, however, the utility of this metric is bounded by the antenna system's cross-polarization isolation; if the antenna leakage exceeds the target's depolarization response, the \gls{ldr} signature becomes corrupted, limiting its use to high-performance sensor architectures.
 
 \paragraph{Co-polar correlation coefficient.}
-To assess the coherence between the horizontal and vertical scattering centres, the co-polar correlation coefficient is utilized:
+To assess the coherence between orthogonal co-polarized scattering channels, the co-polar correlation coefficient is defined as
 \begin{align}
     \label{eq:copolar-correlation-coefficient}
-    \rho_{12} = \frac{|\langle S_{11} S_{22}^* \rangle|}{\sqrt{\langle |S_{11}|^2 \rangle \langle |S_{22}|^2 \rangle}}.
+    \rho_{12} = \frac{|\langle S_\HH S_\VV^* \rangle|}{\sqrt{\langle |S_\HH|^2 \rangle \langle |S_\VV|^2 \rangle}}.
 \end{align}
 This statistical descriptor ranges from 0 to 1 and is potentially the most robust metric for automotive scenes.
 Man-made objects with stable phase centres, such as vehicles, poles, guardrails, typically exhibit $\rho_{12}$ close to 1.
@@ -669,8 +770,7 @@ In contrast, distributed volume scatterers -- such as bushes, grass, and tree ca
 This could make $\rho_{12}$ an effective pre-filter for suppressing vegetation clutter, a common source of false positives in radar perception.
 
 These descriptors -- $Z_\mathrm{DR}$, $\mathrm{LDR}$, and $\rho_{12}$ -- can be computed efficiently for each resolution cell and used as input features to lightweight classification algorithms.
-Mathematically, they represent single-look diagonal power ratios and cross-channel correlations derived from the outer product of the lexicographic target vector $\vec k_L$ or transformed from the target coherency matrix $\vec T$ from \cref{eq:pauli-coherency-matrix}.%
-    \footnote{Taking the outer product of the lexicographic vector forms a \emph{target covariance matrix} $\vec C$, which is mathematically equivalent to the Pauli coherency matrix $\vec T$ under a unitary transformation~\parencite{cloudeReviewTargetDecomposition1996}.}
+Mathematically, they represent diagonal power ratios and cross-channel correlation coefficients directly extracted from the target covariance matrix $\vec C$ defined in \cref{eq:target-covariance-matrix} (or transformed from the Pauli coherency matrix $\vec T$).
 For example, objects exhibiting very large negative \gls{ldr} values alongside high $\rho_{12}$ are likely to correspond to specular reflections off the road surface and buildings, which can be filtered out early.
 
 \paragraph{Polarimetric power ratio.}
@@ -678,7 +778,7 @@ For dynamic target classification, \textcite{bouwmeesterClassificationDynamicVul
 The target-level polarimetric power ratio for a channel pair $(x,y)$ is defined as
 \begin{align}
     \label{eq:polarimetric-power-ratio}
-    Q_{xy} = \frac{\sum_{i=1}^N |S_{xy}^i|^2}{\sum_{i=1}^N \Big( |S_{\mathrm{HH}}^i|^2 + |S_{\mathrm{HV}}^i|^2 + |S_{\mathrm{VH}}^i|^2 + |S_{\mathrm{VV}}^i|^2 \Big)},
+    Q_{xy} = \frac{\sum_{n=1}^N |S_{xy}^n|^2}{\sum_{n=1}^N \Big( |S_\HH^n|^2 + |S_\HV^n|^2 + |S_\VH^n|^2 + |S_\VV^n|^2 \Big)},
 \end{align}
 where $N$ is the total number of range-Doppler detections associated with a specific target cluster within a single frame.
 Complementary to this frame-aggregated metric, individual detection-level polarimetric ratios are computed per range-Doppler cell ($N=1$), normalizing each cell's scattering parameter by the total backscattered power.
