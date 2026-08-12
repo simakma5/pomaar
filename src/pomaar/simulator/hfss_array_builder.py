@@ -123,7 +123,9 @@ class MimoHfssBuilder:
         print(f"  Tx Elements: {transmitter_count} (spacing={transmitter_spacing_mm:.2f} mm)")
         return elements
 
-    def synthesize_array_in_hfss(self, elements, operating_frequency_ghz=None):
+    def synthesize_array_in_hfss(
+        self, elements, operating_frequency_ghz=None, setup_results=None, run_simulation=None, metric_choice=None
+    ):
         """
         Synthesizes the MIMO array in HFSS using a naming-convention boolean assembly:
         1. Classifies objects in the unit cell (Global Layers, Port Sheets, Active Copper, Dummy Cutouts).
@@ -132,6 +134,7 @@ class MimoHfssBuilder:
         4. Replicates active structures, port sheets, and dummy solids to all coordinates using local duplicate command.
         5. Applies boolean operations using the dummy solids (e.g. Subtract_L2_Ground).
         6. Assigns lumped port excitations to the replicated port sheets.
+        7. Creates radiation airbox, sets up simulation sweep, asks user whether to set up results, and prompts to launch simulation ('Analyze All').
         """
         if operating_frequency_ghz is not None:
             self.centre_frequency_ghz = operating_frequency_ghz
@@ -677,19 +680,29 @@ class MimoHfssBuilder:
         except Exception as e:
             print(f"  Warning: Failed to set Airbox transparency ({e})")
 
-        # Configure simulation setup, sweep, and reports ONLY if we created a new design
+        # Configure simulation setup and sweep
         if self.is_new_design:
             # Configure simulation setup and sweep in the target design
             self.configure_simulation_setup()
-
-            # Create automated post-processing reports
-            self.create_post_processing_reports()
         else:
             print(
                 "\n[INFO] Reusing existing design: Preserving all existing simulation setups and frequency sweeps."
             )
-            # Recreate Infinite Sphere and missing reports (to heal the modeler deletion effects)
-            self.create_post_processing_reports()
+
+        # As the last step of building, ask the user whether to set up results (far-field sphere & post-processing reports)
+        if setup_results is None:
+            if sys.stdin.isatty():
+                user_input = input(
+                    "\nDo you want to set up results (far-field sphere & post-processing reports)? (y/n) [default: y]: "
+                )
+                setup_results = user_input.strip().lower() not in ["n", "no"]
+            else:
+                setup_results = True
+
+        if setup_results:
+            self.create_post_processing_reports(metric_choice=metric_choice)
+        else:
+            print("\n[INFO] Skipping results setup as requested.")
 
         # Run Design Validation
         print("\nRunning HFSS built-in design validation...")
@@ -702,6 +715,22 @@ class MimoHfssBuilder:
 
         self.target_design_app.save_project()
         print(f"\nMIMO array synthesis successfully completed in design '{self.target_design_name}'.")
+
+        # As the very last step, ask the user if they want to launch the simulation ('Analyze All')
+        if run_simulation is None:
+            if sys.stdin.isatty():
+                user_input = input(
+                    "\nDo you want to launch the simulation ('Analyze All')? (y/n) [default: y]: "
+                )
+                run_simulation = user_input.strip().lower() not in ["n", "no"]
+            else:
+                run_simulation = True
+
+        if run_simulation:
+            print("\nLaunching HFSS simulation ('Analyze All')...")
+            self.target_design_app.analyze()
+        else:
+            print("\n[INFO] Skipping simulation execution. Model synthesis is complete.")
 
     def configure_simulation_setup(self):
         """Configures the single-frequency adaptive mesh setup and frequency sweep in the target design."""
@@ -788,7 +817,7 @@ class MimoHfssBuilder:
             sweep_type="Interpolating",
         )
 
-    def create_post_processing_reports(self):
+    def create_post_processing_reports(self, metric_choice=None):
         """Creates standard S-parameter and Far-Field reports in the target design."""
         if not self.target_design_app:
             raise RuntimeError("Array design not synthesized yet.")
@@ -816,6 +845,7 @@ class MimoHfssBuilder:
         except Exception:
             existing_reports = []
 
+        # --- STEP A: Set up S-parameters FIRST ---
         # 1. Reflections S-parameters (S_ii)
         plot_name = "Reflections"
         if plot_name not in existing_reports:
@@ -890,94 +920,197 @@ class MimoHfssBuilder:
             else:
                 print(f"  Preserving existing report '{plot_name}'")
 
-        # 5. Far Field Setup and Radiation Patterns
-        sphere_name = "ArraySphere"
-        print(f"  Configuring Infinite Sphere '{sphere_name}'...")
+        # --- STEP B: Prompt user for Radiation Pattern Metric ---
+        if metric_choice is None:
+            if sys.stdin.isatty():
+                print("\nWhich radiation pattern metric to use?")
+                print("  1. Directivity")
+                print("  2. Gain")
+                print("  3. Realized gain")
+                user_metric = input("Select option (1/2/3) [default: 3]: ")
+                metric_choice = user_metric.strip()
+            else:
+                metric_choice = "3"
+
+        if metric_choice == "1" or str(metric_choice).lower() in ["directivity", "1"]:
+            metric_name = "Directivity"
+            total_qty = "DirTotal"
+            copolar_qty = "DirCoPolar"
+            crosspolar_qty = "DirCrossPolar"
+        elif metric_choice == "2" or str(metric_choice).lower() in ["gain", "2"]:
+            metric_name = "Gain"
+            total_qty = "GainTotal"
+            copolar_qty = "GainCoPolar"
+            crosspolar_qty = "GainCrossPolar"
+        else:
+            metric_name = "Realized gain"
+            total_qty = "RealizedGainTotal"
+            copolar_qty = "RealizedGainCoPolar"
+            crosspolar_qty = "RealizedGainCrossPolar"
+
+        print(f"  Using radiation pattern metric: '{metric_name}' ({total_qty})")
+
+        # 5. Far Field Setups and Radiation Patterns
+        # (a) InfiniteSphere: Standard IEEE Theta-Phi system (z-axis zenith, theta 0..180, phi 0..360)
+        sphere_name = "InfiniteSphere"
+        print(f"  Configuring Infinite Sphere '{sphere_name}' (IEEE convention: theta 0..180 deg, phi 0..360 deg)...")
         try:
             self.target_design_app.insert_infinite_sphere(
                 name=sphere_name,
-                phi_start=0, phi_stop=180, phi_step=5,
-                theta_start=0, theta_stop=360, theta_step=1,
+                definition="Theta-Phi",
+                phi_start=0, phi_stop=360, phi_step=5,
+                theta_start=0, theta_stop=180, theta_step=1,
                 units="deg"
             )
         except Exception as e:
             print(f"  Warning: Failed to create infinite sphere '{sphere_name}' ({e})")
 
-        # Create general/nominal reports
-        # --- Realized gain 3D (3D Polar) ---
-        plot_name = "Realized gain 3D"
+        # (b) Setup 1: 'Phi0 cut' in Az Over El system (azimuth -180..180 step 2, elevation 0..0 step 0)
+        phi0_sphere = "Phi0 cut"
+        print(f"  Configuring Infinite Sphere '{phi0_sphere}' (Az Over El: az -180..180 step 2, el 0..0 step 0)...")
+        try:
+            self.target_design_app.insert_infinite_sphere(
+                name=phi0_sphere,
+                definition="Az Over El",
+                phi_start=-180, phi_stop=180, phi_step=2,
+                theta_start=0, theta_stop=0, theta_step=0,
+                units="deg"
+            )
+        except Exception as e:
+            print(f"  Warning: Failed to create infinite sphere '{phi0_sphere}' ({e})")
+
+        # (b) Setup 2: 'Phi90 cut' in Az Over El system (azimuth 0..0 step 0, elevation -180..180 step 2)
+        phi90_sphere = "Phi90 cut"
+        print(f"  Configuring Infinite Sphere '{phi90_sphere}' (Az Over El: az 0..0 step 0, el -180..180 step 2)...")
+        try:
+            self.target_design_app.insert_infinite_sphere(
+                name=phi90_sphere,
+                definition="Az Over El",
+                phi_start=0, phi_stop=0, phi_step=0,
+                theta_start=-180, theta_stop=180, theta_step=2,
+                units="deg"
+            )
+        except Exception as e:
+            print(f"  Warning: Failed to create infinite sphere '{phi90_sphere}' ({e})")
+
+        # Create radiation pattern reports
+        # --- 3D Pattern (3D Polar Plot on InfiniteSphere) ---
+        plot_name = f"{metric_name} 3D"
         if plot_name not in existing_reports:
             try:
-                print("  Generating Realized gain 3D report...")
+                print(f"  Generating {plot_name} report...")
                 vars_3d = {"Theta": ["All"], "Phi": ["All"], "Freq": [f"{self.centre_frequency_ghz}GHz"]}
                 self.target_design_app.post.create_report(
-                    expressions=["db(RealizedGainTotal)"],
+                    expressions=[f"db({total_qty})"],
                     setup_sweep_name=setup_sweep,
                     variations=vars_3d,
-                    primary_sweep_variable="Theta",
-                    secondary_sweep_variable="Phi",
+                    primary_sweep_variable="Phi",
+                    secondary_sweep_variable="Theta",
                     report_category="Far Fields",
                     plot_name=plot_name,
                     context=sphere_name,
                     plot_type="3D Polar Plot"
                 )
             except Exception as e:
-                print(f"  Warning: Failed to create Realized gain 3D report ({e})")
+                print(f"  Warning: Failed to create {plot_name} report ({e})")
         else:
             print(f"  Preserving existing report '{plot_name}'")
 
-        # --- Realized gain (2D Polar Cuts Phi=0 and Phi=90) ---
-        plot_name = "Realized gain"
+        # (c) Rectangular Far-Field Cut 1: Phi0 geometry with primary sweep 'AzimuthAngle'
+        plot_name = f"{metric_name} Phi0"
         if plot_name not in existing_reports:
             try:
-                print("  Generating Realized gain (2D cuts) report...")
-                vars_2d = {"Theta": ["All"], "Phi": ["0deg", "90deg"], "Freq": [f"{self.centre_frequency_ghz}GHz"]}
+                print(f"  Generating {plot_name} report (Az Over El)...")
+                vars_phi0 = {"AzimuthAngle": ["All"], "ElevationAngle": ["All"], "Freq": [f"{self.centre_frequency_ghz}GHz"]}
                 self.target_design_app.post.create_report(
-                    expressions=["db(RealizedGainTotal)"],
+                    expressions=[f"db({total_qty})"],
                     setup_sweep_name=setup_sweep,
-                    variations=vars_2d,
-                    primary_sweep_variable="Theta",
+                    variations=vars_phi0,
+                    primary_sweep_variable="AzimuthAngle",
                     report_category="Far Fields",
                     plot_name=plot_name,
-                    context=sphere_name,
+                    context=phi0_sphere,
                     plot_type="Rectangular Plot"
                 )
             except Exception as e:
-                print(f"  Warning: Failed to create Realized gain 2D cuts report ({e})")
+                print(f"  Warning: Failed to create {plot_name} report ({e})")
         else:
             print(f"  Preserving existing report '{plot_name}'")
 
-        # --- XPD (2D Polar Cuts Phi=0 and Phi=90) ---
-        plot_name = "XPD"
+        # (c) Rectangular Far-Field Cut 2: Phi90 geometry with primary sweep 'ElevationAngle'
+        plot_name = f"{metric_name} Phi90"
         if plot_name not in existing_reports:
             try:
-                print("  Generating XPD (2D cuts) report...")
-                vars_2d = {"Theta": ["All"], "Phi": ["0deg", "90deg"], "Freq": [f"{self.centre_frequency_ghz}GHz"]}
+                print(f"  Generating {plot_name} report (Az Over El)...")
+                vars_phi90 = {"AzimuthAngle": ["All"], "ElevationAngle": ["All"], "Freq": [f"{self.centre_frequency_ghz}GHz"]}
                 self.target_design_app.post.create_report(
-                    expressions="db(RealizedGainTheta) - db(RealizedGainPhi)",
+                    expressions=[f"db({total_qty})"],
                     setup_sweep_name=setup_sweep,
-                    variations=vars_2d,
-                    primary_sweep_variable="Theta",
+                    variations=vars_phi90,
+                    primary_sweep_variable="ElevationAngle",
                     report_category="Far Fields",
                     plot_name=plot_name,
-                    context=sphere_name,
+                    context=phi90_sphere,
                     plot_type="Rectangular Plot"
                 )
             except Exception as e:
-                print(f"  Warning: Failed to create XPD 2D cuts report ({e})")
+                print(f"  Warning: Failed to create {plot_name} report ({e})")
+        else:
+            print(f"  Preserving existing report '{plot_name}'")
+
+        # (d) XPD metric defined as CoPolar - CrossPolar (Ludwig-3 definition)
+        xpd_expression = f"db({copolar_qty}) - db({crosspolar_qty})"
+
+        plot_name = "XPD Phi0"
+        if plot_name not in existing_reports:
+            try:
+                print(f"  Generating XPD Phi0 report...")
+                vars_phi0 = {"AzimuthAngle": ["All"], "ElevationAngle": ["All"], "Freq": [f"{self.centre_frequency_ghz}GHz"]}
+                self.target_design_app.post.create_report(
+                    expressions=xpd_expression,
+                    setup_sweep_name=setup_sweep,
+                    variations=vars_phi0,
+                    primary_sweep_variable="AzimuthAngle",
+                    report_category="Far Fields",
+                    plot_name=plot_name,
+                    context=phi0_sphere,
+                    plot_type="Rectangular Plot"
+                )
+            except Exception as e:
+                print(f"  Warning: Failed to create {plot_name} report ({e})")
+        else:
+            print(f"  Preserving existing report '{plot_name}'")
+
+        plot_name = "XPD Phi90"
+        if plot_name not in existing_reports:
+            try:
+                print(f"  Generating XPD Phi90 report...")
+                vars_phi90 = {"AzimuthAngle": ["All"], "ElevationAngle": ["All"], "Freq": [f"{self.centre_frequency_ghz}GHz"]}
+                self.target_design_app.post.create_report(
+                    expressions=xpd_expression,
+                    setup_sweep_name=setup_sweep,
+                    variations=vars_phi90,
+                    primary_sweep_variable="ElevationAngle",
+                    report_category="Far Fields",
+                    plot_name=plot_name,
+                    context=phi90_sphere,
+                    plot_type="Rectangular Plot"
+                )
+            except Exception as e:
+                print(f"  Warning: Failed to create {plot_name} report ({e})")
         else:
             print(f"  Preserving existing report '{plot_name}'")
 
     def run_solve(self):
-        """Triggers the HFSS simulation setup and solve."""
+        """Triggers the HFSS simulation setup and solve using 'Analyze All'."""
         if not self.target_design_app:
             raise RuntimeError("Array design not synthesized yet.")
 
         # Ensure the setup is configured
         self.configure_simulation_setup()
 
-        print("Solving full-wave HFSS array design using 'ArraySetup'...")
-        self.target_design_app.analyze(setup_name="ArraySetup")
+        print("Solving full-wave HFSS array design using 'Analyze All'...")
+        self.target_design_app.analyze()
 
     def export_coupling_s_parameters(self, output_touchstone_path):
         """Exports solved S-parameter coupling matrix to a Touchstone (.sNp) file."""
@@ -1206,6 +1339,9 @@ if __name__ == "__main__":
         "--centre-freq", "--center-freq", type=float, default=79.0, help="Centre frequency in GHz (default: 79.0)"
     )
     parser.add_argument("--bandwidth", type=float, default=4.0, help="Sweep bandwidth in GHz (default: 4.0)")
+    parser.add_argument(
+        "--run-simulation", action="store_true", help="Automatically launch HFSS simulation ('Analyze All') after synthesis"
+    )
 
     args = parser.parse_args()
 
@@ -1240,6 +1376,10 @@ if __name__ == "__main__":
                 operating_frequency_ghz=args.centre_freq,
                 subarray_spacing_mm=10.0,
             )
-        builder.synthesize_array_in_hfss(elements_list, operating_frequency_ghz=args.centre_freq)
+        builder.synthesize_array_in_hfss(
+            elements_list,
+            operating_frequency_ghz=args.centre_freq,
+            run_simulation=True if args.run_simulation else None,
+        )
     finally:
         builder.close()

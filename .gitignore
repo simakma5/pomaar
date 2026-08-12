@@ -53,4 +53,4 @@ data/*
 
 # --- Temporary files/outputs ---
 *_notes.md
-src/pomaar/mimo_polarimetry/examples/*.json
+src/pomaar/simulator/examples/*.json

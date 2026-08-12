@@ -44,7 +44,7 @@ This script links the synthesized full-wave design as a composite antenna source
 
 To run:
 ```bash
-python3 -m pomaar.mimo_polarimetry.sbr_simulator <path_to_project.aedt> <synthesized_mimo_design_name>
+python3 -m pomaar.simulator.sbr_simulator <path_to_project.aedt> <synthesized_mimo_design_name>
 ```
 
 ---

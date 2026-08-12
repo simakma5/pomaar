@@ -40,7 +40,8 @@ of new theory and calibration procedures to enhance the classification of vulner
         ├── config.py               <- Store useful variables and configuration.
         ├── dsp.py                  <- DSP algorithms, such as beamforming and CFAR detectors.
         ├── io.py                   <- Scripts to parse raw ADC data for DSP.
-        └── plots.py                <- Code to create visualizations.
+        ├── plots.py                <- Code to create visualizations.
+        └── simulator               <- Polarimetric MIMO array HFSS/SBR+ simulation pipeline.
 ```
 
 --------
