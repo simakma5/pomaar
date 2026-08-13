@@ -1,7 +1,7 @@
 \chapter{Feasibility study}
 \label{chap:feasibility-study}
 
-Building upon the research gaps and problem formulation established in \cref{chap:research-gaps}, this chapter presents the technical methodology, system architecture, and preliminary feasibility studies of the doctoral project.
+Building upon the research gaps and problem formulation established in \cref{chap:research-gap-analysis}, this chapter presents the technical methodology, system architecture, and preliminary feasibility studies of the doctoral project.
 To systematically address the challenges of automotive polarimetry without relying on trial-and-error hardware iteration, a top-down engineering methodology is adopted.
 
 First, \cref{sec:proposed-solutions} outlines the proposed technical methodology, including algorithm-driven perturbation analysis, a hybrid electromagnetic simulation platform in Ansys Electronics Desktop, \enquote{polarimetry-first} virtual array topologies, and radiating element selections.
@@ -194,25 +194,24 @@ The initial benchmark evaluates the polarimetric backscattering response of an u
 \Cref{fig:sbr_parametric_dihedral_unrotated_magnitude} displays the co- and cross-polarized backscattered magnitude across frequency, demonstrating strong co-polar returns -- $S_\HH$ and $S_\VV$, normalized to \qty{0}{\dB} -- alongside high polarization purity, with cross-polarized leakage, $S_\HV$ and $S_\VH$, suppressed below \qty{-80}{\dB}.
 Complementing the magnitude, the phase response in \cref{fig:sbr_parametric_dihedral_unrotated_phase} confirms the foundational physics of even-bounce scattering: the co-polarized channels exhibit an almost exact $\uppi$ phase difference ($\arg(S_\VV) - \arg(S_\HH) = \uppi$).
 This empirical result matches the analytical Sinclair matrix from \cref{eq:canonical-even-bounce-0}.
-In the Pauli feature space introduced in \cref{sec:coherent-decomposition}, this unrotated dihedral populates exclusively the double-bounce component ($b = \sqrt{2}\sigma_{\text{dih}}$), while the single-bounce ($a$), cross-polar ($c$), and asymmetry ($d$) components remain zero, validating the polarimetric fidelity of the simulation platform.%
-    \todo{Verify that!}
+In the Pauli feature space introduced in \cref{sec:coherent-decomposition}, this unrotated dihedral populates exclusively the double-bounce component ($b = \sqrt{2}\sigma_{\text{dih}}$) of the Pauli vector from \cref{eq:pauli-vector-4d}, while the single-bounce, cross-polar, and asymmetry components remain zero, validating the polarimetric fidelity of the simulation platform.
 
 \begin{figure}
     \centering
     \begin{subfigure}{\linewidth}
         \centering
         \input{images/sbr_parametric_dihedral_unrotated_magnitude.pgf}
-        \caption{Magnitude.}
+        \caption{Normalized magnitude response showing strong co-polar returns and low cross-polar leakage.}
         \label{fig:sbr_parametric_dihedral_unrotated_magnitude}
     \end{subfigure}
     \\
     \begin{subfigure}{\linewidth}
         \centering
         \input{images/sbr_parametric_dihedral_unrotated_phase.pgf}
-        \caption{Phase.}
+        \caption{Phase response showing the $\uppi$ phase difference between co-polarized channels.}
         \label{fig:sbr_parametric_dihedral_unrotated_phase}
     \end{subfigure}
-    \caption{Co-polar response of an unrotated dihedral corner reflector.}
+    \caption{Polarimetric frequency response of an unrotated dihedral corner reflector.}
     \label{fig:sbr_parametric_dihedral_unrotated}
 \end{figure}
 
@@ -221,8 +220,7 @@ To examine the orientation-dependent behaviour of non-spherical targets, \cref{f
 As predicted by the spatial rotation transformation in \cref{eq:canonical-even-bounce-rotated}, the scattering matrix undergoes a continuous energy transfer between co-polarized and cross-polarized states.
 At cardinal alignments ($\theta \in \{\ang{0}, \ang{90}, \ang{180}\}$), the target acts as a pure co-polar double-bounce scatterer -- $S_\HH = -S_\VV$ and $S_\HV = S_\VH = 0$.
 Conversely, at oblique orientations ($\theta \in \{\ang{45}, \ang{135}\}$), the co-polarized channels are completely suppressed ($S_\HH = S_\VV = 0$), and all backscattered energy is transferred into the cross-polarized channels ($S_\HV = S_\VH = \sigma_{\text{dih}}$), matching the $\ang{45}$-rotated dihedral matrix in \cref{eq:canonical-even-bounce-45}.
-In Pauli feature space, this rotation maps a smooth trajectory from the double-bounce mechanism ($b = \sqrt{2}\sigma_{\text{dih}}\cos 2\theta$) to the cross-polar mechanism ($c = \sqrt{2}\sigma_{\text{dih}}\sin 2\theta$).%
-    \todo{Verify that!}
+In Pauli feature space, this rotation maps a smooth trajectory from the double-bounce mechanism ($b = \sqrt{2}\sigma_{\text{dih}}\cos 2\theta$) to the cross-polar mechanism ($c = \sqrt{2}\sigma_{\text{dih}}\sin 2\theta$).
 This simulation confirms that the SBR+ framework faithfully models orientation-induced polarimetric modulation, which is essential for characterizing dynamic vehicle body panels and articulate \gls{vru} motion.
 
 \begin{figure}
@@ -274,232 +272,380 @@ Consequently, the antenna cannot be treated merely as a passive component, but r
 
 To align with the project's objective of validating signal processing algorithms on a reliable hardware platform, the proposed architecture purposefully builds upon the established planar topologies utilized in modern imaging automotive radars.
 However, to overcome the inherent polarimetric limitations of standard series-fed patch arrays -- specifically, the degradation of \gls{xpd} caused by cross-polar radiation from feed networks -- this study adopts an aperture-coupled patch topology as the baseline design.
-This baseline serves as the foundational stage in an iterative development strategy, which will eventually transition towards an \gls{siw} stack-up.
+This baseline serves as the foundational stage in an iterative development strategy, tracing a complete evolutionary path: from initial single-element microstrip characterization, through the synthesis of side-fed series travelling-wave arrays and high-coupling slot impedance matching, to the empirical discovery of bandwidth collapse, and ultimately the architectural transition into a centre-fed, multilayer buried-stripline sub-array with an integrated coaxial launcher.
 
 
-\subsubsection{Architectural rationale and element design}
+\subsubsection{Architectural rationale and single-element aperture coupling physics}
 \label{sec:element-design}
 
-The primary advantage of the aperture-coupled patch antenna architecture is its ability to physically and electromagnetically isolate the radiating patch from the feed network.
-By separating the respective dielectric layers with a common ground plane, energy transfers magnetically through a ground-plane slot.
-From an equivalent circuit perspective, the slot acts as a transformer representing the coupled impedance of the patch, connected in series with a parallel $LC$ resonant circuit that models the slot resonance and its associated fringing fields, all in series with the microstrip transmission line.
-When plotted on a Smith chart, the input impedance locus of this composite structure typically forms a circle.
-The primary objective of parametric tuning is to control the size and position of this circle, shifting it to pass directly through the centre of the Smith chart ($Z = 1$) to achieve a matched \qty{50}{\ohm} state.
+The primary advantage of the aperture-coupled patch antenna architecture is its ability to physically and electromagnetically isolate the radiating patch from the feed network~\parencite{pozarMicrostripAntennaAperturecoupled1985}.
+By separating the respective dielectric layers with a solid common ground plane, energy transfers magnetically through a ground-plane slot, as illustrated in \cref{fig:aperture_coupled_single_element_cad}.
+From an equivalent circuit perspective, the slot acts as a transformer representing the coupled impedance of the patch, connected in series with a parallel $LC$ resonant circuit that models the slot resonance and its associated fringing fields, all in series with the feed transmission line.
+When plotted on a Smith chart, the input impedance locus of this composite structure forms a characteristic circle.
+The primary objective of parametric tuning is to control the diameter and position of this circle, shifting it to pass tightly around the centre of the Smith chart at the design frequency to achieve a matched \qty{50}{\ohm} state.
 
-A major benefit of this topology is the independent optimization of the feed and antenna substrates.
-Ideally, the antenna substrate should be electrically thick ($h \ge \lambda_{0}/10$) with a low relative permittivity ($\epsilon_{\mathrm{r}} < 3$) to encourage outward radiation, widen the impedance bandwidth, and suppress surface-wave propagation, which is essential for maintaining channel isolation in \gls{mimo} arrays.
-Conversely, the feed network requires an electrically thin substrate ($h < \lambda_{0}/50$) with a high permittivity ($\epsilon_{\mathrm{r}} > 5$) to confine the electromagnetic fields, maximize magnetic coupling through the aperture, and suppress spurious feed radiation.
+\begin{figure}[!ht]
+    \centering
+    \begin{subfigure}{0.48\textwidth}
+        \centering
+        % \input{images/aperture_coupled_patch_cad.pgf}
+        \caption{3D CAD geometry showing Layer 1 patch, slotted Layer 2 ground plane, and feedline.}
+        \label{fig:aperture_coupled_patch_cad}
+    \end{subfigure}
+    \hfill
+    \begin{subfigure}{0.48\textwidth}
+        \centering
+        % \input{images/aperture_coupled_equivalent_circuit.pgf}
+        \caption{Equivalent series $LC$ circuit and Smith chart impedance locus.}
+        \label{fig:aperture_coupled_equivalent_circuit}
+    \end{subfigure}
+    \caption{Single aperture-coupled patch antenna element: (a) CAD structural model and (b) equivalent circuit model with Smith chart locus tuning.}
+    \label{fig:aperture_coupled_single_element_cad}
+\end{figure}
 
-Despite these guidelines, scaling the design to high-frequency bands reveals critical practical constraints that clash with theoretical ideals.
-For instance, at lower microwave bands such as the X-band (e.g. \qty{9.7}{GHz}), a high-permittivity feed substrate like RO3006 ($\epsilon_{\mathrm{r}} = 6.5$) yields a practical width of \qty{0.38}{\milli\metre} for a \qty{50}{\ohm} microstrip line.
-However, when scaling to the \qty{79}{GHz} automotive band, such a high permittivity forces the trace width to become microscopic, compounding conductor losses and exceeding standard \gls{pcb} fabrication tolerances.
-Consequently, millimetre-wave arrays practically require a feed layer with a lower permittivity, typically between $\epsilon_{\mathrm{r}} = 3$ and $4$.
+A major benefit of this topology is the independent optimization of the feed and antenna substrates:
+\begin{itemize}
+    \item The \textit{antenna substrate} requires an electrically thick material with a low relative permittivity ($\varepsilon_{\mathrm{r}} < 3$). This encourages outward radiation at the patch edges, widens the impedance bandwidth, and suppresses surface-wave propagation -- a crucial prerequisite for maintaining channel isolation in \gls{mimo} arrays.
+    \item Theoretical guidelines for the \textit{feed substrate} suggest an electrically thin substrate with a high permittivity ($\varepsilon_{\mathrm{r}} > 5$) to confine electromagnetic fields into a guided wave, maximize aperture coupling, and suppress spurious feed radiation.
+\end{itemize}
+
+Despite these theoretical ideals, scaling the design to high-frequency automotive bands reveals critical practical constraints.
+At lower microwave bands such as X-band (e.g. \qty{9.7}{\giga\hertz}), a high-permittivity feed substrate like Rogers RO3006 ($\varepsilon_{\mathrm{r}} = 6.5$) yields a practical width of \qty{0.38}{\milli\metre} for a \qty{50}{\ohm} microstrip line.
+However, when scaling to the \qty{79}{\giga\hertz} automotive band, such a high permittivity forces trace widths to become microscopic, compounding conductor insertion losses and exceeding standard \gls{pcb} fabrication etching tolerances.
+Consequently, millimetre-wave arrays practically require a feed layer with a lower permittivity, typically between $\varepsilon_{\mathrm{r}} = 3$ and $4$.
 
 Furthermore, high-frequency scaling introduces severe surface-wave vulnerabilities.
-At \qty{9.7}{GHz} on a \qty{787}{\micro\metre} RO3006 substrate, the substrate electrical thickness ($\approx 0.025\lambda_{0}$) naturally excites the dominant $\text{TM}_{0}$ surface-wave mode.
-While this can cause scan blindness in large \gls{mimo} arrays (e.g. $8 \times 4$), it remains manageable.
-At \qty{79}{GHz}, the $h/\lambda_{0}$ ratio increases substantially.
-Without drastic substrate thinning, higher-order modes (such as $\text{TE}_{1}$) cut on, leading to severe power dissipation, mutual coupling, and spatial decorrelation that degrades the virtual aperture.
-Transitioning to a \gls{siw} cavity-backed topology provides a metallic wall boundary that completely suppresses lateral surface waves, representing the ultimate solution for preserving virtual array integrity.
-As frequency increases or as the substrate becomes electrically thicker, higher-order modes cut on.
-The cutoff frequency for the $\text{TE}_{n}$ modes is given by
+To prevent microstrip patches from launching power into surface waves -- which travel laterally through the substrate, cause mutual coupling between array elements, and degrade radiation patterns -- the total patch substrate height must satisfy the surface-wave suppression limit:
+\begin{equation}
+    \label{eq:surface-wave-limit}
+    h_{\text{patch}} < \frac{c}{4 f \sqrt{\varepsilon_{\mathrm{r}} - 1}}.
+\end{equation}
+At \qty{9.7}{\giga\hertz} on a \qty{787}{\micro\metre} RO3006 substrate, the electrical thickness ($\approx 0.025\lambda_{0}$) naturally excites the dominant $\text{TM}_{0}$ surface-wave mode.
+While this can induce scan blindness in large \gls{mimo} arrays (e.g. $8 \times 4$), it remains manageable.
+At \qty{79}{\giga\hertz}, the $h/\lambda_{0}$ ratio increases substantially, and higher-order transverse electric modes cut on.
+The cutoff frequency for the $\text{TE}_{n}$ surface-wave modes is given by
 \begin{equation}
     \label{eq:te-cutoff}
-    f_{c,\text{TE}_n} = \frac{(2n-1)c}{4h\sqrt{\epsilon_{\mathrm{r}} - 1}},
+    f_{c,\text{TE}_n} = \frac{(2n-1)c}{4h\sqrt{\varepsilon_{\mathrm{r}} - 1}}.
 \end{equation}
-where $c$ is the speed of light in vacuum, $h$ is the substrate thickness, and $\epsilon_{\mathrm{r}}$ is the relative permittivity.
-At \qty{79}{GHz}, the wavelength $\lambda_{0}$ is roughly \qty{3.8}{\milli\metre}; if the substrate thickness $h$ is not kept thin, the physical thickness easily exceeds the cutoff threshold for $\text{TE}_{1}$, allowing it to propagate and affect the array's mutual coupling.
+Without drastic substrate thinning at \qty{79}{\giga\hertz}, higher-order modes (such as $\text{TE}_{1}$) cut on, causing severe power dissipation, mutual coupling, and spatial decorrelation that degrades the virtual array aperture.
+Transitioning to a \gls{siw} cavity-backed topology provides metallic wall boundaries that completely suppress lateral surface waves, representing the ultimate solution for preserving virtual array integrity.
 
-\paragraph{Parametric tuning.}
-Tuning the aperture-coupled antenna within a full-wave electromagnetic solver requires mapping the physical dimensions of the structure to its electrical response.
-The patch length acts as the primary control for the operating frequency, to which it is inversely proportional; even a \qty{0.1}{\milli\metre} variation at X-band drastically shifts the resonance, demanding high tuning precision.
-The patch width primarily controls the resonant resistance, with a wider patch leading to a lower input resistance.
-The slot length serves as the primary control for the coupling coefficient, and increasing it expands the diameter of the impedance locus on the Smith chart.
-However, the slot must remain strictly sub-resonant (ideally $\approx \lambda_{\mathrm{g}}/10$) to suppress excessive back-radiation.
-If a half-wavelength slot ($\lambda_{\mathrm{g}}/2$) is required to achieve matching, it typically indicates that the feed substrate is too thick or its permittivity too low.
-The slot width has a minor influence on coupling, and a standard aspect ratio of approximately $10:1$ is maintained, though modifying the slot to an hourglass or bow-tie shape can increase magnetic polarizability without expanding the physical footprint.
-Finally, the feed stub length past the slot is used to tune out excess slot reactance.
-Although classical one-dimensional theory dictates a length slightly less than $\lambda_{\mathrm{g}}/4$, localized dielectric loading and fringing capacitance can reduce the actual physical length to merely \qtyrange{35}{40}{\percent} of the theoretical quarter-wavelength.
-Shortening the stub rotates the impedance locus downwards in the capacitive direction on the Smith chart.
+\paragraph{Parametric tuning guide.}
+Tuning the aperture-coupled antenna within a full-wave electromagnetic solver requires mapping physical dimensions to electrical responses:
+\begin{itemize}
+    \item \textit{Patch length} primarily dictates for operating frequency.
+    \item \textit{Patch width} primarily controls resonant resistance, where a wider patch lowers the input resistance.
+    \item \textit{Slot length} serves as the primary control for the coupling coefficient. Increasing slot length expands the diameter of the impedance locus loop on the Smith chart. The slot must remain strictly sub-resonant (ideally $\approx \lambda_{\mathrm{g}}/10$) to suppress back-radiation.
+    \item \textit{Slot width} exerts a minor influence on coupling. Maintaining a standard length-to-width aspect ratio of $\approx 10:1$ is standard, though modifying the shape to an hourglass or bow-tie profile increases magnetic polarizability without expanding the footprint~\parencite{priyalathaCompactModifiedHourglassshaped2023}.
+    \item \textit{Feed stub length:} the open-ended line extending past the slot tunes out excess slot reactance. Shortening the stub rotates the impedance locus downwards (capacitive direction) on the Smith chart. Here, a typical discrepancy arises between classical 1D theory -- which dictates an open stub length slightly less than $\lambda_{\mathrm{g}}/4$ -- and 3D full-wave simulation which can reveal that the optimal stub length can be as short as \qtyrange{35}{40}{\percent} of $\lambda_{\mathrm{g}}/4$, depending on the specific design.
+\end{itemize}
 
-In practice, several tuning strategies can be employed.
-Rather than forcing a high-Q match exactly at $Z = 1$, the coupling can be intentionally increased by lengthening the slot.
-This causes the impedance loop to intersect the $R=1$ circle at two symmetric points, broadening the operating bandwidth.
-Furthermore, changing the slot length alters its reactance, which must be counteracted by re-tuning the feed stub length, while slot-induced resonance pulling requires slight patch length adjustments to re-centre the operating frequency.
+\begin{custombox}[orange]{To be continued}
+    Continue reviewing the text from here. To-do's:
+    \begin{itemize}
+        \item Go through the document and decide on bold-face vs italics in similar lists.
+        \item Revisit the section on polarimetric simulator and tone down the ambition.
+        \item Make sure to include some XPD plots somewhere in this section, confirming the choice of element.
+        \item Replace HFSS with CST and add CST citation.
+    \end{itemize}
+\end{custombox}
 
-
-\subsubsection{Series-feed synthesis}
+\subsubsection{Series-feed array synthesis and gain budget derivation}
 \label{sec:series-feed-synthesis}
 
-Transitioning from a single aperture-coupled patch to a series-fed array transforms the structure from a localized load into a cascaded microwave network.
-In a series configuration, intermediate elements do not possess individual tuning stubs; the feedline simply traverses the slot and continues.
-The termination after the final element dictates the array's behaviour.
+Transitioning from a single element to a series-fed array fundamentally alters the electromagnetic problem from a localized load to a cascaded microwave network.
+Intermediate elements lack individual tuning stubs; the feedline simply traverses the slot and continues.
+The feedline termination after the final element dictates the array performance:
 \begin{itemize}
-    \item \emph{Standing-wave arrays} terminate the feedline with an open-ended tuning stub after the final element to establish a standing wave, which is highly radiation-efficient but limits the impedance bandwidth to typically \qtyrange{1}{2}{\percent} because frequency shifts cause the standing-wave nodes to drift away from the slot positions.
-    \item \emph{Travelling-wave arrays} terminate the feedline with a matched \qty{50}{\ohm} load to absorb residual power, preventing standing waves and securing a wider impedance bandwidth, though the main beam inherently squints with frequency, which is detrimental to \gls{fmcw} radar angular resolution.
+    \item \emph{Standing-wave (resonant) arrays} terminate the feedline with an open-ended tuning stub after the final element, establishing a standing wave along the feed network. This offers high radiation efficiency but severely restricts impedance bandwidth (typically \qtyrange{1}{2}{\percent}), as frequency shifts cause standing-wave nodes to drift away from slot positions.
+    \item \emph{Travelling-wave arrays} terminate the line with a matched \qty{50}{\ohm} load to absorb residual power, preventing standing waves and securing wider impedance bandwidth. However, the main beam inherently squints (steers off broadside) over frequency, which degrades \gls{fmcw} radar angular resolution.
 \end{itemize}
-In theory, this beam squint can be eliminated in centre-fed travelling-wave configurations due to symmetric cancellations.
-Crucially, confining the feed network behind a solid ground plane in an aperture-coupled series topology suppresses feed network radiation, yielding the high \gls{xpd} required for polarimetric applications.
+Crucially, confining the feed network behind a solid ground plane in an aperture-coupled series topology suppresses feedline radiation, yielding the high \gls{xpd} ($> \qty{20}{\decibel}$) essential for polarimetric processing.
 
-However, series-fed travelling-wave arrays terminated in a matched load present a fundamental design paradox when configured to radiate broadside.
-In-phase broadside radiation requires the electrical length of the interconnects between elements at the feeding layer to equal an integer multiple of the guided wavelength ($L = n\lambda_{\mathrm{g}}$).
-Under this condition, localized reflections from each slot travel back to the input, and because the round-trip distance is $2n\lambda_{\mathrm{g}}$, these reflections add constructively, generating a massive input reflection that destroys the travelling-wave condition.
-Conversely, introducing a phase shift to squint the beam off-broadside introduces a phase mismatch that causes reflections to interfere destructively at the input, yielding excellent return loss but pointing the main beam off-broadside.
-To resolve this conflict, two architectural paths are available: maintaining the travelling-wave topology for bandwidth while applying a progressive phase shift to squint the beam slightly off-broadside in elevation, which can be compensated for mechanically, or switching to a standing-wave topology by removing the progressive phase shift and integrating a dedicated input matching network to match the real input impedance to the system impedance.
+\paragraph{The broadside travelling-wave paradox.}
+Series-fed travelling-wave arrays terminated in a matched load present a fundamental design paradox when configured to radiate broadside.
+In-phase broadside radiation requires the electrical phase delay between adjacent elements to equal an integer multiple of $2\uppi$, dictating an inter-element feedline length $L = n\lambda_{\mathrm{g}}$.
+Under this exact condition, localized reflections generated by individual coupling slots travel back towards the input port.
+Because the round-trip distance between successive slots is exactly $2n\lambda_{\mathrm{g}}$, reflections from all elements add constructively at the input.
+This maximizes input reflection ($S_{11} \rightarrow \qty{0}{\dB}$), generating a massive standing wave that destroys the travelling-wave condition.
+Conversely, introducing a progressive phase shift to squint the beam off-broadside creates a phase mismatch that causes inter-element reflections to interfere destructively at the input, yielding an excellent return loss but pointing the main beam off-broadside.
+To resolve this conflict, two architectural paths exist: maintaining travelling-wave operation while applying a progressive phase shift to squint the beam slightly in elevation (which can be compensated for during mechanical mounting), or switching to a standing-wave topology with an integrated input matching network.
 
-\paragraph{Amplitude tapering.}
-In series-fed travelling-wave arrays, the power propagates along the feedline and is sequentially leaked or extracted by each successive slot element.
-As the electromagnetic wave travels down the array, the power remaining in the feedline decreases.
-Consequently, each subsequent element has less available power to extract than its predecessor.
-This behaviour is fundamentally different from resonant standing-wave arrays, where a stationary wave pattern is established, and element excitations are dictated by the global standing-wave profile rather than sequential loss.
-To achieve a specific amplitude taper, such as a Taylor or Chebyshev distribution, the coupling strength of the elements must be graded, requiring the initial elements to be weakly coupled and the terminal elements to be strongly coupled.
-This gradient is quantified by the \gls{rapr}, defined as the ratio of the power radiated by an element to the power available to it.
-The array synthesis involves calculating the desired \gls{rapr} profile to achieve the target \gls{sll} and mapping it to physical dimensions.
-To cover the required dynamic range of \gls{rapr}, which typically ranges from $< \qty{1}{\percent}$ near the feed point to $> \qty{70}{\percent}$ at the terminal end, the array must employ different element types to manage both high and low coupling states without introducing reflections, as demonstrated for travelling-wave array synthesis with three element types to cover the wide \gls{rapr} range required for automotive beams~\parencite{kangDesignTravelingWaveSeriesFed2020}.
+\paragraph{Elevation sub-array gain budget calculation.}
+To establish the required element count $N$ for the elevation sub-array, a link budget analysis was performed based on short-range automotive radar requirements:
+\begin{itemize}
+    \item \textbf{Target specification:} Maximum detection range $R = \qty{50}{\metre}$ for a \gls{vru} target with \gls{rcs} $\sigma = \qty{0}{\dBsm}$ (\qty{1}{\metre\squared}).
+    \item \textbf{Hardware capabilities:} Texas Instruments AWR2243 \gls{mmic} transmit power $P_{\mathrm{Tx}} = \qty{13}{\dBm}$ and receiver noise figure $F = \qty{12}{\dB}$ at \qty{77}{\giga\hertz}~\parencite{texasInstrumentsAwrxCascadedRadar2020}.
+    \item \textbf{System margins:} System losses $L_{\mathrm{sys}} \approx \qty{5}{\dB}$, FMCW range-Doppler processing gain $G_{\mathrm{proc}} \approx \qtyrange{50}{60}{\dB}$.
+\end{itemize}
+The required \gls{snr} for reliable target detection is expressed via the \gls{fmcw} radar range equation:
+\begin{equation}
+    \label{eq:radar-range-equation}
+    \text{SNR} = \frac{P_{\mathrm{Tx}} G_{\mathrm{Tx}} G_{\mathrm{Rx}} \lambda_0^2 \sigma}{(4\uppi)^3 R^4 k T_0 F L_{\mathrm{sys}}} G_{\mathrm{proc}} \ge \qty{13}{\dB}.
+\end{equation}
+Evaluating \cref{eq:radar-range-equation} dictates a required sub-array antenna gain of $G_{\mathrm{Tx}} = G_{\mathrm{Rx}} \approx \qtyrange{11.5}{13.5}{\dBi}$.
+Assuming a single-element gain $G_{\text{elem}} \approx \qtyrange{5.5}{6.5}{\dBi}$, element spacing $d \approx 0.7\lambda_0$, a Taylor/Chebyshev amplitude taper loss $L_{\text{taper}} \approx \qtyrange{0.8}{1.2}{\dB}$, a beam broadening factor $B \approx \qtyrange{1.25}{1.32}{}$, and feed insertion loss $L_{\text{feed}} \approx \qty{0.15}{\dB/\text{element}}$, the net array gain and \qty{3}{\dB} elevation beamwidth are given by:
+\begin{align}
+    \label{eq:array-gain-budget}
+    G_{\text{array}} &= G_{\text{elem}} + 10\log_{10}(N) - L_{\text{taper}} - L_{\text{feed}}, \\
+    \theta_{\text{3dB}} &\approx B \frac{\ang{50.8}}{N (d/\lambda_0)}.
+\end{align}
+Evaluating \cref{eq:array-gain-budget} across element counts yields:
+\begin{itemize}
+    \item $N = 4$ elements: Net gain $\approx \qty{10.0}{\dBi}$, $\theta_{\text{3dB}} \approx \ang{22}$ (insufficient link margin).
+    \item $N = 6$ elements: Net gain $\approx \qty{11.5}{\dBi}$, $\theta_{\text{3dB}} \approx \ang{15}$ (minimum viable baseline).
+    \item $N = 8$ elements: Net gain $\approx \qty{12.3}{\dBi}$, $\theta_{\text{3dB}} \approx \ang{11}$ (optimal design target with safety margin).
+    \item $N = 10$ elements: Net gain $\approx \qty{12.9}{\dBi}$, $\theta_{\text{3dB}} \approx \ang{9}$ (high gain, but excessive feed loss).
+\end{itemize}
+Consequently, an $N = 8$ element sub-array baseline was selected for full-wave synthesis.
 
-Sweeping standard rectangular slot dimensions reveals coupling limits.
-While low-coupling elements can extract down to \qty{0.45}{\percent} of the power, the peak coupling of standard rectangular slots terminates at \qtyrange{20}{30}{\percent}.
-For small arrays, this coupling limit is highly problematic.
-In a series-fed travelling-wave array with a small element count (e.g. $N = 7$), each element must extract a large fraction of the remaining power to achieve high radiation efficiency.
-This constraint is exacerbated by amplitude tapering, as the central elements are responsible for radiating the majority of the power.
-If the maximum coupling is restricted to $\approx \qty{25}{\percent}$, the central elements cannot extract enough energy.
-Consequently, the target taper can only be satisfied by allowing a substantial fraction of the input power (approximately \qtyrange{40}{50}{\percent}) to propagate past the slots and dissipate as heat in the terminal load, dropping the overall radiation efficiency to approximately \qty{50}{\percent}.
-Conversely, in larger arrays ($N > 20$) or standing-wave resonant arrays, a maximum coupling of \qty{24.4}{\percent} is entirely sufficient because the power is distributed across more elements or recycled via standing waves.
-For small travelling-wave arrays, however, slot modifications are necessary to increase the coupling coefficient.
+\paragraph{Amplitude tapering (RAPR) and coupling limitations.}
+Achieving a low-side-lobe Taylor or Chebyshev amplitude taper in a travelling-wave array requires grading the power extraction along the feedline.
+This is quantified by the \gls{rapr}, defined as the ratio of power radiated by element $i$ to the power available at its input.
+Following the synthesis methodology of \textcite{kangDesignTravelingWaveSeriesFed2020}, the required \gls{rapr} profile spans from $< \qty{1}{\percent}$ at the feed entry to $> \qty{70}{\percent}$ near the terminal end.
 
-\paragraph{Coupling characterization.}
-To map the physical dimensions of each patch and slot to the required coupling coefficients, single elements are characterized in a two-port unit-cell environment.
-Assuming a lossless network, the \gls{acc}, denoted $|C|^2$, is extracted from the scattering parameters:
+Characterizing standard rectangular slots in a 2-port unit-cell environment (\cref{fig:unit_cell_acc_extraction}) extracts the \gls{acc}, denoted $|C|^2$, from de-embedded S-parameters:
 \begin{equation}
     \label{eq:acc-extraction}
     |C|^2 = 1 - |S_{11}|^2 - |S_{21}|^2.
 \end{equation}
-Reference planes in the full-wave solver must be de-embedded to the centre of the slot to remove phase rotation and feedline loss.
-Additionally, the slot must remain sub-resonant, and second-pass optimization is required to account for mutual coupling loading effects between adjacent patches.
+While rectangular slots achieve weak coupling down to \qty{0.45}{\percent} (ideal for edge elements), their peak coupling terminates at \qty{24.4}{\percent}.
+For a small array ($N = 8$), restricting peak coupling to $\le \qty{24.4}{\percent}$ is highly problematic: central elements cannot extract the power required by the mathematical taper, forcing \qtyrange{40}{50}{\percent} of total input power into the terminal load and dropping radiation efficiency to $\approx \qty{50}{\percent}$.
+Overcoming this coupling ceiling mandates fundamental slot geometry modifications.
 
-\paragraph{Phase matching.}
-To generate a standard automotive fan beam pointing broadside without grating lobes, the physical and electrical spacing must be decoupled.
-The element spacing $d$ must be kept at approximately $0.5\lambda_{0}$, and strictly below $\lambda_{0}$, to prevent grating lobes, while the elements must be fed in phase, requiring a $2\uppi+\Phi_{\mathrm{prog}}$ electrical delay, where $\Phi_{\mathrm{prog}}$ is the intended progressive phase.
-Because the guided wavelength is shorter than the free-space wavelength in the substrate, meanders or U-bends are routed between the slots to physically lengthen the line.
-In travelling-wave arrays, tuning elements to different coupling levels shifts their transmission and radiation phases, and realizing an accurate beam pattern requires tracking the radiation phase, $\angle E_{\mathrm{rad}}$, of each element.
-To maintain the progressive phase, $\Phi_{\mathrm{prog}}$, the electrical length, $\Delta\Phi_{\mathrm{feed}}$, of the feedline segment between elements $i$ and $i+1$ is synthesized as
+\begin{figure}[!ht]
+    \centering
+    % \input{images/unit_cell_acc_extraction.pgf}
+    \caption{Two-port unit-cell simulation model and extracted \gls{acc} ($|C|^2$) profiles across parametric geometric sweeps.}
+    \label{fig:unit_cell_acc_extraction}
+\end{figure}
+
+\paragraph{Phase matching and array scaling bounds.}
+To maintain broadside radiation without grating lobes, physical element spacing is constrained to $d \approx 0.5\lambda_0\text{--}0.7\lambda_0$.
+Because the guided wavelength on the feed substrate is shorter than free-space $\lambda_0$, U-bend meanders are routed between slots.
+To compensate for radiation phase variations ($\angle E_{\mathrm{rad}}$) introduced by different slot coupling levels, the required feedline electrical delay $\Delta\Phi_{\mathrm{feed}}$ between elements $i$ and $i+1$ is synthesized as:
 \begin{equation}
     \label{eq:phase-matching-feed}
     \Delta\Phi_{\mathrm{feed}} = \angle S_{21,i} + \angle E_{\mathrm{rad},i+1} - \angle E_{\mathrm{rad},i} - \Phi_{\mathrm{prog}}.
 \end{equation}
-
-\paragraph{Array scaling limits.}
-When scaling the array, two parameters dictate performance bounds.
-First, increasing the element count $N$ smooths the amplitude taper and reduces the required peak coupling, enhancing radiation efficiency, but as the feedline length increases, cumulative dielectric and conductor insertion losses begin to outpace the directivity gain.
-For X-band arrays on RO3006, realized gain typically saturates between $12$ and $16$ elements.
-Second, setting the spacing $d \approx \lambda_{0}$ increases directivity but is detrimental, as any frequency-induced squint will immediately steer a grating lobe into the visible region, and the longer interconnecting lines increase the phase slope, worsening frequency dispersion.
-Spacing is therefore restricted to the $0.5\lambda_{0}$ to $0.7\lambda_{0}$ range.
+When scaling array size, cumulative dielectric and conductor insertion losses eventually outpace the $+10\log_{10}(N)$ directivity gain. For X-band microstrip arrays on RO3006, realized gain saturates between $N = 12$ and $16$ elements.
 
 
-\subsubsection{High-coupling elements and series impedance matching}
+\subsubsection{High-coupling slot modifications and bandwidth collapse}
 \label{sec:high-coupling-elements}
 
-Achieving the high coupling levels required for tapered arrays (where \gls{rapr} exceeds \qty{70}{\percent}) introduces complex series slot impedances ($Z_{\mathrm{slot}} = R_{\mathrm{slot}} + \ii X_{\mathrm{slot}}$) that generate reflections and disrupt the travelling-wave distribution.
+To extract $> \qty{70}{\percent}$ of available power at central elements without causing reflections, the coupling structure must be treated as a composite series impedance block, $Z_{\mathrm{slot}} = R_{\mathrm{slot}} + \ii X_{\mathrm{slot}}$.
+Severing the microstrip feedline over an aperture-coupled slot with a physical gap fails entirely: it disrupts longitudinal return currents, collapsing magnetic coupling ($S_{11} \approx \qty{0}{\dB}$).
 
-To achieve high coupling without reflections, a two-part feedline modification is implemented.
-First, to maximize magnetic coupling, a modified-hourglass shape of coupling aperture is used to reach high values of aperture coupling~\parencite{priyalathaCompactModifiedHourglassshaped2023}, and the microstrip line is narrowed (e.g. to \qty{0.1}{\milli\metre}) strictly over the slot, increasing current density and magnetic flux.
-Second, an integrated impedance transformer is placed immediately upstream of the slot.
-A series slot impedance $Z_{\mathrm{slot}}$ in series with the continuing line creates a total load $Z_{L} = Z_{0} + Z_{\mathrm{slot}}$.
-For an element extracting \qty{70}{\percent} of the power, this series impedance is approximately $2.33 Z_{0}$ ($\approx \qty{116}{\ohm}$), resulting in a total load of $\approx \qty{166}{\ohm}$.
-To match this to the incoming line, the integrated microstrip transformer is placed immediately upstream, while the line immediately downstream of the slot returns to the nominal $Z_{0}$ width to act as the continuation load.
+Instead, a two-part feedline modification is implemented, as shown in \cref{fig:high_coupling_element_cad}:
+\begin{enumerate}
+    \item \textbf{Modified hourglass slot and trace thinning:} A bow-tie aperture increases magnetic polarizability~\parencite{priyalathaCompactModifiedHourglassshaped2023}. Simultaneously, the feed trace is thinned to \qty{0.1}{\milli\metre} strictly over the slot, forcing localized current density and blasting magnetic flux into the aperture.
+    \item \textbf{Integrated series quarter-wave transformer:} For an element extracting \qty{70}{\percent} of power, the series slot resistance is $R_{\text{s}} \approx 2.33 Z_0 \approx \qty{116}{\ohm}$, creating a total load impedance $Z_L = Z_0 + Z_{\text{slot}} \approx \qty{166}{\ohm}$. To match this to the incoming line, a microstrip transformer section of impedance $Z_1$ precedes the slot. Immediately downstream, the feedline returns to nominal $Z_0$.
+\end{enumerate}
 
-Assuming the composite coupler acts as a series impedance, the slot impedance is extracted from two-port S-parameters as%
-    \footnote{For $Z_{0}$, we utilize the simulated line impedance ($Z_{\mathrm{line}}$) rather than an ideal \qty{50}{\ohm} to avoid systematic phase errors.}
+\begin{figure}[!ht]
+    \centering
+    % \input{images/high_coupling_element_cad.pgf}
+    \caption{High-coupling element CAD model combining a modified hourglass slot, localized microstrip trace thinning to \qty{0.1}{\milli\metre}, and an integrated upstream quarter-wave matching section.}
+    \label{fig:high_coupling_element_cad}
+\end{figure}
+
+The series slot impedance is extracted from two-port unit-cell simulations as:
 \begin{equation}
     \label{eq:z-slot-extraction}
     Z_{\mathrm{slot}} = 2 Z_{0} \frac{S_{11}}{1 - S_{11}}.
 \end{equation}
-By equating the input impedance of the preceding transformer (of impedance $Z_1$ and electrical length $\theta$) to the line impedance $Z_0$, we obtain
+Equating the input impedance of the preceding transformer (impedance $Z_1$, electrical length $\theta$) terminated in $Z_L = Z_0 + R_{\mathrm{slot}} + \ii X_{\mathrm{slot}}$ to the line impedance $Z_0$ yields:
 \begin{equation}
     \label{eq:transformer-input-impedance}
     Z_{0} = Z_{1} \frac{(Z_{0} + R_{\mathrm{slot}} + \ii X_{\mathrm{slot}}) + \ii Z_{1} \tan\theta}{Z_{1} + \ii (Z_{0} + R_{\mathrm{slot}} + \ii X_{\mathrm{slot}}) \tan\theta}.
 \end{equation}
-Solving the real and imaginary parts yields the required transformer electrical length and impedance:
+Solving real and imaginary parts provides the analytical transformer design equations:
 \begin{align}
-    \label{eq:transformer-solutions}
-    Z_{1} &= \sqrt{Z_{0}^2 + \frac{Z_{0}}{R_{\mathrm{slot}}} \( R_{\mathrm{slot}}^2 + X_{\mathrm{slot}}^2 \) },
-&
+    \label{eq:transformer-solutions-z1}
+    Z_{1} &= \sqrt{Z_{0}^2 + \frac{Z_{0}}{R_{\mathrm{slot}}} \( R_{\mathrm{slot}}^2 + X_{\mathrm{slot}}^2 \) }, \\
+    \label{eq:transformer-solutions-theta}
     \tan\theta &= -\frac{Z_{1} R_{\mathrm{slot}}}{Z_{0} X_{\mathrm{slot}}}.
 \end{align}
-Unlike standard quarter-wave equations, this derivation accounts for the additive series load $Z_{L} = Z_{0} + Z_{\mathrm{slot}}$, collapsing back to the geometric mean if the line were terminated ($Z_{0} \rightarrow 0$).
-To automate array synthesis, the search space is divided into three families: a high-coupling regime (up to \qty{-2}{dB} \gls{acc}) employing the thinned line and quarter-wave transformer; a vanilla hourglass regime (up to \qty{-4}{dB} \gls{acc}) where the transformer and thinned section are disabled, and coupling is tuned purely by the hourglass flare width; and a simple slot regime (\qty{-6}{dB} \gls{acc} and below) employing standard rectangular slots, tuned via slot width.
-In all cases, the slot length is swept with fine resolution to ensure the optimizer identifies the frequency where $\Im(Z_{\mathrm{slot}}) \approx 0$.
+Unlike classical terminal matching formulas, \cref{eq:transformer-solutions-z1,eq:transformer-solutions-theta} explicitly account for the additive series load $Z_L = Z_0 + Z_{\text{slot}}$.
+Automated array synthesis categorizes elements into three operational families: High-coupling (up to \qty{-2}{\dB} \gls{acc}) utilizing trace thinning and transformers; Vanilla hourglass (up to \qty{-4}{\dB} \gls{acc}) tuning flare width $W_2$; and Simple slot (below \qty{-6}{\dB} \gls{acc}) sweeping rectangular slot width.
 
+\paragraph{Full-wave simulation results and bandwidth collapse.}
+An $N = 8$ side-fed microstrip series travelling-wave array (\cref{fig:side_fed_microstrip_array_cad}) was synthesized at \qty{9.7}{\giga\hertz} using modified hourglass slots, trace thinning, and series transformers.
+Full-wave electromagnetic sweeps over progressive phase shift $\Phi_{\mathrm{prog}} \in [\ang{-15}, \ang{15}]$ were conducted in Ansys HFSS.
 
-\subsubsection{Simulation results and architectural transition}
-\label{sec:simulation-results-transition}
-
-An $N = 8$ series-fed travelling-wave array was synthesized at \qty{9.7}{GHz} using modified-hourglass slots, localized trace thinning, and integrated series transformers, and characterized using full-wave electromagnetic simulation sweeps of the progressive phase shift.
-The return loss and bandwidth results of the phase sweep are summarized in \cref{tab:return_loss_bandwidth}.
-At the designed progressive phase of $\ang{-15.0}$, the array achieves an input match of \qty{-12.40}{dB} at \qty{9.7}{GHz}, but with a narrow operating bandwidth of only \qty{0.82}{\percent} (\qty{80}{MHz}).
-For all other phase angles, the match collapses ($S_{11} > \qty{-10}{dB}$).
-This high sensitivity is attributed to the cascaded quarter-wave matching sections: slight deviations from the design frequency rotate the impedance locus, causing reflections to add constructively at the input.
-
-\begin{table}[ht]
+\begin{figure}[!ht]
     \centering
-    \caption{Return loss and bandwidth collapse of the aperture-coupled patch array under progressive phase variation at \qty{9.7}{GHz}}
+    % \input{images/side_fed_microstrip_array_cad.pgf}
+    \caption{3D full-wave CAD model of the 8-element side-fed microstrip series patch array with modified hourglass slots and integrated series matching transformers.}
+    \label{fig:side_fed_microstrip_array_cad}
+\end{figure}
+
+The return loss, bandwidth, and radiation metrics extracted from full-wave simulations are summarized in \cref{tab:return_loss_bandwidth,tab:radiation_performance}, with visual plots shown in \cref{fig:side_fed_array_simulation_results}.
+
+\begin{table}[!ht]
+    \centering
+    \caption{Return loss and bandwidth collapse of the side-fed microstrip patch array under progressive phase variation at \qty{9.7}{\giga\hertz}.}
     \label{tab:return_loss_bandwidth}
     \small
     \begin{tabular}{ccccc}
         \toprule
-        $\Phi_{\mathrm{prog}}$ (\unit{\degree}) & $S_{11}$ (dB) & BW (\%) \\
+        $\Phi_{\mathrm{prog}}$ (\unit{\degree}) & $S_{11}$ (dB) & $f_{\mathrm{min}}$ (GHz) & $f_{\mathrm{max}}$ (GHz) & \qty{10}{\dB} Bandwidth (\%) \\
         \midrule
-        $-15.0$ & $-12.40$ & $0.82$ \\
-        $-10.0$ & $-7.77$  & $0.00$ \\
-        $-5.0$  & $-5.51$  & $0.00$ \\
-        $0.0$   & $-4.36$  & $0.00$ \\
-        $5.0$   & $-3.80$  & $0.00$ \\
-        $10.0$  & $-3.93$  & $0.00$ \\
-        $15.0$  & $-3.01$  & $0.00$ \\
+        $-15.0$ & $-12.40$ & $9.682$ & $9.762$ & $0.82$ \\
+        $-10.0$ & $-7.77$  & -- & -- & $0.00$ \\
+        $-5.0$  & $-5.51$  & -- & -- & $0.00$ \\
+        $0.0$   & $-4.36$  & -- & -- & $0.00$ \\
+        $5.0$   & $-3.80$  & -- & -- & $0.00$ \\
+        $10.0$  & $-3.93$  & -- & -- & $0.00$ \\
+        $15.0$  & $-3.01$  & -- & -- & $0.00$ \\
         \bottomrule
     \end{tabular}
 \end{table}
 
-The radiation pattern metrics are detailed in \cref{tab:radiation_performance}.
-At $\ang{-15.0}$, the phase compensation successfully steers the main beam to broadside (\ang{0.0} squint) with a peak gain of \qty{12.77}{dBi} and an azimuth \gls{sll} of \qty{-12.65}{dB}.
-The fact that broadside steering coincides with the best input match indicates that the feed network phase compensation aligns both radiation phases and input reflection cancellation.
-Polarization purity remains high, exceeding \qty{30}{dB} across the azimuth scan ($\varphi \in [\ang{-90}, \ang{90}]$, $\theta \in [\ang{-15}, \ang{15}]$), confirming the shielding effectiveness of the ground plane.
-
-\begin{table}[ht]
+\begin{table}[!ht]
     \centering
-    \caption{Radiation performance of the aperture-coupled patch array under progressive phase variation at \qty{9.7}{GHz}}
+    \caption{Radiation performance of the side-fed microstrip patch array under progressive phase variation at \qty{9.7}{\giga\hertz}.}
     \label{tab:radiation_performance}
     \small
     \begin{tabular}{ccccc}
         \toprule
-        $\Phi_{\mathrm{prog}}$ (\unit{\degree}) & Gain (dBi) & Squint (\unit{\degree}) & \gls{sll} (dB) \\
+        $\Phi_{\mathrm{prog}}$ (\unit{\degree}) & Peak Gain (dBi) & Beam Squint (\unit{\degree}) & \Gls{sll} (dB) & \Gls{fbr} (dB) \\
         \midrule
-        $-15.0$ & $12.77$ & $0.0$  & $-12.65$ \\
-        $-10.0$ & $12.17$ & $0.0$  & $-12.05$ \\
-        $-5.0$  & $11.39$ & $-5.0$ & $-11.75$ \\
-        $0.0$   & $10.95$ & $-5.0$ & $-11.36$ \\
-        $5.0$   & $10.63$ & $-5.0$ & $-10.98$ \\
-        $10.0$  & $10.76$ & $-5.0$ & $-10.20$ \\
-        $15.0$  & $10.16$ & $-5.0$ & $-10.14$ \\
+        $-15.0$ & $12.77$ & $0.0$  & $-12.65$ & $19.45$ \\
+        $-10.0$ & $12.17$ & $0.0$  & $-12.05$ & $21.59$ \\
+        $-5.0$  & $11.39$ & $-5.0$ & $-11.75$ & $22.89$ \\
+        $0.0$   & $10.95$ & $-5.0$ & $-11.36$ & $26.30$ \\
+        $5.0$   & $10.63$ & $-5.0$ & $-10.98$ & $27.75$ \\
+        $10.0$  & $10.76$ & $-5.0$ & $-10.20$ & $28.46$ \\
+        $15.0$  & $10.16$ & $-5.0$ & $-10.14$ & $27.57$ \\
         \bottomrule
     \end{tabular}
 \end{table}
 
-The bandwidth collapse (\qty{0.82}{\percent}) indicates that while the matching transformers achieve high coupling, they compromise the bandwidth of the travelling-wave array.
-Two solutions are proposed to resolve this limitation.
-First, the design can transition to a centre-fed series-corporate hybrid topology.
-Splitting the input port symmetrically at the array centre (using a corporate T-junction on an underlying layer) to feed two identical series branches propagating outwards aligns the peak power requirement with the physical feed location.
-This reduces and flattens the required coupling coefficients, removing the need for high-ratio transformers or thinned feedlines, and preserving the array's wide bandwidth.
-Additionally, frequency-induced squint on the symmetric branches is equal and opposite, cancelling the overall beam squint.
-Second, transverse shunt-stub matching networks can replace the longitudinal transformers.
-Although stubs can offer a broader impedance match, they add layout complexity and increase the risk of coupling with adjacent patch cavities.
-Finally, to improve the \gls{rapr} capabilities of a single terminal element, the performance of the terminal virtual load element should be investigated, as terminal element improvements will be highly visible in the side-fed architecture, paving the way for a high-efficiency centre-fed design.
+\begin{figure}[!ht]
+    \centering
+    \begin{subfigure}{0.48\textwidth}
+        \centering
+        % \input{images/side_fed_array_return_loss.pgf}
+        \caption{Simulated $S_{11}$ showing \qty{0.82}{\percent} bandwidth.}
+        \label{fig:side_fed_array_return_loss}
+    \end{subfigure}
+    \hfill
+    \begin{subfigure}{0.48\textwidth}
+        \centering
+        % \input{images/side_fed_array_radiation_pattern.pgf}
+        \caption{Azimuth broadside radiation pattern and high XPD.}
+        \label{fig:side_fed_array_radiation_pattern}
+    \end{subfigure}
+    \caption{Full-wave simulation results for the $N=8$ side-fed microstrip series array: (a) return loss $S_{11}$ demonstrating severe bandwidth collapse, and (b) broadside radiation pattern exhibiting \gls{xpd} $> \qty{30}{\dB}$.}
+    \label{fig:side_fed_array_simulation_results}
+\end{figure}
+
+At $\Phi_{\mathrm{prog}} = \ang{-15.0}$, phase compensation steers the main beam precisely to broadside (\ang{0.0} squint) with a peak gain of \qty{12.77}{\dBi}, an \gls{sll} of \qty{-12.65}{\dB}, and exceptional polarization purity (\gls{xpd} $> \qty{30}{\dB}$ across the azimuth field of view).
+However, the operational \qty{10}{\dB} bandwidth is severely restricted to only \qty{0.82}{\percent} (\qty{80}{\mega\hertz}).
+For all other progressive phase shifts, the input match collapses ($S_{11} > \qty{-10}{\dB}$).
+This empirical failure reveals a fundamental limitation: cascaded high-ratio quarter-wave series transformers introduce extreme frequency sensitivity, rotating impedance loci off-centre and causing reflections to add constructively away from the design frequency.
+
+
+\subsubsection{Architectural transition to centre-fed buried stripline and vertical coaxial launch}
+\label{sec:architectural-transition}
+
+To resolve the bandwidth collapse of side-fed arrays while eliminating beam squint, a decision was made to transition to a **centre-fed series-corporate hybrid topology** on a multilayer buried-stripline PCB stack-up, as shown in \cref{fig:centre_fed_stripline_array_cad}.
+
+\begin{figure}[!ht]
+    \centering
+    % \input{images/centre_fed_stripline_array_cad.pgf}
+    \caption{Multilayer 3D CAD structure of the centre-fed sub-array utilizing buried asymmetric stripline routing, a broadband corporate T-junction split, and continuous lateral stripline via fences.}
+    \label{fig:centre_fed_stripline_array_cad}
+\end{figure}
+
+This architectural pivot delivers three decisive electromagnetic advantages:
+\begin{enumerate}
+    \item \textbf{Flattened coupling demand:} Feeding the sub-array symmetrically at its centre via a corporate T-junction aligns the peak power entry with the physical location where the amplitude taper demands maximum radiation. Required coupling coefficients ($C_i = P_{\mathrm{rad},i}/P_{\mathrm{inc},i}$) are drastically reduced, eliminating the need for high-ratio matching transformers or microstrip line thinning and preserving nominal $Z_0$ line width and wide impedance bandwidth.
+    \item \textbf{Squint cancellation:} Progressive phase delays on the two symmetric outwards-propagating branches are equal and opposite, causing frequency-induced beam squints during FMCW sweeps to cancel out perfectly.
+    \item \textbf{Shielded feed network:} Enclosing the feed traces within a buried stripline layer bounded by solid ground planes completely eliminates spurious feedline radiation, guaranteeing high \gls{xpd} as the array scales toward \qty{79}{\giga\hertz}.
+\end{enumerate}
+
+\paragraph{PCB stack-up specification and stripline asymmetry.}
+To balance mechanical stability, fabrication cost, and high aperture coupling, a 4-layer PCB stack-up was designed:
+\begin{itemize}
+    \item \textbf{Layer 1 (Top / Patch Layer):} Radiating patches on a \qty{0.813}{\milli\metre} Rogers RO4003C core ($\varepsilon_{\mathrm{r}} = 3.55, \tan\delta = 0.0027$).
+    \item \textbf{Layer 2 (Ground / Slotted Coupling Plane):} Etched coupling slots separating patch cavities from feed routing.
+    \item \textbf{Internal Stripline Dielectric:} \qty{0.203}{\milli\metre} RO4003C core $+ \qty{0.102}{\milli\metre}$ RO4450F prepreg ($\varepsilon_{\mathrm{r}} = 3.7, \tan\delta = 0.004$) $+ \qty{0.503}{\milli\metre}$ RO4003C core.
+    \item \textbf{Layer 3 (Buried Stripline Layer):} Asymmetric stripline feed traces and T-junction split.
+    \item \textbf{Layer 4 (Bottom / Rear Ground Plane):} System ground and SMA launch interface.
+\end{itemize}
+
+While total dielectric thickness is symmetric around Layer 2 (\qty{0.813}{\milli\metre} top core vs \qty{0.813}{\milli\metre} bottom combined dielectric) to match the \gls{cte} and prevent thermal board warping, the buried stripline trace on Layer 3 is intentionally asymmetric:
+Upper substrate clearance is \qty{0.203}{\milli\metre}, while bottom clearance is \qty{0.605}{\milli\metre} (asymmetry ratio $\approx 1:3$).
+Shifting the trace closer to Layer 2 concentrates longitudinal return current density on the slotted ground plane, dramatically enhancing magnetic coupling into the aperture slots.%
+    \footnote{The asymmetric stripline stack-up partially allows for the \enquote{independent substrate optimization} discussed in \cref{sec:element-design}, which would otherwise have to be abandoned in favour of a symmetric stack-up.}
+
+To guarantee single-mode \gls{tem} propagation within the substrate cavity, the total thickness $B = \qty{0.813}{\milli\metre}$ must remain far below the cutoff threshold for the first higher-order transverse electric mode ($\text{TE}_1$) in a parallel-plate waveguide:
+\begin{equation}
+    \label{eq:ppw-cutoff}
+    f_{\text{TE}_1} = \frac{c}{2 B \sqrt{\varepsilon_{\mathrm{r}}}}.
+\end{equation}
+At \qty{9.7}{\giga\hertz} in RO4003C ($\varepsilon_{\mathrm{r}} = 3.55$), the $\text{TE}_1$ cutoff occurs at $B \approx \qty{8.2}{\milli\metre}$. Keeping $B = \qty{0.813}{\milli\metre} \ll \qty{8.2}{\milli\metre}$ guarantees pure single-mode \gls{tem} operation. Furthermore, continuous blind via fences spaced at $\le \lambda_{\mathrm{g}}/10$ border the stripline traces to suppress \gls{ppw} mode spillage.
+
+\paragraph{PCB via assembly constraints.}
+Designing reliable multilayer RF transitions requires strict adherence to fabrication limits:
+\begin{itemize}
+    \item \textbf{Aspect ratio limit:} The aspect ratio $AR = H / d_{\text{drill}}$ for \gls{pth} drilling is capped at $8:1\text{--}10:1$ to ensure electroplating fluid flow without voiding inside via barrels. For a finished hole size $d_{\text{FHS}} = \qty{0.30}{\milli\metre}$ ($d_{\text{drill}} = \qty{0.35}{\milli\metre}$ with plating thickness $t_{\text{PTH}} = \qty{25}{\micro\metre}$), maximum safe board thickness is $\approx \qty{2.8}{\milli\metre}$.
+    \item \textbf{Landing pads and antipads:} \textcite{IPC6012RevisionStandard2023} Class 3 inspection defines minimum post-drilling annular ring width ($b \ge \qty{0.05}{\milli\metre}$). Pre-fabrication CAD layout guidelines mandate an outer annular ring $w_{\text{OAR}} = \qty{0.15}{\milli\metre}$, dictating the required CAD pad radius:
+    \begin{equation}
+        \label{eq:cad-pad-radius}
+        r_{\text{pad}} = \frac{d_{\text{FHS}}}{2} + t_{\text{PTH}} + w_{\text{OAR}}.
+    \end{equation}
+\end{itemize}
+
+\paragraph{Artificial coaxial launcher and transition tuning.}
+Vertical launch directly from a rear \gls{sma} coaxial connector into the centre of the buried stripline layer eliminates long lossy microstrip access lines.
+Extending the centre conductor probe ($d_{\text{SMA}} = \qty{1.37}{\milli\metre}$) through all four copper layers enables standard \gls{pth} drilling and provides capacitive landing pad tuning across layers, as detailed in \cref{fig:vertical_coaxial_launcher_cad}.
+
+\begin{figure}[!ht]
+    \centering
+    \begin{subfigure}{0.48\textwidth}
+        \centering
+        % \input{images/vertical_coaxial_launcher_cad.pgf}
+        \caption{CAD cross-section showing signal via and stitching cage.}
+        \label{fig:vertical_coaxial_launcher_cross_section}
+    \end{subfigure}
+    \hfill
+    \begin{subfigure}{0.48\textwidth}
+        \centering
+        % \input{images/vertical_coaxial_launcher_s11.pgf}
+        \caption{Full-wave return loss $S_{11} < \qty{-25}{\dB}$ at \qty{9.7}{\giga\hertz}.}
+        \label{fig:vertical_coaxial_launcher_s11}
+    \end{subfigure}
+    \caption{Artificial coaxial vertical launch transition: (a) 3D CAD structural cross-section and (b) simulated return loss performance.}
+    \label{fig:vertical_coaxial_launcher_cad}
+\end{figure}
+
+The vertical transition is enclosed by ground plane antipads on Layers 2 and 4 and a cylindrical cage of vertical ground stitching vias spaced at $\le \lambda_{\mathrm{g}}/10$, forming an artificial coaxial transmission line of characteristic impedance:
+\begin{equation}
+    \label{eq:coaxial-via-impedance}
+    Z_0 = \frac{1}{2\uppi}\sqrt{\frac{\mu}{\varepsilon}}\ln\(\frac{D}{d}\) \approx \frac{60}{\sqrt{\varepsilon_{\mathrm{r}}}}\ln\(\frac{D}{d_{\text{SMA}} + 2 t_{\text{PTH}}}\),
+\end{equation}
+where $D$ is the inner diameter of the via cage/antipad and $d = d_{\text{SMA}} + 2t_{\text{PTH}}$ is the effective inner via barrel diameter.
+
+Full-wave optimization of the transition parameters at \qty{9.7}{\giga\hertz} yielded:
+\begin{itemize}
+    \item \textbf{Signal via landing pads (Layers 1--4):} Converged to minimum manufacturable bound $r_{\text{pad}} = \qty{0.95}{\milli\metre}$ ($d_{\text{FHS}} = \qty{1.50}{\milli\metre}$, $t_{\text{PTH}} = \qty{0.05}{\milli\metre}$, $w_{\text{OAR}} = \qty{0.15}{\milli\metre}$). On Layer 3, the pad transitions into the stripline trace via a \qty{10}{\milli\metre} fillet radius taper.
+    \item \textbf{Stitching via cage radius:} Functions as the primary inductive tuning knob. An optimal radius $R_{\text{cage}} = \qty{4.74}{\milli\metre}$ evaluates via \cref{eq:coaxial-via-impedance} to $Z_0 \approx \qty{58.7}{\ohm}$ in RO4003C. This $+\qty{8.7}{\ohm}$ inductive offset counteracts parasitic capacitance introduced by via landing pads and right-angle trace junctions.
+    \item \textbf{Layer 2 antipad:} Provides secondary reactance tuning. An optimal radius $r_{\text{antipad,L2}} = \qty{3.86}{\milli\metre}$ yields $Z_0 \approx \qty{51.1}{\ohm}$ in the RO4450F prepreg, securing smooth impedance continuity.
+    \item \textbf{Stripline trace width:} Functions as the real impedance matching knob. A final trace width $w_{\text{trace}} = \qty{0.66}{\milli\metre}$ delivers a deep reflection dip ($S_{11} < \qty{-25}{\dB}$) at \qty{9.7}{\giga\hertz} and broad impedance bandwidth.
+\end{itemize}
+
+This robust 4-layer centre-fed stripline architecture overcomes the bandwidth limitations of microstrip series arrays, providing a high-performance, polarimetrically pure hardware baseline ready for scaling to the \qty{79}{\giga\hertz} automotive radar demonstrator.
 
 
 \section{Research plan and work timeline}
 \label{sec:research-plan}
 
-To complete the research objectives established in \cref{chap:research-gaps,chap:proposed-methodology}, the remaining doctoral work is structured across four primary work packages:
+To complete the research objectives established in \cref{chap:research-gap-analysis}, the remaining doctoral work is structured across four primary work packages:
 \begin{enumerate}
     \item \textbf{Work package 1: Simulation platform and perturbation analysis.} Complete the Ansys HFSS + SBR+ simulation framework to map polarimetric decomposition breakdown bounds against array phase-centre errors and cross-polar leakage.
     \item \textbf{Work package 2: Topology synthesis and manifold optimization.} Synthesize and optimize \enquote{polarimetry-first} $12 \times 16$ \gls{mimo} array topologies minimizing phase centre disparity and virtual channel parallax.

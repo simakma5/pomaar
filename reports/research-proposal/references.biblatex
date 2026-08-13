@@ -3684,3 +3684,33 @@
   keywords = {Aerospace electronics,Matrix decomposition,Polarization,Radar measurements,Radar polarimetry,Radar scattering,Signal resolution,Spatial resolution,Symmetric matrices,Vectors},
   file = {/home/martin/Zotero/storage/3UGD82XN/Cameron and Leung - 1990 - Feature motivated polarization scattering matrix decomposition.pdf}
 }
+
+@article{pozarMicrostripAntennaAperturecoupled1985,
+  title = {Microstrip Antenna Aperture-Coupled to a Microstripline},
+  author = {Pozar, D.M.},
+  date = {1985-01-17},
+  journaltitle = {Electronics Letters},
+  shortjournal = {Electron. Lett.},
+  volume = {21},
+  number = {2},
+  pages = {49--50},
+  publisher = {{The Institution of Engineering and Technology}},
+  doi = {10.1049/el:19850034},
+  url = {https://digital-library.theiet.org/doi/10.1049/el%3A19850034},
+  urldate = {2026-08-13},
+  abstract = {A new technique for feeding printed antennas is described. A microstrip antenna on one substrate is coupled to a microstripline feed on another parallel substrate through an aperture in the ground plane which separates the two substrates. A simple theory explaining the coupling mechanism is presented, as well as measurements of a prototype aperture-fed antenna.}
+}
+
+@standard{IPC6012RevisionStandard2023,
+  title = {Qualification and Performance Specification for Rigid Printed Boards},
+  author = {{IPC}},
+  date = {2023-09-01},
+  number = {IPC-6012F},
+  location = {Bannockburn, IL},
+  url = {https://shop.electronics.org/ipc-6012/ipc-6012-standard-only/Revision-f/english},
+  urldate = {2026-08-13},
+  isbn = {978-1-63816-151-6},
+  langid = {english},
+  version = {Revision F},
+  file = {/home/martin/Zotero/storage/PUPQ3BW5/english.html}
+}

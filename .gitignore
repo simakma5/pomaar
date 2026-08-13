@@ -49,6 +49,7 @@ data/*
 *.glo-abr
 *.gls-abr
 *.ist
+*.bbl-SAVE-ERROR
 # *.pdf
 
 # --- Temporary files/outputs ---
