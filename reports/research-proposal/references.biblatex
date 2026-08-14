@@ -3714,3 +3714,16 @@
   version = {Revision F},
   file = {/home/martin/Zotero/storage/PUPQ3BW5/english.html}
 }
+
+@book{skolnikRadarHandbookThird2008,
+  title = {Radar {{Handbook}}, {{Third Edition}}},
+  author = {Skolnik, Merrill I.},
+  date = {2008},
+  publisher = {McGraw Hill},
+  location = {New York},
+  abstract = {Publisher's Note: Products purchased from Third Party sellers are not guaranteed by the publisher for quality, authenticity, or access to any online entitlements included with the product.The Industry Standard in Radar Technology\_Now Updated with All the Advances and Trends of the Past 17 Years Turn to the Third Edition of Radar Handbook for state-of-the-art coverage of the entire field of radar technology\_from fundamentals to the newest applications.  With contributions by 30 world experts, this resource examines methods for predicting radar range and explores radar subsystems such as receivers, transmitters, antennas, data processing, ECCM, and pulse compression. This radar handbook also explains the target cross section…radar echoes from ground and sea…and all radar systems, including MTI, AMTI, pulse doppler, and others. Using SI units, the Third Edition of Radar Handbook features:Unsurpassed guidance on radar fundamentals, theory, and applicationsHundreds of examples and illustrationsNew to this edition: new chapters on radar digital signal processing, radar in air traffic control, ground penetrating radar, fighter aircraft radar, and civil marine radar; 22 thoroughly revised chapters; 17 new contributors Inside This Cutting-Edge Radar Guide• MTI Radar • Pulse Doppler Radar • Multifunctional Radar Systems for Fighter Aircraft • Radar Receivers • Automatic Detection, Tracking, and Sensor Integration • Pulse Compression Radar • Radar Transmitters • Reflector Antennas • Phased Array Radar Antennas • Radar Cross Section • Sea Clutter • Ground Echo • Space-Based Radar • Meteorological Radar • HF Over-the-Horizon Radar • Ground Penetrating Radar • Civil Marine Radar • Bistatic Radar • Radar Digital Signal Processing • And More!},
+  isbn = {978-0-07-148547-0},
+  langid = {english},
+  pagetotal = {1328}
+}
+

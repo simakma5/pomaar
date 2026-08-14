@@ -1,0 +1,290 @@
+\chapter{Research planning and doctoral education}
+\label{chap:research-planning}
+
+This chapter establishes the operational roadmap for the doctoral project, bridging the theoretical problem formulation presented in \cref{chap:research-gap-analysis} and the technical feasibility baselines established in \cref{chap:feasibility-study} with a structured four-year execution strategy.
+To guarantee both scientific rigour and formal academic progression, the planning is structured into two main tracks:
+\cref{sec:publication-plan} outlines the scientific dissemination plan, mapping the core research questions to discrete publishable topics across premier journals and conferences, alongside a top-down project execution timeline.
+Subsequently, \cref{sec:doctoral-education-plan} details the formal doctoral education plan formulated in accordance with the regulations of the EEMCS Graduate School, demonstrating the fulfilment of transferable, research, and discipline-specific credit requirements.
+
+
+\section{Publication plan and dissemination strategy}
+\label{sec:publication-plan}
+
+The primary mechanism for validating and disseminating the contributions of this doctoral work is the publication of peer-reviewed conference proceedings and journal articles.
+Following the research gaps identified in \cref{chap:literature-review} and the problem formulation in \cref{sec:research-questions}, the overarching doctoral research is partitioned into ten publishable topics categorized under the four central research questions.
+
+
+\subsection{Research-question breakdown and candidate venues}
+\label{sec:rq-breakdown-venues}
+
+To maximize scientific impact and maintain alignment with the targeted domain communities (antennas, radar signal processing, remote sensing, and intelligent transportation), candidate dissemination venues have been selected based on their peer-review rigor and domain relevance.
+
+\paragraph{Research question 1.}
+This research epoch focuses on whether integrating a high-resolution architecture with Doppler-resolved polarimetric processing can significantly enhance the classification accuracy of dynamic \glspl{vru}.
+\begin{itemize}
+    \item \textbf{Topic 1.1:} Design an X-band prototype of a large-aperture MIMO array with enhanced polarization purity.
+    \begin{itemize}
+        \item \textit{Focus:} Validating the baseline planar aperture-coupled series patch topology and stripline feeding network designed in \cref{sec:preliminary-antenna-design}.
+        \item \textit{Candidate venues:} European Conference on Antennas and Propagation (EuCAP), European Microwave Week (EuMW), IEEE International Symposium on Antennas and Propagation (IEEE ISAP).
+    \end{itemize}
+        
+    \item \textbf{Topic 1.2:} Design a first-iteration system leveraging mature technology platforms and uniform array synthesis.
+    \begin{itemize}
+        \item \textit{Focus:} Extends the validated X-band baseline to a \qty{79}{\giga\hertz} \gls{siw}/planar demonstrator, establishing a uniform dual-polarized array for initial radar measurement campaigns.
+        \item \textit{Candidate venues:} IEEE Transactions on Antennas and Propagation (IEEE TAP), IEEE Antennas and Wireless Propagation Letters (IEEE AWPL), EuCAP.
+    \end{itemize}
+    
+    \item \textbf{Topic 1.3:} Design a second-iteration system leveraging acquired experience and measurement campaign insights.
+    \begin{itemize}
+        \item \textit{Focus:} Refines the front-end architecture by integrating optimized polarimetric topologies and calibrated feed networks derived from initial experimental campaigns.
+        \item \textit{Candidate venues:} IEEE TAP, IEEE Transactions on Microwave Theory and Techniques (IEEE T-MTT).
+    \end{itemize}
+\end{itemize}
+
+\paragraph{Research question 2.}
+This epoch investigates which polarimetric decomposition methods are most robust under non-stationary, grazing-incidence, and multipath automotive conditions, adapting them to exploit Doppler-resolved features.
+\begin{itemize}
+    \item \textbf{Topic 2.1:} Develop a polarimetric MIMO simulation platform linking full-wave array models with SBR+ ray tracing.
+    \begin{itemize}
+        \item \textit{Focus:} Establishes the hybrid simulation framework in Ansys Electronics Desktop presented in \cref{sec:simulation-platform}.
+        \item \textit{Candidate venues:} IEEE RadarConf, EuMW / EuRAD, International Radar Symposium (IRS).
+    \end{itemize}
+    
+    \item \textbf{Topic 2.2:} Perform perturbation analysis of polarimetric decomposition methods applicable to automotive imaging.
+    \begin{itemize}
+        \item \textit{Focus:} Maps algorithm breakdown thresholds against amplitude imbalances, phase errors, and cross-polar leakage injected into scattering matrices.
+        \item \textit{Candidate venues:} IEEE Transactions on Radar Systems (IEEE T-RS), International Geoscience and Remote Sensing Symposium (IEEE IGARSS).
+    \end{itemize}
+    
+    \item \textbf{Topic 2.3:} Adapt polarimetric processing algorithms to exploit Doppler-resolved features for VRU classification.
+    \begin{itemize}
+        \item \textit{Focus:} Formulates dynamic polarimetric-Doppler feature maps and validates classification performance on empirical pedestrian and cyclist radar data.
+        \item \textit{Candidate venues:} IEEE Transactions on Geoscience and Remote Sensing (IEEE TGRS), IEEE IGARSS, IEEE Transactions on Intelligent Transportation Systems (IEEE T-ITS), IEEE Intelligent Vehicles Symposium (IEEE IV).
+    \end{itemize}
+\end{itemize}
+
+\paragraph{Research question 3.}
+This epoch links algorithm sensitivity directly to front-end electromagnetic figures of merit.
+\begin{itemize}
+    \item \textbf{Topic 3.1}: Link antenna figures of merit to sensitivity parameters of polarimetric decomposition methods.
+    \begin{itemize}
+        \item \textit{Focus:} Quantifies the mathematical mapping between front-end non-idealities (\gls{xpd}, port isolation, squint) and decomposition parameter variances.
+        \item \textit{Candidate venues:} IEEE T-RS, EuCAP, EuMW, IEEE ISAP.
+    \end{itemize}
+    
+    \item \textbf{Topic 3.2}: Derive fundamental lower bounds on polarimetric antenna requirements based on sensitivity analyses.
+    \begin{itemize}
+        \item \textit{Focus:} Formulates explicit minimum hardware bounds (e.g. minimum allowable \gls{xpd} across scan angle) required to prevent classification breakdown.
+        \item \textit{Candidate venues:} IEEE TGRS, IEEE T-RS.
+    \end{itemize}
+\end{itemize}
+
+\paragraph{Research question 4.}
+This epoch addresses how \gls{mimo} virtual array manifolds can be optimized specifically for polarimetric fidelity to mitigate phase centre displacement and cross-polar coupling.
+\begin{itemize}
+    \item \textbf{Topic 4.1}: Explore the effects of bistatic phase centre displacement of antenna pairs on polarimetric phase distortion.
+    \begin{itemize}
+        \item \textit{Focus:} Analyses virtual channel parallax and angle-dependent phase squint in interleaved single-polarized and dual-polarized \gls{mimo} arrays.
+        \item \textit{Candidate venues:} EuCAP, IEEE RadarConf, IRS, IEEE ISAP.
+    \end{itemize}
+    
+    \item \textbf{Topic 4.2}: Construct objective functions accounting for polarimetric distortion for 'polarimetry-first' MIMO layouts.
+    \begin{itemize}
+        \item \textit{Focus:} Develops mathematical optimization frameworks for virtual array synthesis that minimize phase centre disparity across co- and cross-polar channels.
+        \item \textit{Candidate venues:} IEEE AWPL, IEEE T-RS, EuMW / EuRAD, IEEE RadarConference
+    \end{itemize}
+\end{itemize}
+
+The complete mapping of research questions, publishable topics, target publication types, candidate venues, and temporal milestones is presented in the landscape overview on the following page (\cref{tab:publication-venues-summary,fig:publication-gantt}).
+
+\begin{landscape}
+\begin{table}[!p]
+    \centering
+    \caption{Summary of research questions, publishable topics, and candidate dissemination venues.}
+    \label{tab:publication-venues-summary}
+    \small
+    \begin{tabularx}{\linewidth}{lXXl}
+        \toprule
+        \textbf{Topic} & \textbf{Focus / Title} & \textbf{Target output} & \textbf{Candidate venues} \\
+        \midrule
+        Topic 1.1 & X-band prototype array & Conference paper & EuCAP, EuMW, IEEE ISAP \\
+        Topic 1.2 & 1st iteration \qty{79}{GHz} system & Letter / journal & IEEE AWPL, IEEE TAP, EuCAP \\
+        Topic 1.3 & 2nd iteration refined system & Journal paper & IEEE TAP, IEEE T-MTT \\
+        \midrule
+        Topic 2.1 & Hybrid SBR+ simulation platform & Conference paper & IEEE RadarConf, EuMW, IRS \\
+        Topic 2.2 & Decomposition perturbation analysis & Journal / Conference & IEEE T-RS, IEEE IGARSS \\
+        Topic 2.3 & Doppler-resolved VRU classification & Journal paper & IEEE TGRS, IEEE IGARSS, IEEE T-ITS, IEEE IV \\
+        \midrule
+        Topic 3.1 & Antenna metrics vs sensitivity & Conference / Journal & IEEE T-RS, EuCAP, EuMW, IEEE ISAP \\
+        Topic 3.2 & Fundamental hardware lower bounds & Journal paper & IEEE TGRS, IEEE T-RS \\
+        \midrule
+        Topic 4.1 & Phase centre displacement distortion & Conference paper & EuCAP, IEEE RadarConf, IRS, IEEE ISAP \\
+        Topic 4.2 & Polarimetry-first topology synthesis & Letter / Journal & IEEE AWPL, IEEE T-RS, EuMW, IEEE RadarConf \\
+        \bottomrule
+    \end{tabularx}
+\end{table}
+
+\vfill
+
+\begin{figure}[!p]
+    \centering
+    \small
+    \begin{ganttchart}[
+        x unit=0.42cm,
+        y unit title=0.55cm,
+        y unit chart=0.45cm,
+        vgrid={*1{black!15}},
+        hgrid,
+        time slot format=isodate,
+        time slot unit=month,
+        title/.style={fill=black!10, draw=black!30, font=\small\bfseries},
+        title label font=\small\bfseries,
+        bar/.style={fill=blue!30, draw=blue!70},
+        bar progress label font=\scriptsize,
+        milestone/.style={fill=red!70, draw=red!90}
+    ]{2025-09-01}{2029-08-31}
+        \gantttitlecalendar{year} \\
+        \gantttitle{}{1} \gantttitle{Q4}{3}
+        \gantttitle{Q1}{3} \gantttitle{Q2}{3} \gantttitle{Q3}{3} \gantttitle{Q4}{3}
+        \gantttitle{Q1}{3} \gantttitle{Q2}{3} \gantttitle{Q3}{3} \gantttitle{Q4}{3}
+        \gantttitle{Q1}{3} \gantttitle{Q2}{3} \gantttitle{Q3}{3} \gantttitle{Q4}{3}
+        \gantttitle{Q1}{3} \gantttitle{Q2}{3} \gantttitle{}{2} \\
+        % Intro / Background (Gray)
+        \ganttbar[bar/.style={fill=gray!30, draw=gray!70}]{Onboarding}{2025-09-01}{2025-09-30} \\
+        \ganttbar[bar/.style={fill=gray!30, draw=gray!70}]{Lit. review}{2025-09-01}{2025-12-31} \\
+        % RQ1: Integration & VRU (Blue family)
+        \ganttbar[bar/.style={fill=blue!30, draw=blue!75}]{Topic 1.1}{2026-01-01}{2026-10-31} \\
+        \ganttbar[bar/.style={fill=blue!70!black, draw=blue!90!black}]{Topic 1.2}{2026-11-01}{2027-03-31} \\
+        \ganttbar[bar/.style={fill=blue!30, draw=blue!75}]{Tape-out 1}{2027-04-01}{2027-08-31} \\
+
+        \ganttbar[bar/.style={fill=blue!70!black, draw=blue!90!black}]{Topic 1.3}{2028-02-01}{2028-03-31} \\
+        \ganttbar[bar/.style={fill=blue!30, draw=blue!75}]{Tape-out 2}{2028-04-01}{2028-10-31} \\
+        % RQ2: Robust decomposition & Doppler (Teal)
+        \ganttbar[bar/.style={fill=teal!35, draw=teal!75}]{Topic 2.1}{2026-06-01}{2026-12-31} \\
+        \ganttbar[bar/.style={fill=teal!35, draw=teal!75}]{Topic 2.2}{2027-01-01}{2027-04-30} \\
+        \ganttbar[bar/.style={fill=teal!35, draw=teal!75}]{Topic 2.3}{2028-05-01}{2028-11-30} \\
+        % RQ3: Fundamental lower bounds (Orange)
+        \ganttbar[bar/.style={fill=orange!35, draw=orange!80}]{Topic 3.1}{2027-05-01}{2027-08-31} \\
+        \ganttbar[bar/.style={fill=orange!35, draw=orange!80}]{Topic 3.2}{2027-09-01}{2027-12-31} \\
+        % RQ4: Topology optimization (Violet)
+        \ganttbar[bar/.style={fill=violet!30, draw=violet!75}]{Topic 4.1}{2027-04-01}{2027-07-31} \\
+        \ganttbar[bar/.style={fill=violet!30, draw=violet!75}]{Topic 4.2}{2027-08-01}{2028-01-31} \\
+        % Thesis (Dark Blue / Navy)
+        \ganttbar[bar/.style={fill=blue!85!black, draw=black}]{Thesis}{2029-03-01}{2029-08-31}
+    \end{ganttchart}
+    \caption{Four-year PhD publication and project execution timeline (colour-coded by research question).}
+    \label{fig:publication-gantt}
+\end{figure}
+\end{landscape}
+
+
+\section{Doctoral education plan}
+\label{sec:doctoral-education-plan}
+
+In accordance with the regulations of the EEMCS Graduate School, doctoral candidates must accumulate a minimum of \qty{45}{ECTS} credits evenply split across three competence categories: transferable, research, and discipline-specific skills.
+This education plan is structured to provide rigorous technical training during the early phases of the PhD while supporting career development and effective research communication throughout the trajectory.
+
+
+\subsection{Graduate school credit requirements}
+\label{sec:gs-credit-requirements}
+
+The credit distribution across the three Graduate School brackets is summarized as follows:
+\begin{enumerate}
+    \item \textbf{Transferable skills.} Courses designed to develop personal effectiveness, project management, leadership, and career development. A minimum of \qty{1}{ECTS} must be dedicated to \emph{career development}.
+    \item \textbf{Research skills.} Activities focusing on research methodology, scientific writing, information skills, and teaching responsibilities. A minimum of \qty{5}{ECTS} must be accumulated via Learning on the Job (LotJ) activities.
+    \item \textbf{Discipline-specific skills.} Advanced academic courses, summer schools, and specialized workshops directly aimed at acquiring domain-specific knowledge.
+\end{enumerate}
+
+
+\subsection{Transferable skills}
+\label{sec:transferable-skills}
+
+\Cref{tab:transferable-skills} details the selection of activities within the \emph{transferable skills} category.
+The mandatory career-development requirement is satisfied via module T4.G5 (\qty{1.0}{ECTS}).
+
+\begin{table}[!ht]
+    \centering
+    \caption{Doctoral education plan: transferable skills.}
+    \label{tab:transferable-skills}
+    \small
+    \begin{tabularx}{\textwidth}{Xccc}
+        \toprule
+        \textbf{Activity / Course code} & \textbf{Credits} & \textbf{Year} & \textbf{Status} \\
+        \midrule
+        T4.G1 - A \textbar{} PhD Start-up Module A & 1.5 & 1 & Completed \\
+        T4.G1 - B \textbar{} PhD Start-up Module B & 0.5 & 1 & Completed \\
+        T1.A9 \textbar{} Scientific Text Processing with \LaTeX & 1.0 & 1 & Completed \\
+        T1.A7 \textbar{} Data Vizualisation & 1.0 & 1 & Completed \\
+        T4.B3 \textbar{} Time Management II & 1.0 & 1 & Completed \\
+        T4.B5 \textbar{} Project Management for PhD Candidates & 2.0 & 1 & Completed \\
+        T2.B1 \textbar{} Effective Interaction within Research Team & 2.5 & 1 & Enrolled \\
+        T4.B2 \textbar{} Time Management I & 1.0 & 2--3 & Planned \\
+        T2.D2 \textbar{} Managing Myself, Leading Others & 1.5 & 2--3 & Planned \\
+        T4.A2 \textbar{} Smart about Stress & 2.0 & 2--3 & Planned \\
+        T4.G5 \textbar{} Career Development -- Personal Branding$^\ast$ & 1.0 & 3--4 & Planned \\
+        \midrule
+        \textbf{Total} & \textbf{15.0/15} & & \\
+        \midrule
+        \multicolumn{4}{l}{\footnotesize $^\ast$ Denotes course fulfilling mandatory Graduate School career-development requirement.} \\
+        \bottomrule
+    \end{tabularx}
+\end{table}
+
+
+\subsection{Research skills and learning on the job}
+\label{sec:research-skills}
+
+\Cref{tab:research-skills} outlines the planned activities within the \emph{research skills} bracket.
+In total, \qty{14.0}{ECTS} are earned through LotJ activities, exceeding the Graduate School threshold of \qty{5.0}{ECTS}.
+
+\begin{table}[!ht]
+    \centering
+    \caption{Doctoral education plan: research skills.}
+    \label{tab:research-skills}
+    \small
+    \begin{tabularx}{\textwidth}{Xcccc}
+        \toprule
+        \textbf{Activity / Course code} & \textbf{Credits} & \textbf{LotJ} & \textbf{Year} & \textbf{Status} \\
+        \midrule
+        Teaching assistance: laboratory/tutorial support & 2.0 & Yes & 1 & Completed \\
+        Teaching assistance: designing examination tasks & 1.0 & Yes & 1 & Completed \\
+        Teaching assistance: technical support \& exam grading & 2.0 & Yes & 1 & Completed \\
+        R1.A2 \textbar{} The Informed Researcher & 1.5 & No & 1 & Completed \\
+        Writing a research proposal & 2.0 & Yes & 1 & In progress \\
+        Writing a conference paper & 1.0 & Yes & 1--2 & Planned \\
+        Writing journal articles ($2\times$) & 6.0 & Yes & 2--3 & Planned \\
+        \midrule
+        \textbf{Core Total} & \textbf{15.5/15} & \textbf{14.0/5} & & \\
+        % \midrule
+        % \multicolumn{5}{l}{\textit{Elective candidate activities:}} \\
+        % International research internship ($\ge 1$~month) & 2.0 & Yes & 1--3 & Optional \\
+        % R2.B2 \textbar{} Statistics for PhD Research & 4.0 & No & 1--3 & Optional \\
+        % R2.B3 \textbar{} Data Visualization in Python & 1.0 & No & 1--3 & Optional \\
+        \bottomrule
+    \end{tabularx}
+\end{table}
+
+
+\subsection{Discipline-specific skills}
+\label{sec:discipline-skills}
+
+\Cref{tab:discipline-skills} details the specialized coursework selected to deepen theoretical knowledge in millimetre-wave antennas, phased array synthesis, and high-frequency electromagnetics.
+Due to the intense workload associated with advanced technical modules, discipline skills are allocated primarily to the first two years of the doctoral trajectory.
+
+\begin{table}[!ht]
+    \centering
+    \caption{Doctoral education plan: discipline skills.}
+    \label{tab:discipline-skills}
+    \small
+    \begin{tabularx}{\textwidth}{Xccc}
+        \toprule
+        \textbf{Activity / Course title} & \textbf{Credits} & \textbf{Year} & \textbf{Status} \\
+        \midrule
+        International Summer School on Phased Array Systems & 5.0 & 1 (Q1) & Completed \\
+        EE4016 \textbar{} Antenna Systems & 5.0 & 1 (Q3) & Completed \\
+        Arrays and Reflectarrays \textbar{} ESoA 2026 Course & 5.0 & 2 (Sep 2026) & Planned \\
+        \midrule
+        \textbf{Total} & \textbf{15.0/15} & & \\
+        \bottomrule
+    \end{tabularx}
+\end{table}
