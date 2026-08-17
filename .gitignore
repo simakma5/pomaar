@@ -45,11 +45,14 @@ data/*
 *.run.xml
 *.synctex.gz
 *.toc
+*.lof
+*.lot
 *.glg-abr
 *.glo-abr
 *.gls-abr
 *.ist
 *.bbl-SAVE-ERROR
+*.bcf-SAVE-ERROR
 # *.pdf
 
 # --- Temporary files/outputs ---

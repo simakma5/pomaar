@@ -1,0 +1,62 @@
+\begin{tikzpicture}[scale=2, >=Stealth]
+    \def\R{1.5}
+    \def\Re{0.35}
+    
+    % Sphere outline and axes
+    \draw[black, thick] (0,0) circle (\R);
+    \draw[black, thick, <-, name path=g1] (-\R-0.3,-0.5) node[below=2pt] {$g_1$} -- (\R+0.3,0.5);
+    \draw[black, thick, ->, name path=g2] (-\R-0.3,0.5) -- (\R+0.3,-0.5) node[above=2pt] {$g_2$};
+    \draw[black, very thick, ->] (0,-\R-0.4) -- (0,\R+0.4) node[left=2pt] {$g_3$};
+    
+    % Equatorial ellipse (linear polarization) - dashed grey line
+    \draw[gray!80, thick, dashed, name path=equator] (0,0) ellipse [x radius=\R, y radius=\Re];
+    
+    % Meridian ellipse (circular/elliptical polarization) - dashed grey line
+    \draw[gray!80, thick, dashed] (0,0) ellipse [x radius=\Re, y radius=\R];
+    
+    % Horizontal and vertical polarization markers (longer straight arrows & increased label offset)
+    \path [name intersections={of=equator and g1, by={V, H}}];
+    \coordinate (H) at (H);
+    \begin{scope}[shift={(H)}]
+        \fill[gray!80] (0,0) circle (0.03);
+        \draw[gray!80, <->, thick] (-0.35,0) -- (0.35,0);
+        \node[black, below=18pt, text width=2cm, align=center] at (0,0) {H};
+    \end{scope}
+    \coordinate (V) at (V);
+    \begin{scope}[shift={(V)}]
+        \fill[gray!80] (0,0) circle (0.03);
+        \draw[gray!80, <->, thick] (0,-0.35) -- (0,0.35);
+        \node[black, above=20pt, text width=2cm, align=center] at (0,0) {V};
+    \end{scope}
+    
+    % Diagonal linear polarization markers (+45 and -45) (longer straight arrows & increased label offset)
+    \path [name intersections={of=equator and g2, by={M, P}}];
+    \coordinate (P) at (P);
+    \begin{scope}[shift={(P)}]
+        \fill[gray!80] (0,0) circle (0.03);
+        \draw[gray!80, <->, thick] (-0.25,-0.25) -- (0.25,0.25);
+        \node[black, below=18pt, text width=2cm, align=center] at (0,0) {$\ang{45}$};
+    \end{scope}
+    \coordinate (M) at (M);
+    \begin{scope}[shift={(M)}]
+        \fill[gray!80] (0,0) circle (0.03);
+        \draw[gray!80, <->, thick] (0.25,-0.25) -- (-0.25,0.25);
+        \node[black, above=18pt, text width=2cm, align=center] at (0,0) {$-\ang{45}$};
+    \end{scope}
+
+    % Circular polarization markers (RHC and LHC) - larger 3D perspective elliptical arcs & offset labels
+    \begin{scope}[shift={(0,\R)}]
+        \fill[gray!80] (0,0) circle (0.03);
+        \begin{scope}[yscale=0.4]
+            \draw[gray!80, ->, thick] (-45:0.30) arc (-45:-325:0.30);
+        \end{scope}
+        \node[black, above right=10pt, text width=2cm, align=left] at (0,0) {RHC};
+    \end{scope}
+    \begin{scope}[shift={(0,-\R)}]
+        \fill[gray!80] (0,0) circle (0.03);
+        \begin{scope}[yscale=0.4]
+            \draw[gray!80, ->, thick] (45:0.30) arc (45:325:0.30);
+        \end{scope}
+        \node[black, below right=10pt, text width=2cm, align=left] at (0,0) {LHC};
+    \end{scope}
+\end{tikzpicture}

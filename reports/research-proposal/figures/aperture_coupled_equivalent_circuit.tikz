@@ -1,0 +1,71 @@
+\begin{tikzpicture}[
+    scale=0.72,
+    font=\small,
+    >=Stealth
+]
+
+% Coordinates layout:
+% Bottom transmission line span: x = 0.4 to x = 7.3
+% Expanded Patch box span: x = 0.4 to x = 7.4
+% Left coupling wire: x = 3.1
+% Right coupling wire: x = 4.6
+
+% ----------------------------------------------------
+% TOP SECTION: PATCH (Un-squished Series RLC Loop)
+% ----------------------------------------------------
+% Expanded Patch box boundary
+\draw[line width=0.6pt] (0.4, 3.6) rectangle (7.4, 6.7);
+
+% Un-squished Loop: Left lead enters at x=3.1, expands left to x=1.2,
+% passes through Lp -> Cp -> Rp at y=5.2, then drops down at x=6.6 and returns to x=4.6
+\draw[line width=0.5pt]
+    (3.1, 3.6) -- (3.1, 4.2) -- (1.2, 4.2) -- (1.2, 5.2)
+    to[L, l=$L_p$] (3.0, 5.2)
+    to[C, l=$C_p$] (4.8, 5.2)
+    to[R, l=$R_p$] (6.6, 5.2)
+    -- (6.6, 4.2) -- (4.6, 4.2) -- (4.6, 3.6);
+
+
+% ----------------------------------------------------
+% MIDDLE SECTION: APERTURE (Shunt Inductor La)
+% ----------------------------------------------------
+\draw[line width=0.5pt]
+    (3.1, 2.4) to[L, l=$L_a$, *-*] (4.6, 2.4);
+
+% Vertical connection wires between Patch, Aperture, and Microstrip line
+\draw[line width=0.5pt] (3.1, 1.2) -- (3.1, 3.6);
+\draw[line width=0.5pt] (4.6, 1.2) -- (4.6, 3.6);
+
+
+% ----------------------------------------------------
+% BOTTOM SECTION: MICROSTRIP LINE & STUB
+% ----------------------------------------------------
+% Port input terminals (left)
+\draw[fill=white, line width=0.5pt] (0.0, 1.2) circle (2.5pt);
+\draw[fill=white, line width=0.5pt] (0.0, 0.0) circle (2.5pt);
+
+% Main horizontal interconnect wires
+\draw[line width=0.5pt] (0.09, 1.2) -- (0.4, 1.2);
+\draw[line width=0.5pt] (0.09, 0.0) -- (0.4, 0.0);
+\draw[line width=0.5pt] (2.6, 1.2) -- (3.1, 1.2);
+\draw[line width=0.5pt] (2.6, 0.0) -- (5.1, 0.0);
+\draw[line width=0.5pt] (4.6, 1.2) -- (5.1, 1.2);
+\draw[line width=0.5pt] (5.1, 0.0) -- (7.3, 0.0);
+
+% Microstrip Line strips (represented as thin rectangular traces)
+\draw[fill=white, line width=0.5pt] (0.4, 1.12) rectangle (2.6, 1.28);
+\draw[fill=white, line width=0.5pt] (0.4, -0.08) rectangle (2.6, 0.08);
+
+\draw[fill=white, line width=0.5pt] (5.1, 1.12) rectangle (7.3, 1.28);
+\draw[fill=white, line width=0.5pt] (5.1, -0.08) rectangle (7.3, 0.08);
+
+% Length dimension arrows above microstrip line sections
+\draw[<->, line width=0.4pt] (0.4, 1.7) -- node[above, font=\small] {$l_{\text{line}}$} (2.6, 1.7);
+\draw[<->, line width=0.4pt] (5.1, 1.7) -- node[above, font=\small] {$l_{\text{stub}}$} (7.3, 1.7);
+
+% Vertical open-circuit line interruption termination: --- Open ---
+\draw[line width=0.5pt] (7.3, 1.2) -- (7.6, 1.2) -- (7.6, 0.82);
+\node[font=\scriptsize, align=center] at (7.6, 0.60) {open};
+\draw[line width=0.5pt] (7.3, 0.0) -- (7.6, 0.0) -- (7.6, 0.38);
+
+\end{tikzpicture}

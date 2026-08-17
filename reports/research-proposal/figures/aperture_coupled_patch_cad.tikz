@@ -1,0 +1,115 @@
+\begin{tikzpicture}[
+    scale=0.72,
+    x={(0.75cm, 0.35cm)},
+    y={(-0.75cm, 0.35cm)},
+    z={(0cm, 1cm)},
+    >=Stealth,
+    font=\small
+]
+
+% Define substrate and feature dimensions
+\def\subL{2.2}   % Substrate half-length along X
+\def\subW{2.2}   % Substrate half-width along Y
+\def\subH{0.22}  % Substrate thickness
+\def\patL{0.9}   % Patch half-length along X
+\def\patW{0.9}   % Patch half-width along Y
+\def\slotW{0.75} % Slot half-length along X
+\def\slotL{0.12} % Slot half-width along Y
+\def\feedW{0.18} % Feed line half-width along X
+\def\feedL{0.6}  % Stub extension length along +Y past origin
+
+% Pre-calculated elevation levels for PGF math parser compatibility
+\pgfmathsetmacro{\zTop}{3.4}
+\pgfmathsetmacro{\zTopBot}{\zTop - \subH}
+\pgfmathsetmacro{\zTopMid}{\zTop - 0.5*\subH}
+\pgfmathsetmacro{\zBot}{0.0}
+\pgfmathsetmacro{\zBotSubH}{\zBot - \subH}
+\pgfmathsetmacro{\zBotMid}{\zBot - 0.5*\subH}
+
+% ----------------------------------------------------
+% TOP SUBSTRATE (Antenna Substrate & Patch)
+% ----------------------------------------------------
+% Front-left thickness face (light gray fill)
+\filldraw[fill=gray!25, draw=black, line width=0.5pt]
+    (-\subL, \subW, \zTop) -- (-\subL, -\subW, \zTop) -- (-\subL, -\subW, \zTopBot) -- (-\subL, \subW, \zTopBot) -- cycle;
+
+% Front-right thickness face (light gray fill)
+\filldraw[fill=gray!20, draw=black, line width=0.5pt]
+    (-\subL, -\subW, \zTop) -- (\subL, -\subW, \zTop) -- (\subL, -\subW, \zTopBot) -- (-\subL, -\subW, \zTopBot) -- cycle;
+
+% Top face (white fill with black border)
+\filldraw[fill=white, draw=black, line width=0.5pt]
+    (-\subL, -\subW, \zTop) -- (\subL, -\subW, \zTop) -- (\subL, \subW, \zTop) -- (-\subL, \subW, \zTop) -- cycle;
+
+% Microstrip Patch (medium gray fill)
+\filldraw[fill=gray!40, draw=black, line width=0.5pt]
+    (-\patL, -\patW, \zTop) -- (\patL, -\patW, \zTop) -- (\patL, \patW, \zTop) -- (-\patL, \patW, \zTop) -- cycle;
+
+
+% ----------------------------------------------------
+% BOTTOM SUBSTRATE (Feed Substrate & Ground Plane)
+% ----------------------------------------------------
+% Front-left thickness face (light gray fill)
+\filldraw[fill=gray!25, draw=black, line width=0.5pt]
+    (-\subL, \subW, \zBot) -- (-\subL, -\subW, \zBot) -- (-\subL, -\subW, \zBotSubH) -- (-\subL, \subW, \zBotSubH) -- cycle;
+
+% Front-right thickness face (light gray fill)
+\filldraw[fill=gray!20, draw=black, line width=0.5pt]
+    (-\subL, -\subW, \zBot) -- (\subL, -\subW, \zBot) -- (\subL, -\subW, \zBotSubH) -- (-\subL, -\subW, \zBotSubH) -- cycle;
+
+% Top face / Ground Plane (white fill with black border)
+\filldraw[fill=white, draw=black, line width=0.5pt]
+    (-\subL, -\subW, \zBot) -- (\subL, -\subW, \zBot) -- (\subL, \subW, \zBot) -- (-\subL, \subW, \zBot) -- cycle;
+
+% Microstrip Feed Line (dashed lines representing buried/underneath trace)
+\draw[dashed, black, line width=0.6pt]
+    (-\feedW, -\subW, \zBot) -- (-\feedW, \feedL, \zBot);
+\draw[dashed, black, line width=0.6pt]
+    (\feedW, -\subW, \zBot) -- (\feedW, \feedL, \zBot);
+\draw[dashed, black, line width=0.6pt]
+    (-\feedW, \feedL, \zBot) -- (\feedW, \feedL, \zBot);
+
+% Coupling Aperture / Slot (white cutout in ground plane)
+\filldraw[fill=white, draw=black, line width=0.5pt]
+    (-\slotW, -\slotL, \zBot) -- (\slotW, -\slotL, \zBot) -- (\slotW, \slotL, \zBot) -- (-\slotW, \slotL, \zBot) -- cycle;
+
+
+% ----------------------------------------------------
+% ANNOTATION TARGET COORDINATES (3D Space)
+% ----------------------------------------------------
+\coordinate (patch_target)    at (-0.9, 0.0, \zTop);
+\coordinate (ant_sub_target)  at (-\subL, 0.5, \zTopMid);
+\coordinate (slot_target)     at (-0.4, 0.0, \zBot);
+\coordinate (ground_target)   at (-1.5, 0.5, \zBot);
+\coordinate (feed_sub_target) at (-\subL, 0.0, \zBotMid);
+\coordinate (feed_line_target) at (0.1, -0.8, \zBot);
+
+
+% ----------------------------------------------------
+% LABELS AND ARROWS (Refined Layout & Routing)
+% ----------------------------------------------------
+% 1. microstrip patch (Top Left)
+\node[anchor=east] (lbl_patch) at ([shift={(-1.40cm, 1.20cm)}] patch_target) {\scriptsize microstrip patch};
+\draw[->, line width=0.5pt] (lbl_patch.east) -- ($(lbl_patch.east)!0.85!(patch_target)$);
+
+% 2. antenna substrate (Center-Left upper)
+\node[anchor=east] (lbl_ant_sub) at ([shift={(-0.3cm, -0.65cm)}] ant_sub_target) {\scriptsize antenna substrate};
+\draw[->, line width=0.5pt] (lbl_ant_sub.east) -- ($(lbl_ant_sub.east)!0.85!(ant_sub_target)$);
+
+% 3. coupling aperture (Center-Left middle, shifted down)
+\node[anchor=east] (lbl_slot) at ([shift={(-2cm, 1.6cm)}] slot_target) {\scriptsize coupling aperture};
+\draw[->, line width=0.5pt] (lbl_slot.east) -- ($(lbl_slot.east)!0.85!(slot_target)$);
+
+% 4. ground plane (Center-Left lower, shifted down)
+\node[anchor=east] (lbl_ground) at ([shift={(-0.8cm, 1.3cm)}] ground_target) {\scriptsize ground plane};
+\draw[->, line width=0.5pt] (lbl_ground.east) -- ($(lbl_ground.east)!0.85!(ground_target)$);
+
+% 5. feed substrate (Bottom Left)
+\node[anchor=east] (lbl_feed_sub) at ([shift={(-0.50cm, -0.8cm)}] feed_sub_target) {\scriptsize feed substrate};
+\draw[->, line width=0.5pt] (lbl_feed_sub.east) -- ($(lbl_feed_sub.east)!0.85!(feed_sub_target)$);
+
+% 6. microstrip feed (Center-Right, between layers)
+\node[anchor=west] (lbl_feed) at ([shift={(0.85cm, 1.90cm)}] feed_line_target) {\scriptsize microstrip feed};
+\draw[->, line width=0.5pt] (lbl_feed.west) -- ($(lbl_feed.west)!0.85!(feed_line_target)$);
+
+\end{tikzpicture}

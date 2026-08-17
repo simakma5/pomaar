@@ -1,0 +1,18 @@
+\begin{tikzpicture}[
+    scale=1.025,
+    >=Stealth,
+    font=\small
+]
+    % Dual-polarized elements (3 rows x 3 columns of square elements, finely tuned size)
+    \foreach \x in {0, 1.33, 2.66} {
+        \foreach \y in {0.05, 1.28, 2.51} {
+            % Square dual-pol element box (0.96cm x 0.96cm)
+            \filldraw[fill=gray!12, draw=black, line width=0.55pt, rounded corners=1.5pt] 
+                ({\x-0.48}, {\y-0.48}) rectangle ({\x+0.48}, {\y+0.48});
+            % Vertical polarization arrow (V-pol)
+            \draw[line width=1.28pt, ->, black!85] (\x, {\y-0.36}) -- (\x, {\y+0.38});
+            % Horizontal polarization arrow (H-pol)
+            \draw[line width=1.28pt, ->, gray!60] ({\x-0.36}, \y) -- ({\x+0.38}, \y);
+        }
+    }
+\end{tikzpicture}

@@ -1,0 +1,99 @@
+\begin{tikzpicture}[
+    scale=1.15,
+    >=Stealth,
+    font=\small
+]
+
+% ----------------------------------------------------
+% SUBSTRATE STACK-UP LAYERS
+% ----------------------------------------------------
+% Top Substrate Layer (Antenna Substrate: y = 0.35 to 0.95)
+\filldraw[fill=gray!12, draw=black, line width=0.5pt] (-3.2, 0.35) rectangle (3.2, 0.95);
+
+% Middle/Bottom Stripline Feed Stack-Up (y = -0.35 to 0.35)
+\filldraw[fill=gray!24, draw=black, line width=0.5pt] (-3.2, -0.35) rectangle (3.2, 0.35);
+
+
+% ----------------------------------------------------
+% METALLIC COPPER LAYERS & ANTIPADS
+% ----------------------------------------------------
+% Layer 1 (Top Antenna Ground/Patch Layer: y = 0.95, with central antipad gap x = -0.45 to 0.45)
+\draw[line width=0.9pt] (-3.2, 0.95) -- (-0.45, 0.95);
+\draw[line width=0.9pt] (0.45, 0.95) -- (3.2, 0.95);
+% Layer 1 signal via top landing pad ring (thinner pad)
+\filldraw[fill=gray!60, draw=black, line width=0.4pt] (-0.26, 0.935) rectangle (0.26, 0.965);
+
+% Layer 2 (Stripline Top Ground Plane: y = 0.35, with central antipad gap x = -0.45 to 0.45)
+\draw[line width=0.8pt] (-3.2, 0.35) -- (-0.45, 0.35);
+\draw[line width=0.8pt] (0.45, 0.35) -- (3.2, 0.35);
+% Layer 2 landing pads around coax antipad / barrel interface (at x = -0.45 and +0.45)
+\filldraw[fill=black, draw=black, line width=0.4pt] (-0.55, 0.335) rectangle (-0.45, 0.365);
+\filldraw[fill=black, draw=black, line width=0.4pt] (0.45, 0.335) rectangle (0.55, 0.365);
+% Layer 2 signal probe landing pad (at x = \pm 0.26)
+\filldraw[fill=gray!60, draw=black, line width=0.4pt] (-0.26, 0.335) rectangle (0.26, 0.365);
+
+% Layer 3 (Asymmetric Stripline Conductor Trace: 1:2 ratio at y = 0.12)
+\draw[dashed, black, line width=0.85pt] (-3.2, 0.12) -- (-0.26, 0.12);
+\draw[dashed, black, line width=0.85pt] (0.26, 0.12) -- (3.2, 0.12);
+% Layer 3 coaxial signal landing pad ring (thinner pad)
+\filldraw[fill=gray!60, draw=black, line width=0.4pt] (-0.28, 0.105) rectangle (0.28, 0.135);
+
+% Layer 4 (Bottom Ground Plane: y = -0.35, with coaxial entry clearance gap x = -0.45 to 0.45)
+\draw[line width=0.9pt] (-3.2, -0.35) -- (-0.45, -0.35);
+\draw[line width=0.9pt] (0.45, -0.35) -- (3.2, -0.35);
+% Layer 4 landing pads around coax barrel entry interface (at x = -0.45 and +0.45)
+\filldraw[fill=black, draw=black, line width=0.4pt] (-0.55, -0.365) rectangle (-0.45, -0.335);
+\filldraw[fill=black, draw=black, line width=0.4pt] (0.45, -0.365) rectangle (0.55, -0.335);
+
+
+% ----------------------------------------------------
+% VERTICAL STITCHING VIAS & THIN LANDING PADS (y = -0.35 to 0.35)
+% ----------------------------------------------------
+\foreach \x in {-2.8, -2.2, -1.6, -1.0, -0.65, 0.65, 1.0, 1.6, 2.2, 2.8} {
+    % Vertical via barrel outline (dashed)
+    \draw[dashed, black, line width=0.45pt] ({\x-0.05}, -0.35) -- ({\x-0.05}, 0.35);
+    \draw[dashed, black, line width=0.45pt] ({\x+0.05}, -0.35) -- ({\x+0.05}, 0.35);
+    
+    % Layer 2 top landing pad (thinner)
+    \filldraw[fill=black, draw=black, line width=0.35pt] ({\x-0.10}, 0.335) rectangle ({\x+0.10}, 0.365);
+    
+    % Layer 4 bottom landing pad (thinner)
+    \filldraw[fill=black, draw=black, line width=0.35pt] ({\x-0.10}, -0.365) rectangle ({\x+0.10}, -0.335);
+}
+
+
+% ----------------------------------------------------
+% REAR COAXIAL CONNECTOR & CENTRAL SIGNAL PROBE (DARK FILL + TECHNICAL SECTION HATCHING)
+% ----------------------------------------------------
+% Left Coaxial Outer Shell (x = -0.85 to -0.45, y = -1.50 to -0.35)
+\filldraw[fill=gray!30, draw=black, line width=0.5pt] (-0.85, -1.50) rectangle (-0.45, -0.35);
+\begin{scope}
+    \clip (-0.85, -1.50) rectangle (-0.45, -0.35);
+    \foreach \y in {-1.7, -1.4, -1.1, -0.8, -0.5, -0.2} {
+        \draw[line width=0.7pt, black] (-0.95, \y) -- (-0.35, {\y+0.4});
+    }
+\end{scope}
+
+% Right Coaxial Outer Shell (x = 0.45 to 0.85, y = -1.50 to -0.35)
+\filldraw[fill=gray!30, draw=black, line width=0.5pt] (0.45, -1.50) rectangle (0.85, -0.35);
+\begin{scope}
+    \clip (0.45, -1.50) rectangle (0.85, -0.35);
+    \foreach \y in {-1.7, -1.4, -1.1, -0.8, -0.5, -0.2} {
+        \draw[line width=0.7pt, black] (0.35, \y) -- (0.95, {\y+0.4});
+    }
+\end{scope}
+
+% Coaxial Dielectric Sleeve (y = -1.50 to y = -0.35, clean white dielectric)
+\filldraw[fill=white, draw=black, line width=0.5pt] (-0.45, -1.50) rectangle (-0.16, -0.35);
+\filldraw[fill=white, draw=black, line width=0.5pt] (0.16, -1.50) rectangle (0.45, -0.35);
+
+% Central Signal Conductor Pin / Probe (x = -0.16 to +0.16, y = -1.50 to +0.95)
+\filldraw[fill=gray!35, draw=black, line width=0.6pt] (-0.16, -1.50) rectangle (0.16, 0.95);
+\begin{scope}
+    \clip (-0.16, -1.50) rectangle (0.16, 0.95);
+    \foreach \y in {-1.6, -1.3, -1.0, -0.7, -0.4, -0.1, 0.2, 0.5, 0.8, 1.1} {
+        \draw[line width=0.7pt, black] (-0.25, \y) -- (0.25, {\y+0.35});
+    }
+\end{scope}
+
+\end{tikzpicture}

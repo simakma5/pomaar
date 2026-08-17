@@ -1,0 +1,21 @@
+\begin{tikzpicture}[
+    scale=1.05,
+    >=Stealth,
+    font=\small
+]
+    % Interleaved single-polarized elements (4 rows x 3 columns)
+    \foreach \x in {0, 1.35, 2.70} {
+        % Rows 1 & 3: Vertical elements (Portrait boxes)
+        \foreach \y in {2.55, 0.85} {
+            \filldraw[fill=gray!12, draw=black, line width=0.55pt, rounded corners=1.5pt] 
+                ({\x-0.40}, {\y-0.50}) rectangle ({\x+0.40}, {\y+0.50});
+            \draw[line width=1.3pt, ->, black!85] (\x, {\y-0.38}) -- (\x, {\y+0.40});
+        }
+        % Rows 2 & 4: Horizontal elements (Landscape boxes)
+        \foreach \y in {1.70, 0.0} {
+            \filldraw[fill=gray!12, draw=black, line width=0.55pt, rounded corners=1.5pt] 
+                ({\x-0.52}, {\y-0.26}) rectangle ({\x+0.52}, {\y+0.26});
+            \draw[line width=1.3pt, ->, gray!60] ({\x-0.40}, \y) -- ({\x+0.42}, \y);
+        }
+    }
+\end{tikzpicture}

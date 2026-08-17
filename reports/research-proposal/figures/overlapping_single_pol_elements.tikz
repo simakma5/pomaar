@@ -1,0 +1,28 @@
+\begin{tikzpicture}[
+    scale=1.05,
+    >=Stealth,
+    font=\small
+]
+    % Overlapping single-polarized elements grid (4 rows x 3 columns)
+    \foreach \x in {0, 1.35, 2.70} {
+        % Row 1: Overlapping dual-channel elements (Portrait box containing both V & H)
+        \foreach \y in {2.55} {
+            \filldraw[fill=gray!12, draw=black, line width=0.55pt, rounded corners=1.5pt] 
+                ({\x-0.40}, {\y-0.50}) rectangle ({\x+0.40}, {\y+0.50});
+            \draw[line width=1.3pt, ->, black!85] (\x, {\y-0.38}) -- (\x, {\y+0.40});
+            \draw[line width=1.3pt, ->, gray!60] ({\x-0.30}, \y) -- ({\x+0.32}, \y);
+        }
+        % Row 3: Vertical single-pol elements (Portrait box containing V)
+        \foreach \y in {0.85} {
+            \filldraw[fill=gray!12, draw=black, line width=0.55pt, rounded corners=1.5pt] 
+                ({\x-0.40}, {\y-0.50}) rectangle ({\x+0.40}, {\y+0.50});
+            \draw[line width=1.3pt, ->, black!85] (\x, {\y-0.38}) -- (\x, {\y+0.40});
+        }
+        % Rows 2 & 4: Horizontal single-pol elements (Landscape box containing H)
+        \foreach \y in {1.70, 0.0} {
+            \filldraw[fill=gray!12, draw=black, line width=0.55pt, rounded corners=1.5pt] 
+                ({\x-0.52}, {\y-0.26}) rectangle ({\x+0.52}, {\y+0.26});
+            \draw[line width=1.3pt, ->, gray!60] ({\x-0.40}, \y) -- ({\x+0.42}, \y);
+        }
+    }
+\end{tikzpicture}

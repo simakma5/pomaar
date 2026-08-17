@@ -1,0 +1,57 @@
+\begin{tikzpicture}[
+    scale=0.85,
+    font=\small
+]
+
+% Define substrate dimensions
+\def\subW{3.0} % Substrate half-width
+\def\subH{3.0} % Substrate half-height
+
+% ----------------------------------------------------
+% GROUND PLANE / SUBSTRATE SURFACE
+% ----------------------------------------------------
+\filldraw[fill=white, draw=black, line width=0.5pt]
+    (-\subW, -\subH) rectangle (\subW, \subH);
+
+
+% ----------------------------------------------------
+% MICROSTRIP FEED LINE (Dashed outline representing buried/underneath trace)
+% ----------------------------------------------------
+% Left edge of buried feed line trace (Z0 -> Z1 -> 0.1mm thinned trace -> feed line)
+\draw[dashed, black, line width=0.6pt]
+    (-0.18, -\subH) -- (-0.18, -2.0)
+    -- (-0.11, -1.85) -- (-0.11, -0.45)
+    -- (-0.04, -0.32) -- (-0.04, 0.32)
+    -- (-0.11, 0.45) -- (-0.11, \subH);
+
+% Right edge of buried feed line trace
+\draw[dashed, black, line width=0.6pt]
+    (0.18, -\subH) -- (0.18, -2.0)
+    -- (0.11, -1.85) -- (0.11, -0.45)
+    -- (0.04, -0.32) -- (0.04, 0.32)
+    -- (0.11, 0.45) -- (0.11, \subH);
+
+% Bottom and top end-cap dashed lines
+\draw[dashed, black, line width=0.6pt] (-0.18, -\subH) -- (0.18, -\subH);
+\draw[dashed, black, line width=0.6pt] (-0.11, \subH) -- (0.11, \subH);
+
+
+% ----------------------------------------------------
+% MODIFIED HOURGLASS / BOW-TIE APERTURE (Cutout in ground plane)
+% ----------------------------------------------------
+\coordinate (slot_waist_tl) at (-0.18, 0.10);
+\coordinate (slot_waist_tr) at (0.18, 0.10);
+\coordinate (slot_flare_tr) at (1.35, 0.42);
+\coordinate (slot_apex_r)   at (1.65, 0.00);
+\coordinate (slot_flare_br) at (1.35, -0.42);
+\coordinate (slot_waist_br) at (0.18, -0.10);
+\coordinate (slot_waist_bl) at (-0.18, -0.10);
+\coordinate (slot_flare_bl) at (-1.35, -0.42);
+\coordinate (slot_apex_l)   at (-1.65, 0.00);
+\coordinate (slot_flare_tl) at (-1.35, 0.42);
+
+\filldraw[fill=white, draw=black, line width=0.5pt]
+    (slot_waist_tl) -- (slot_flare_tl) -- (slot_apex_l) -- (slot_flare_bl) -- (slot_waist_bl)
+    -- (slot_waist_br) -- (slot_flare_br) -- (slot_apex_r) -- (slot_flare_tr) -- (slot_waist_tr) -- cycle;
+
+\end{tikzpicture}

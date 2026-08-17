@@ -3727,3 +3727,33 @@
   pagetotal = {1328}
 }
 
+@inproceedings{milfordEquivalentCircuitModelling2008,
+  title = {Equivalent Circuit Modelling of Aperture-Coupled Microstrip Patch Antennas},
+  booktitle = {2008 {{IEEE Antennas}} and {{Propagation Society International Symposium}}},
+  author = {Milford, G. N. and Cornforth, D. J.},
+  date = {2008-07},
+  pages = {1--4},
+  issn = {1947-1491},
+  doi = {10.1109/APS.2008.4620012},
+  url = {https://ieeexplore.ieee.org/document/4620012},
+  urldate = {2026-08-15},
+  abstract = {In this paper we present a new approach for identifying an equivalent circuit for the impedance of an aperture-coupled microstrip patch antenna (AC-MSPA). We then use this equivalent circuit to develop a simple design procedure for the AC-MSPA.},
+  eventtitle = {2008 {{IEEE Antennas}} and {{Propagation Society International Symposium}}},
+  keywords = {Couplings,Data models,Equivalent circuits,Impedance,Integrated circuit modeling,Microstrip,Microstrip antennas},
+  file = {/home/martin/Zotero/storage/Y99VAPVY/Milford and Cornforth - 2008 - Equivalent circuit modelling of aperture-coupled microstrip patch antennas.pdf}
+}
+
+@inproceedings{aslanSynthesisMultipleBeam2018,
+  title = {Synthesis of Multiple Beam Linear Arrays with Uniform Amplitudes},
+  booktitle = {12th {{European Conference}} on {{Antennas}} and {{Propagation}} ({{EuCAP}} 2018)},
+  author = {Aslan, Yanki and Puskely, Jan and Roederer, Antoine and Yarovoy, Alexander},
+  date = {2018-04},
+  pages = {1--5},
+  doi = {10.1049/cp.2018.0422},
+  url = {https://ieeexplore.ieee.org/document/8568100},
+  urldate = {2026-08-16},
+  abstract = {A convex iterative algorithm for the synthesis of uniform amplitude, space-tapered linear phased arrays with simultaneous multiple beam optimization for 5G applications is presented. The performance of the algorithm is demonstrated by the synthesis of two arrays having 16 and 24 elements with 60 and 90 degree scan range, respectively. The effect of phase shifter quantization is also addressed. The results indicate that the space-tapered arrays with multiple beam optimization have improved radiation performance in terms of the side lobe level when compared to both single, broadside, beam optimized space-tapered arrays and uniformly distributed arrays with half wavelength spacing.},
+  eventtitle = {12th {{European Conference}} on {{Antennas}} and {{Propagation}} ({{EuCAP}} 2018)},
+  keywords = {5G communications,antenna synthesis,convex optimization,density taper,linear antenna arrays,multibeam optimization,phased arrays,space taper},
+  file = {/home/martin/Zotero/storage/FM99JE46/Aslan et al. - 2018 - Synthesis of multiple beam linear arrays with uniform amplitudes.pdf}
+}

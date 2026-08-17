@@ -1,27 +1,14 @@
 \documentclass[11pt,a4paper,oneside]{report}
 \usepackage[margin=2.5cm]{geometry}
 \usepackage[main=british,czech]{babel}
-% \usepackage[english=american]{csquotes}
-\usepackage[nodayofweek]{datetime}
-
-\usepackage{longtable}
-\usepackage{pdflscape}
-\usepackage{titlesec}
-\usepackage{titletoc}
-\titlecontents{chapter}[0em]{\vspace{4pt}\bfseries}{\thecontentslabel\quad}{}{\hfill\contentspage}
-
-\setlength{\marginparwidth}{2cm}
-\usepackage{todonotes}
-\usepackage{lipsum}
 
 \usepackage{stddoc}
 \addbibresource{references.biblatex}
 
-\usepackage[abbreviations,nomain,nonumberlist]{glossaries-extra}
-\setabbreviationstyle[abbreviations]{long-short}
 \loadglsentries{glossary}
 \makeglossaries
 
+% Polarization basis & matrix shorthand macros
 \renewcommand{\H}{\mathrm{H}}
 \newcommand{\V}{\mathrm{V}}
 \newcommand{\HH}{\mathrm{HH}}
@@ -33,9 +20,23 @@
 
 \begin{document}
 
-\include{frontmatter}
+\begin{titlepage}
+    \input{frontmatter/frontpage.tex}
+\end{titlepage}
+
+\pagenumbering{roman}
+
+\input{frontmatter/abstract.tex}
+
+\setcounter{tocdepth}{2}
+\tableofcontents
+
+\listoffigures
+\listoftables
 
 \printglossary[type=abbreviations,title=List of abbreviations,style=long]
+
+\pagenumbering{arabic}
 
 \include{chapters/01_introduction}
 
@@ -47,8 +48,8 @@
 
 \include{chapters/05_planning}
 
-\include{chapters/06_self_reflection}
+\include{chapters/self_reflection}
 
-\printbibliography
+\printbibliography[title={References},heading=bibintoc]
 
 \end{document}

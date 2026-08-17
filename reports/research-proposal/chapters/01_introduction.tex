@@ -1,32 +1,41 @@
 \chapter{Introduction}
-Automotive radar is a rapidly-evolving field of research, driven by the increasing demand for enhanced driver safety and the eventual realization of autonomous vehicles~\parencite{waldschmidtAutomotiveRadarFirst2021}.
-While the initial vision of fully autonomous driving has faced regulatory and technological hurdles, the major focus of the industry has pragmatically shifted.
-The immediate goal is now the improvement of driver safety through \gls{adas}.
-This forms a crucial foundational step, with the progressive automation of further features over time being the pathway towards full vehicle autonomy.
+\label{chap:introduction}
 
-Modern \gls{adas} increasingly rely on robust environmental perception to ensure safety and reliable operation across a wide range of road conditions.
-Among all sensing modalities, millimetre-wave radar at \qtyrange{77}{81}{GHz} remains uniquely resilient to adverse weather, low visibility, and non-cooperative targets.
-While contemporary automotive radars provide accurate range, velocity and angular estimates, their classification capability remains fundamentally limited.
-Radar systems in vehicles are predominantly single-polarized \gls{mimo} arrays, optimized for geometric detection but not for detailed scattering characterization.
-As a result, the ability to distinguish \glspl{vru} -- including pedestrians, cyclists, and scooter riders -- from background clutter or other vehicles is still insufficient for high-level scene understanding~\parencite{tillyRoadUserClassification2021}.
+Automotive radar is a rapidly evolving field of research, driven by the increasing demand for enhanced driver safety and the progressive realization of autonomous vehicles~\parencite{waldschmidtAutomotiveRadarFirst2021}.
+While fully autonomous driving faces regulatory, economic, and technological challenges, the automotive industry has pragmatically prioritized vehicle safety via \glspl{adas}.
+Among environmental perception modalities, millimetre-wave \gls{fmcw} radar operating in the \qtyrange{77}{81}{\giga\hertz} band remains uniquely resilient to adverse weather, extreme lighting, and low visibility.
+However, while contemporary sensors excel at estimating target range, velocity, and angle, their target classification capability remains fundamentally limited.
+Present commercial systems rely predominantly on single-polarized scalar \gls{mimo} arrays, optimized for geometric point-cloud generation but unequipped for detailed electromagnetic scattering characterization.
+Consequently, distinguishing \glspl{vru} -- such as pedestrians, cyclists, and e-scooter riders -- from surrounding urban clutter and roadside infrastructure remains a critical bottleneck for high-level scene understanding~\parencite{tillyRoadUserClassification2021}.
 
-In contrast, radar polarimetry has long demonstrated powerful discrimination capabilities in other domains such as remote sensing, weather radar, and \gls{sar}.
-Polarimetric measurements capture how objects transform the polarization state of the incident electromagnetic field, thereby revealing structural, material and orientation-dependent scattering properties.
-These additional degrees of freedom can support classification tasks that are fundamentally unattainable with intensity-only radar data.
-Yet, despite its maturity in other fields, polarimetry has not been adopted in commercial automotive radar.
-Early research prototypes indicate its potential, but the fundamental theoretical, technological and calibration challenges remain unresolved.
+In contrast to scalar systems, radar polarimetry captures the full vector nature of electromagnetic waves by measuring the transformation of polarization states upon target interaction.
+Encoded within the complex $2 \times 2$ Sinclair scattering matrix $\vec S$, polarimetric responses reveal intrinsic structural, geometric, and material scatterer properties.
+While target decomposition techniques have matured in satellite remote sensing and \gls{sar}, polarimetry has not yet been adopted in commercial automotive radar.
+Yet, the transition to high-resolution 2D \gls{mimo} architectures at W-band offers a compelling opportunity: coupling polarimetric signatures with large virtual apertures and micro-Doppler spectra.
+Resolving polarimetry across the Doppler domain enables the dynamic limb motion of pedestrians or the rotational dynamics of bicycle wheels to be isolated spectrally and characterized by their distinct physical scattering mechanisms~\parencite{bouwmeesterClassificationDynamicVulnerable2025}.
 
-Furthermore, the transition to high-resolution 2D \gls{mimo} arrays in automotive radars introduces new opportunities for capturing polarization-diverse scattering.
-Larger virtual apertures, wide angular fields of view and sparse array concepts can benefit polarimetric imaging -- but they also exacerbate issues such as cross-polar coupling, mutual coupling between antennas, phase-centre misalignment and channel imbalance.
-These limitations motivate a systematic reassessment of array topologies, antenna technologies, and processing schemes required for polarimetric \gls{mimo} radar at W-band.
+Despite its proven efficacy in remote sensing, radar polarimetry cannot be directly ingested into automotive radar without addressing severe domain transfer challenges.
+The operational realities of dynamic driving environments -- grazing incidence propagation near the ground plane, low-altitude multipath, non-rigid target kinematics, mutual coupling, and phase-centre displacement across the array manifold -- systematically violate classical remote sensing assumptions.
+A fundamental research gap exists: an absence of algorithm-driven hardware specification bounds, a lack of polarimetry-first \gls{mimo} topologies optimized for W-band, and a need for hybrid simulation frameworks and empirical campaigns capable of validating Doppler-resolved polarimetric models.
 
-This literature review therefore aims to synthesize the state of the art in:
+To resolve these challenges, this doctoral project establishes a top-down, algorithm-driven engineering methodology that bridges front-end antenna design, virtual array synthesis, and polarimetric signal processing.
+The central goal of this research proposal is to investigate, formalize, and demonstrate polarimetric \gls{mimo} array architectures tailored for automotive radar.
+To achieve this goal, the project is structured around five primary methodological pillars:
+\begin{enumerate}
+    \item \textbf{Derivation of fundamental hardware bounds:} Execute perturbation analyses on decomposition algorithms to map breakdown points into minimum antenna specification bounds.
+    \item \textbf{Development of a hybrid simulation platform:} Construct an electromagnetic simulation framework linking full-wave antenna patterns with ray-tracing physics and radar signal synthesis.
+    \item \textbf{Synthesis of polarimetry-first MIMO topologies:} Formulate array optimization strategies that minimize phase-centre disparity and polarization squint across 2D virtual apertures.
+    \item \textbf{Design of high-purity W-band front-ends:} Develop planar and integrated antenna structures at \qty{79}{\giga\hertz} with high polarization purity and port isolation.
+    \item \textbf{Algorithm formulation and experimental validation:} Formulate Doppler-resolved feature extraction algorithms and validate target models through empirical measurement campaigns.
+\end{enumerate}
+
+\paragraph{Structure of the research proposal.}
+The remainder of this research proposal is organized into five main chapters, mirroring the progression from theoretical foundations to operational execution:
 \begin{itemize}
-    \item radar polarimetry theory and its applicability to automotive environments,
-    \item antenna technologies suitable for dual-polarization operation at \qty{79}{GHz},
-    \item \gls{mimo} array topologies and multiplexing schemes relevant for polarimetric systems, and
-    \item signal-processing and calibration methods required for polarimetric reconstruction.
+    \item \textbf{\Cref{chap:literature-review} (Literature review):} Synthesizes the state of the art across radar polarimetry, high-performance W-band front-end antennas, and \gls{mimo} array multiplexing schemes.
+    \item \textbf{\Cref{chap:research-gap-analysis} (Research gap analysis):} Details physical domain transfer challenges, categorizes identified literature gaps, and formalizes the four central research questions governing this doctoral work.
+    \item \textbf{\Cref{chap:feasibility-study} (Feasibility study):} Outlines the proposed technical methodology and presents preliminary feasibility results validating polarimetric ray tracing and W-band antenna array synthesis.
+    \item \textbf{\Cref{chap:research-planning} (Research planning and doctoral education):} Establishes a four-year operational execution roadmap, mapping publishable topics to targeted venues alongside the formal doctoral education plan.
+    \item \textbf{\Cref{chap:self-reflection} (Self-reflection):} Concludes the proposal with a reflection on the candidate's research progress, methodology, and doctoral development.
 \end{itemize}
 
-The synthesis identifies critical gaps in current knowledge -- most notably the lack of a polarimetric method suitable for dynamic road scenes, Doppler-resolved polarimetry at mmWave, and \gls{mimo} array designs optimized jointly for polarization purity and automotive integration.
-These insights form the basis for the research contributions of this PhD: the development of a new polarimetric method for automotive radar, the design of a polarimetric \gls{mimo} array demonstrator, and the establishment of a dedicated measurement experiment for extracting target polarimetric signatures.

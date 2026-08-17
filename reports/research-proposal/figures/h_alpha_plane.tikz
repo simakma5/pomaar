@@ -1,0 +1,98 @@
+\begin{tikzpicture}[scale=1.0, >=Stealth,
+    vbracket/.style={decorate, decoration={brace, amplitude=5pt}, thick},
+    hbracket/.style={decorate, decoration={brace, amplitude=5pt, mirror}, thick}]
+    
+    \def\W{9.0}
+    \def\H{7.2}
+    
+    % Colors
+    \definecolor{nonfeasible}{gray}{0.83}
+    
+    % Shaded non-feasible background outside the smooth continuous oval curve
+    \fill[nonfeasible] (0,0) -- (\W,0) -- (\W,\H) -- (0.58*\W, \H) 
+        .. controls (0.82*\W, \H) and (\W, 0.85*\H) .. (\W, 61/90*\H)
+        .. controls (\W, 0.44*\H) and (0.60*\W, 0.08*\H) .. (0,0) -- cycle;
+
+    % Main bounding box
+    \draw[thick] (0,0) rectangle (\W,\H);
+
+    % Feasibility boundary curve (smooth oval arc touching right axis H=1.0)
+    \draw[thick] (0,0) .. controls (0.60*\W, 0.08*\H) and (\W, 0.44*\H) .. (\W, 61/90*\H)
+        .. controls (\W, 0.85*\H) and (0.82*\W, \H) .. (0.58*\W, \H);
+
+    % Vertical division lines (dashed)
+    \draw[densely dashed] (0.5*\W, 0) -- (0.5*\W, \H);
+    \draw[densely dashed] (0.9*\W, 0) -- (0.9*\W, \H);
+
+    % Horizontal division lines (dashed)
+    % Low H region (Zones 7, 8, 9)
+    \draw[densely dashed] (0, 42/90*\H) -- (0.5*\W, 42/90*\H);
+    \draw[densely dashed] (0, 48/90*\H) -- (0.5*\W, 48/90*\H);
+    
+    % Medium H region (Zones 4, 5, 6)
+    \draw[densely dashed] (0.5*\W, 40/90*\H) -- (0.9*\W, 40/90*\H);
+    \draw[densely dashed] (0.5*\W, 50/90*\H) -- (0.9*\W, 50/90*\H);
+    
+    % High H region (Zones 1, 2, 3)
+    \draw[densely dashed] (0.9*\W, 40/90*\H) -- (\W, 40/90*\H);
+    \draw[densely dashed] (0.9*\W, 58/90*\H) -- (\W, 58/90*\H);
+
+    % Ticks and Labels - H Axis (Bottom)
+    \foreach \h in {0, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1} {
+        \draw (\h*\W, 0) -- (\h*\W, 0.12);
+        \node[below=2pt, font=\small] at (\h*\W, 0) {\ifdim\h pt=0pt 0\else\ifdim\h pt=1pt 1\else\h\fi\fi};
+    }
+    \node[right=4pt, font=\small] at (\W, 0.12) {$H$};
+
+    % Ticks and Labels - alpha Axis (Left)
+    \foreach \a in {0, 10, 20, 30, 40, 50, 60, 70, 80, 90} {
+        \draw (0, \a/90*\H) -- (0.12, \a/90*\H);
+        \node[left=2pt, font=\small] at (0, \a/90*\H) {\a};
+    }
+    \node[above left=2pt, font=\small] at (0, \H) {$\bar{\alpha}\,(^\circ)$};
+
+    % Zone Text Labels
+    % Zone 9
+    \node[font=\small] at (0.25*\W, 35/90*\H) {Bragg surface};
+    \node[font=\small] at (0.25*\W, 29/90*\H) {9};
+
+    % Zone 8
+    \node[font=\small] at (0.25*\W, 45/90*\H) {8 \quad Dipole};
+
+    % Zone 7
+    \node[font=\small] at (0.25*\W, 73/90*\H) {7};
+    \node[font=\small] at (0.25*\W, 67/90*\H) {Dihedral reflector};
+
+    % Zone 6
+    \node[font=\small] at (0.675*\W, 35/90*\H) {Random surface};
+    \node[font=\small] at (0.675*\W, 29/90*\H) {6};
+
+    % Zone 5
+    \node[font=\small] at (0.62*\W, 45/90*\H) {5};
+    \node[font=\small, align=center] at (0.76*\W, 45/90*\H) {Anisotropic\\particles};
+
+    % Zone 4
+    \node[font=\small] at (0.7*\W, 73/90*\H) {4};
+    \node[font=\small, align=center] at (0.7*\W, 64/90*\H) {Double reflection\\propagation effects};
+
+    % Zones 1, 2, 3
+    \node[font=\small] at (0.95*\W, 20/90*\H) {3};
+    \node[font=\small] at (0.93*\W, 52/90*\H) {2};
+    \node[font=\small] at (0.93*\W, 67/90*\H) {1};
+
+    % Outside Brackets - Left (alpha categories)
+    \draw[vbracket] (-1.1, 0) -- node[left=5pt, align=right, font=\small] {Surface\\scattering} (-1.1, 40/90*\H);
+    \draw[vbracket] (-1.1, 40/90*\H) -- node[left=5pt, align=right, font=\small] {Volume\\diffusion} (-1.1, 50/90*\H);
+    \draw[vbracket] (-1.1, 50/90*\H) -- node[left=5pt, align=right, font=\small] {Double\\bounce\\scattering} (-1.1, \H);
+
+    % Outside Brackets - Bottom (H categories, flipped)
+    \draw[hbracket] (0, -0.65) -- node[below=5pt, align=center, font=\small] {Quasi\\deterministic} (0.5*\W, -0.65);
+    \draw[hbracket] (0.5*\W, -0.65) -- node[below=5pt, align=center, font=\small] {Moderately\\random} (0.9*\W, -0.65);
+    \draw[hbracket] (0.9*\W, -0.65) -- node[below=5pt, align=center, font=\small] {Highly\\random} (\W, -0.65);
+
+    % Outside Annotations - Right
+    \node[right=6pt, align=left, font=\small] at (\W+0.1, 74/90*\H) {Complex\\structures};
+    \node[right=6pt, align=left, font=\small] at (\W+0.1, 49/90*\H) {Random\\anisotropic\\scatterers};
+    \node[right=6pt, align=left, font=\small] at (\W+0.1, 20/90*\H) {Nonfeasible\\region};
+
+\end{tikzpicture}

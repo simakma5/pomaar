@@ -1,0 +1,100 @@
+\begin{tikzpicture}[
+    scale=0.92,
+    x={(0.96cm, 0.24cm)},
+    y={(-0.55cm, 0.38cm)},
+    z={(0cm, 1cm)},
+    font=\small
+]
+
+% ----------------------------------------------------
+% PARAMETERS FOR 8-ELEMENT ARRAY CAD MODEL
+% ----------------------------------------------------
+\def\subL{7.2}   % Substrate half-length along X
+\def\subW{1.3}   % Substrate half-width along Y
+\def\subH{0.18}  % Substrate thickness
+\def\patL{0.45}  % Patch half-length along X
+\def\patW{0.50}  % Patch half-width along Y
+
+% Vertical elevation levels (Exploded layers)
+\pgfmathsetmacro{\zTop}{2.4}
+\pgfmathsetmacro{\zTopBot}{\zTop - \subH}
+\pgfmathsetmacro{\zBot}{0.0}
+\pgfmathsetmacro{\zBotSubH}{\zBot - \subH}
+
+
+% ----------------------------------------------------
+% TOP SUBSTRATE (Antenna Substrate & 8 Microstrip Patches)
+% ----------------------------------------------------
+% Front-left thickness face (light gray fill)
+\filldraw[fill=gray!25, draw=black, line width=0.5pt]
+    (-\subL, \subW, \zTop) -- (-\subL, -\subW, \zTop) -- (-\subL, -\subW, \zTopBot) -- (-\subL, \subW, \zTopBot) -- cycle;
+
+% Front-right thickness face (light gray fill)
+\filldraw[fill=gray!20, draw=black, line width=0.5pt]
+    (-\subL, -\subW, \zTop) -- (\subL, -\subW, \zTop) -- (\subL, -\subW, \zTopBot) -- (-\subL, -\subW, \zTopBot) -- cycle;
+
+% Top surface (white fill with black border)
+\filldraw[fill=white, draw=black, line width=0.5pt]
+    (-\subL, -\subW, \zTop) -- (\subL, -\subW, \zTop) -- (\subL, \subW, \zTop) -- (-\subL, \subW, \zTop) -- cycle;
+
+% 8 Microstrip Patch Antenna Elements spaced along X
+\foreach \xPos in {-5.6, -4.0, -2.4, -0.8, 0.8, 2.4, 4.0, 5.6} {
+    \filldraw[fill=gray!40, draw=black, line width=0.5pt]
+        ({\xPos-\patL}, -\patW, \zTop) -- ({\xPos+\patL}, -\patW, \zTop)
+        -- ({\xPos+\patL}, \patW, \zTop) -- ({\xPos-\patL}, \patW, \zTop) -- cycle;
+}
+
+
+% ----------------------------------------------------
+% BOTTOM SUBSTRATE (Feed Substrate & Ground Plane)
+% ----------------------------------------------------
+% Front-left thickness face (light gray fill)
+\filldraw[fill=gray!25, draw=black, line width=0.5pt]
+    (-\subL, \subW, \zBot) -- (-\subL, -\subW, \zBot) -- (-\subL, -\subW, \zBotSubH) -- (-\subL, \subW, \zBotSubH) -- cycle;
+
+% Front-right thickness face (light gray fill)
+\filldraw[fill=gray!20, draw=black, line width=0.5pt]
+    (-\subL, -\subW, \zBot) -- (\subL, -\subW, \zBot) -- (\subL, -\subW, \zBotSubH) -- (-\subL, -\subW, \zBotSubH) -- cycle;
+
+% Ground plane top surface (white fill with black border)
+\filldraw[fill=white, draw=black, line width=0.5pt]
+    (-\subL, -\subW, \zBot) -- (\subL, -\subW, \zBot) -- (\subL, \subW, \zBot) -- (-\subL, \subW, \zBot) -- cycle;
+
+
+% ----------------------------------------------------
+% MEANDERING / SNAKING MICROSTRIP FEED LINE (Dashed buried trace)
+% 75% straight line, 25% duty cycle localized meander loops, dangling open end
+% ----------------------------------------------------
+\draw[dashed, black, line width=0.6pt]
+    % Feedline input from left edge to element 1 (x1 = -5.6)
+    (-\subL, 0, \zBot) -- (-5.0, 0, \zBot)
+    % Meander loop 1 (between x1=-5.6 and x2=-4.0)
+    -- (-5.0, 0.45, \zBot) -- (-4.6, 0.45, \zBot) -- (-4.6, 0, \zBot) -- (-3.4, 0, \zBot)
+    % Meander loop 2 (between x2=-4.0 and x3=-2.4)
+    -- (-3.4, 0.45, \zBot) -- (-3.0, 0.45, \zBot) -- (-3.0, 0, \zBot) -- (-1.8, 0, \zBot)
+    % Meander loop 3 (between x3=-2.4 and x4=-0.8)
+    -- (-1.8, 0.45, \zBot) -- (-1.4, 0.45, \zBot) -- (-1.4, 0, \zBot) -- (-0.2, 0, \zBot)
+    % Meander loop 4 (between x4=-0.8 and x5=0.8)
+    -- (-0.2, 0.45, \zBot) -- (0.2, 0.45, \zBot) -- (0.2, 0, \zBot) -- (1.4, 0, \zBot)
+    % Meander loop 5 (between x5=0.8 and x6=2.4)
+    -- (1.4, 0.45, \zBot) -- (1.8, 0.45, \zBot) -- (1.8, 0, \zBot) -- (3.0, 0, \zBot)
+    % Meander loop 6 (between x6=2.4 and x7=4.0)
+    -- (3.0, 0.45, \zBot) -- (3.4, 0.45, \zBot) -- (3.4, 0, \zBot) -- (4.6, 0, \zBot)
+    % Meander loop 7 (between x7=4.0 and x8=5.6)
+    -- (4.6, 0.45, \zBot) -- (5.0, 0.45, \zBot) -- (5.0, 0, \zBot)
+    % Output stub dangling open past element 8 (x8 = 5.6)
+    -- (6.0, 0, \zBot);
+
+
+% ----------------------------------------------------
+% 8 MODIFIED HOURGLASS / BOW-TIE APERTURE SLOTS (Transversally oriented along Y)
+% ----------------------------------------------------
+\foreach \xPos in {-5.6, -4.0, -2.4, -0.8, 0.8, 2.4, 4.0, 5.6} {
+    \filldraw[fill=white, draw=black, line width=0.5pt]
+        ({\xPos-0.05}, -0.35, \zBot) -- ({\xPos+0.05}, -0.35, \zBot)
+        -- ({\xPos+0.02}, -0.08, \zBot) -- ({\xPos+0.02}, 0.08, \zBot)
+        -- ({\xPos+0.05}, 0.35, \zBot) -- ({\xPos-0.05}, 0.35, \zBot)
+        -- ({\xPos-0.02}, 0.08, \zBot) -- ({\xPos-0.02}, -0.08, \zBot) -- cycle;
+}
+
+\end{tikzpicture}
