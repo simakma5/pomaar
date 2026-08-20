@@ -1,5 +1,13 @@
 \documentclass[11pt,a4paper,oneside]{report}
-\usepackage[margin=2.5cm]{geometry}
+\usepackage[
+  a4paper,
+  headheight=14.5pt,
+  headsep=8mm,
+  top=28mm,
+  hmargin=25mm,
+  bottom=30mm,
+  footskip=12mm
+]{geometry}
 \usepackage[main=british,czech]{babel}
 
 \usepackage{stddoc}
@@ -8,7 +16,27 @@
 \loadglsentries{glossary}
 \makeglossaries
 
-% Polarization basis & matrix shorthand macros
+% Header & footer configuration
+\usepackage{fancyhdr}
+\renewcommand{\chaptermark}[1]{\markboth{\chaptername\ \thechapter.\quad #1}{}}
+\renewcommand{\sectionmark}[1]{\markright{\thesection\quad #1}}
+\fancypagestyle{fancy}{%
+  \fancyhf{}%
+  \fancyhead[L]{\small\scshape\nouppercase{\leftmark}}%
+  \fancyhead[R]{\small\thepage}%
+  \fancyfoot{}%
+  \renewcommand{\headrulewidth}{0.2pt}%
+  \renewcommand{\footrulewidth}{0pt}%
+}
+\fancypagestyle{plain}{%
+  \fancyhf{}%
+  \fancyfoot[C]{\small\thepage}%
+  \renewcommand{\headrulewidth}{0pt}%
+  \renewcommand{\footrulewidth}{0pt}%
+}
+\pagestyle{fancy}
+
+% Shorthand macros
 \renewcommand{\H}{\mathrm{H}}
 \newcommand{\V}{\mathrm{V}}
 \newcommand{\HH}{\mathrm{HH}}
@@ -16,7 +44,6 @@
 \newcommand{\HV}{\mathrm{HV}}
 \newcommand{\VV}{\mathrm{VV}}
 
-% \includeonly{chapters/02_literature_review}
 
 \begin{document}
 
@@ -25,18 +52,23 @@
 \end{titlepage}
 
 \pagenumbering{roman}
+\pagestyle{plain}
 
 \input{frontmatter/abstract.tex}
 
 \setcounter{tocdepth}{2}
+\addtocontents{toc}{\protect\enlargethispage{2\baselineskip}}
 \tableofcontents
 
 \listoffigures
+
 \listoftables
 
 \printglossary[type=abbreviations,title=List of abbreviations,style=long]
 
+\clearpage
 \pagenumbering{arabic}
+\pagestyle{fancy}
 
 \include{chapters/01_introduction}
 
