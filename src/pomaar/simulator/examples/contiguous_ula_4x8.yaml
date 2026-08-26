@@ -1,0 +1,77 @@
+# Contiguous 4x8 ULA Layout at 79.0 GHz
+# Rx: 8 dense elements along X at y=0 (spacing = 1.9 mm)
+# Tx: 4 sparse elements along X at y=10 mm (spacing = 15.2 mm)
+
+# --- Receiver Elements (Dense ULA) ---
+- label: Rx_1
+  role: Rx
+  polarization: v
+  pos: [-6.65, 0.0, 0.0]
+  yaw: 0.0
+
+- label: Rx_2
+  role: Rx
+  polarization: v
+  pos: [-4.75, 0.0, 0.0]
+  yaw: 0.0
+
+- label: Rx_3
+  role: Rx
+  polarization: v
+  pos: [-2.85, 0.0, 0.0]
+  yaw: 0.0
+
+- label: Rx_4
+  role: Rx
+  polarization: v
+  pos: [-0.95, 0.0, 0.0]
+  yaw: 0.0
+
+- label: Rx_5
+  role: Rx
+  polarization: v
+  pos: [0.95, 0.0, 0.0]
+  yaw: 0.0
+
+- label: Rx_6
+  role: Rx
+  polarization: v
+  pos: [2.85, 0.0, 0.0]
+  yaw: 0.0
+
+- label: Rx_7
+  role: Rx
+  polarization: v
+  pos: [4.75, 0.0, 0.0]
+  yaw: 0.0
+
+- label: Rx_8
+  role: Rx
+  polarization: v
+  pos: [6.65, 0.0, 0.0]
+  yaw: 0.0
+
+# --- Transmitter Elements (Sparse ULA) ---
+- label: Tx_1
+  role: Tx
+  polarization: v
+  pos: [-22.8, 10.0, 0.0]
+  yaw: 180.0
+
+- label: Tx_2
+  role: Tx
+  polarization: v
+  pos: [-7.6, 10.0, 0.0]
+  yaw: 180.0
+
+- label: Tx_3
+  role: Tx
+  polarization: v
+  pos: [7.6, 10.0, 0.0]
+  yaw: 180.0
+
+- label: Tx_4
+  role: Tx
+  polarization: v
+  pos: [22.8, 10.0, 0.0]
+  yaw: 180.0

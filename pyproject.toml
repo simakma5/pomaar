@@ -24,6 +24,7 @@ dependencies = [
     "matplotlib>=3.8",
     "ipykernel>=7.2.0",
     "pyaedt>=1.1.0",
+    "pyyaml>=6.0.3",
 ]
 
 [project.optional-dependencies]

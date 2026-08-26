@@ -495,84 +495,81 @@ class MimoHfssBuilder:
 
         print("Replicating structures to array grid...")
         for element in elements:
-            label = element["label"]
+            raw_label = element["label"]
             pos = element["pos"]
-            polarization = element.get("polarization", "v").lower()
-            element_yaw = element.get("yaw", 0.0)
+            element_yaw = float(element.get("yaw", 0.0))
+            pol = str(element.get("polarization", element.get("pol", ""))).strip().upper()
 
-            polarization_variants = []
-            if polarization.lower() == "v" or polarization.lower() == "both":
-                polarization_variants.append(("_V", 0.0))  # Vertical (no rotation)
-            if polarization.lower() == "h" or polarization.lower() == "both":
-                polarization_variants.append(("_H", 90.0))  # Horizontal (90-deg Z rotation)
+            # Append polarization suffix if specified and not already present in the label
+            if pol and not raw_label.upper().endswith(f"_{pol}"):
+                label = f"{raw_label}_{pol}"
+            else:
+                label = raw_label
 
-            for variant_suffix, rotation_yaw in polarization_variants:
-                variant_label = f"{label}{variant_suffix}"
-                print(f"  Replicating element variant: {variant_label} to position {pos} mm...")
+            print(f"  Replicating element: {label} to position {pos} mm (yaw={element_yaw:.1f} deg)...")
 
-                # Duplicate all templates locally using duplicate_along_line with a dummy Z offset of 1.0 mm.
-                # This completely bypasses the X11 clipboard copy/paste mechanism to avoid hangs in headless containers.
-                success, pasted_names = target_modeler.duplicate_along_line(
-                    assignment=all_replicate_sources,
-                    vector=[0, 0, 1.0],
-                    clones=2,
-                )
-                if not success:
-                    raise RuntimeError(f"Failed to duplicate template objects for variant {variant_label}")
+            # Duplicate all templates locally using duplicate_along_line with a dummy Z offset of 1.0 mm.
+            # This completely bypasses the X11 clipboard copy/paste mechanism to avoid hangs in headless containers.
+            success, pasted_names = target_modeler.duplicate_along_line(
+                assignment=all_replicate_sources,
+                vector=[0, 0, 1.0],
+                clones=2,
+            )
+            if not success:
+                raise RuntimeError(f"Failed to duplicate template objects for element {label}")
 
-                # Move back to origin (offset the Z translation)
-                target_modeler.move(
-                    assignment=pasted_names,
-                    vector=[0, 0, -1.0],
-                )
+            # Move back to origin (offset the Z translation)
+            target_modeler.move(
+                assignment=pasted_names,
+                vector=[0, 0, -1.0],
+            )
 
-                # Rename duplicated objects and track ports/dummy solids
-                renamed_objs = []
-                for pasted_name in pasted_names:
-                    # Strip numerical suffixes added by AEDT duplicate if any (e.g. L1_Patch_1 -> L1_Patch)
-                    base_name = pasted_name
-                    for source_name in all_replicate_sources:
-                        if pasted_name.startswith(source_name):
-                            base_name = source_name
-                            break
+            # Rename duplicated objects and track ports/dummy solids
+            renamed_objs = []
+            for pasted_name in pasted_names:
+                # Strip numerical suffixes added by AEDT duplicate if any (e.g. L1_Patch_1 -> L1_Patch)
+                base_name = pasted_name
+                for source_name in all_replicate_sources:
+                    if pasted_name.startswith(source_name):
+                        base_name = source_name
+                        break
 
-                    new_name = f"{base_name}_{variant_label}"
-                    target_modeler.get_object_from_name(pasted_name).name = new_name
-                    renamed_objs.append(new_name)
+                new_name = f"{base_name}_{label}"
+                target_modeler.get_object_from_name(pasted_name).name = new_name
+                renamed_objs.append(new_name)
 
-                    # Track port sheets
-                    if base_name in port_sheets:
-                        replicated_ports_list.append(new_name)
+                # Track port sheets
+                if base_name in port_sheets:
+                    replicated_ports_list.append(new_name)
 
-                    # Track dummy solids
-                    for key, dummy_src_list in dummy_solids.items():
-                        if base_name in dummy_src_list:
-                            replicated_dummy_mapping[key].append(new_name)
+                # Track dummy solids
+                for key, dummy_src_list in dummy_solids.items():
+                    if base_name in dummy_src_list:
+                        replicated_dummy_mapping[key].append(new_name)
 
-                # Rotate variant if needed (centred at the origin)
-                total_rotation = element_yaw + rotation_yaw
-                if total_rotation != 0.0:
-                    target_modeler.rotate(
-                        assignment=renamed_objs,
-                        axis=Axis.Z,
-                        angle=total_rotation,
-                    )
-
-                # Calculate the rotated phase centre offset
-                rad = math.radians(total_rotation)
-                cos_val = math.cos(rad)
-                sin_val = math.sin(rad)
-
-                # Rotate offset around Z axis
-                rot_dx = offset[0] * cos_val - offset[1] * sin_val
-                rot_dy = offset[0] * sin_val + offset[1] * cos_val
-                rot_dz = offset[2]
-
-                # Move variant to final position (compensating for the phase centre offset)
-                target_modeler.move(
+            # Rotate element if needed (centred at the origin)
+            if element_yaw != 0.0:
+                target_modeler.rotate(
                     assignment=renamed_objs,
-                    vector=[pos[0] - rot_dx, pos[1] - rot_dy, pos[2] - rot_dz],
+                    axis=Axis.Z,
+                    angle=element_yaw,
                 )
+
+            # Calculate the rotated phase centre offset
+            rad = math.radians(element_yaw)
+            cos_val = math.cos(rad)
+            sin_val = math.sin(rad)
+
+            # Rotate offset around Z axis
+            rot_dx = offset[0] * cos_val - offset[1] * sin_val
+            rot_dy = offset[0] * sin_val + offset[1] * cos_val
+            rot_dz = offset[2]
+
+            # Move element to final position (compensating for the phase centre offset)
+            target_modeler.move(
+                assignment=renamed_objs,
+                vector=[pos[0] - rot_dx, pos[1] - rot_dy, pos[2] - rot_dz],
+            )
 
         # Clean up the original template geometries at the origin of the target design
         print("Cleaning up template geometries...")
@@ -855,7 +852,8 @@ class MimoHfssBuilder:
                 self.target_design_app.post.create_report(
                     expressions=reflections,
                     setup_sweep_name=setup_sweep,
-                    plot_name=plot_name
+                    plot_name=plot_name,
+                    report_category="Modal Solution Data",
                 )
             except Exception as e:
                 print(f"  Warning: Failed to create Reflections report ({e})")
@@ -875,7 +873,8 @@ class MimoHfssBuilder:
                     self.target_design_app.post.create_report(
                         expressions=rx_couplings,
                         setup_sweep_name=setup_sweep,
-                        plot_name=plot_name
+                        plot_name=plot_name,
+                        report_category="Modal Solution Data",
                     )
                 except Exception as e:
                     print(f"  Warning: Failed to create Rx crosstalk report ({e})")
@@ -895,7 +894,8 @@ class MimoHfssBuilder:
                     self.target_design_app.post.create_report(
                         expressions=tx_couplings,
                         setup_sweep_name=setup_sweep,
-                        plot_name=plot_name
+                        plot_name=plot_name,
+                        report_category="Modal Solution Data",
                     )
                 except Exception as e:
                     print(f"  Warning: Failed to create Tx crosstalk report ({e})")
@@ -913,7 +913,8 @@ class MimoHfssBuilder:
                     self.target_design_app.post.create_report(
                         expressions=tx_to_rx,
                         setup_sweep_name=setup_sweep,
-                        plot_name=plot_name
+                        plot_name=plot_name,
+                        report_category="Modal Solution Data",
                     )
                 except Exception as e:
                     print(f"  Warning: Failed to create Tx1-to-Rx crosstalk report ({e})")
@@ -1324,16 +1325,52 @@ class MimoHfssBuilder:
             self.desktop_session = None
 
 
+def load_layout_file(layout_path):
+    """
+    Loads an antenna array layout definition from a YAML (.yaml, .yml) or JSON (.json) file.
+
+    Parameters
+    ----------
+    layout_path : str
+        Path to the layout YAML or JSON file.
+
+    Returns
+    -------
+    list of dict
+        List of element dictionaries describing positions, yaws, polarizations, and roles.
+    """
+    layout_path = os.path.abspath(layout_path)
+    ext = os.path.splitext(layout_path)[1].lower()
+
+    with open(layout_path, "r", encoding="utf-8") as f:
+        if ext in [".yaml", ".yml"]:
+            import yaml
+            return yaml.safe_load(f)
+        elif ext == ".json":
+            import json
+            return json.load(f)
+        else:
+            try:
+                import yaml
+                return yaml.safe_load(f)
+            except Exception:
+                f.seek(0)
+                import json
+                return json.load(f)
+
+
 if __name__ == "__main__":
     import argparse
-    import json
     import os
 
     parser = argparse.ArgumentParser(description="HFSS Full-Wave Array Synthesis CLI.")
     parser.add_argument("project_path", help="Path to the AEDT project file (.aedt)")
     parser.add_argument("source_design_name", help="Name of the unit-cell source design")
     parser.add_argument(
-        "layout_json_path", nargs="?", default=None, help="Optional path to custom elements layout JSON file"
+        "layout_path",
+        nargs="?",
+        default=None,
+        help="Optional path to custom elements layout YAML or JSON file",
     )
     parser.add_argument(
         "--centre-freq", "--center-freq", type=float, default=79.0, help="Centre frequency in GHz (default: 79.0)"
@@ -1347,8 +1384,8 @@ if __name__ == "__main__":
 
     # Determine target design name from layout file if provided
     target_design_name = None
-    if args.layout_json_path:
-        base_name = os.path.splitext(os.path.basename(args.layout_json_path))[0]
+    if args.layout_path:
+        base_name = os.path.splitext(os.path.basename(args.layout_path))[0]
         words = base_name.replace("-", "_").split("_")
         layout_suffix = "".join(w.capitalize() for w in words if w)
         target_design_name = f"{args.source_design_name}{layout_suffix}"
@@ -1364,10 +1401,9 @@ if __name__ == "__main__":
 
     try:
         builder.connect_desktop()
-        if args.layout_json_path:
-            print(f"Loading custom layout from: {args.layout_json_path}")
-            with open(args.layout_json_path, "r") as f:
-                elements_list = json.load(f)
+        if args.layout_path:
+            print(f"Loading custom layout from: {args.layout_path}")
+            elements_list = load_layout_file(args.layout_path)
         else:
             print(f"No custom layout provided. Using default coplanar layout at {args.centre_freq} GHz...")
             elements_list = builder.calculate_default_coplanar_layout(

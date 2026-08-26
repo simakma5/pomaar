@@ -1,0 +1,32 @@
+# 4-Element Polarimetric MIMO Quad-Cluster Layout (79 GHz)
+# Co-polar pairs sit opposed across the origin (HH along X-axis, VV along Y-axis).
+# Radial distance r = 0.95 mm (~ lambda_0 / 4).
+# Co-polar baseline: d_co = 2*r = 1.90 mm (~ lambda_0 / 2).
+# Cross-polar baseline: d_x = sqrt(2)*r = 1.34 mm (~ 0.35 * lambda_0).
+# Virtual phase centers: r_v(HH) = r_v(VV) = [0.0, 0.0, 0.0].
+
+# --- Horizontal Polarization Pair (X-Axis) ---
+- label: Tx
+  role: Tx
+  polarization: h
+  pos: [0.95, 0.0, 0.0]
+  yaw: 90.0
+
+- label: Rx
+  role: Rx
+  polarization: h
+  pos: [-0.95, 0.0, 0.0]
+  yaw: 270.0
+
+# --- Vertical Polarization Pair (Y-Axis) ---
+- label: Tx
+  role: Tx
+  polarization: v
+  pos: [0.0, 0.95, 0.0]
+  yaw: 180.0
+
+- label: Rx
+  role: Rx
+  polarization: v
+  pos: [0.0, -0.95, 0.0]
+  yaw: 0.0

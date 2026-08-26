@@ -1307,6 +1307,7 @@ dependencies = [
     { name = "matplotlib" },
     { name = "numpy" },
     { name = "pyaedt" },
+    { name = "pyyaml" },
     { name = "scipy" },
     { name = "xarray" },
 ]
@@ -1330,6 +1331,7 @@ requires-dist = [
     { name = "numpy", specifier = ">=1.26" },
     { name = "pyaedt", specifier = ">=1.1.0" },
     { name = "pytest", marker = "extra == 'dev'" },
+    { name = "pyyaml", specifier = ">=6.0.3" },
     { name = "ruff", marker = "extra == 'dev'" },
     { name = "scipy", specifier = ">=1.11" },
     { name = "xarray", specifier = ">=2023.10" },

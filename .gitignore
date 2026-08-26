@@ -57,4 +57,5 @@ data/*
 
 # --- Temporary files/outputs ---
 *_notes.md
-src/pomaar/simulator/examples/*.json
+src/pomaar/simulator/examples/*_layout.yaml
+src/pomaar/simulator/examples/*_layout.json
