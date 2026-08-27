@@ -124,7 +124,14 @@ class MimoHfssBuilder:
         return elements
 
     def synthesize_array_in_hfss(
-        self, elements, operating_frequency_ghz=None, setup_results=None, run_simulation=None, metric_choice=None
+        self,
+        elements,
+        operating_frequency_ghz=None,
+        setup_results=None,
+        run_simulation=None,
+        metric_choice=None,
+        use_existing_cs=None,
+        overwrite=None,
     ):
         """
         Synthesizes the MIMO array in HFSS using a naming-convention boolean assembly:
@@ -136,10 +143,23 @@ class MimoHfssBuilder:
         6. Assigns lumped port excitations to the replicated port sheets.
         7. Creates radiation airbox, sets up simulation sweep, asks user whether to set up results, and prompts to launch simulation ('Analyze All').
         """
+        if isinstance(elements, dict):
+            layout_metadata = elements.get("metadata", {})
+            elements_list = elements.get("elements", [])
+        else:
+            layout_metadata = {}
+            elements_list = elements
+
         if operating_frequency_ghz is not None:
             self.centre_frequency_ghz = operating_frequency_ghz
+        elif "center_frequency_ghz" in layout_metadata:
+            self.centre_frequency_ghz = float(layout_metadata["center_frequency_ghz"])
+            operating_frequency_ghz = self.centre_frequency_ghz
         else:
             operating_frequency_ghz = self.centre_frequency_ghz
+
+        if "bandwidth_ghz" in layout_metadata:
+            self.bandwidth_ghz = float(layout_metadata["bandwidth_ghz"])
 
         if not self.desktop_session:
             self.connect_desktop()
@@ -153,66 +173,72 @@ class MimoHfssBuilder:
         )
 
         source_modeler = self.source_design_app.modeler
+        all_object_names = list(source_modeler.object_names)
 
-        # --- STEP 1: Classify Unit-Cell Objects ---
-        # Perform object scan while source design is active
-        all_object_names = source_modeler.object_names
+        # --- STEP 1: Classify Objects ---
+        print("\nScanning and classifying objects in the unit-cell design:")
+        global_layers = {}
+        active_elements = []
+        port_sheets = []
+        dummy_solids = {}
 
-        global_layers = {}  # dict of layer_name -> {material, z_min, z_max}
-        port_sheets = []  # list of port sheet names
-        dummy_solids = {}  # dict of (operation, target_solid) -> list of dummy source names
-        active_elements = []  # list of active trace/copper names
+        for name in all_object_names:
+            obj = source_modeler.get_object_from_name(name)
+            if not obj:
+                continue
 
-        for obj_name in all_object_names:
-            # 1. First, check for dummy boolean solids (e.g. Subtract_L12_Ground)
-            if "_" in obj_name and obj_name.split("_")[0] in ["Subtract", "Unite"]:
-                tokens = obj_name.split("_")
+            # Check for boolean dummy solids first (e.g. Subtract_L2_Ground)
+            if name.startswith("Subtract_") or name.startswith("Unite_"):
+                tokens = name.split("_")
                 operation = tokens[0]
                 target_solid = "_".join(tokens[1:])
                 key = (operation, target_solid)
                 if key not in dummy_solids:
                     dummy_solids[key] = []
-                dummy_solids[key].append(obj_name)
+                dummy_solids[key].append(name)
+                print(f"  [Dummy {operation}]   {name} -> target: {target_solid}")
+                continue
 
-            # 2. Second, check for global layers (Substrate or Ground)
-            elif obj_name.endswith("_Substrate") or obj_name.endswith("_Ground"):
-                source_obj = source_modeler.get_object_from_name(obj_name)
-                bbox = source_obj.bounding_box
-                z_min, z_max = float(bbox[2]), float(bbox[5])
-                global_layers[obj_name] = {
-                    "material": source_obj.material_name,
-                    "z_min": z_min,
-                    "z_max": z_max,
+            # Skip vacuum domain solids, radiation boundaries, or airboxes present in source design
+            if obj.material_name.lower() == "vacuum" or "RadiatingSurface" in name or "Airbox" in name or "RadiationBox" in name:
+                print(f"  [Skipped Boundary] {name} ({obj.material_name})")
+                continue
+
+            if name.startswith("L12_") or name.startswith("L23_") or name.startswith("L34_") or name.startswith("L45_"):
+                bbox = obj.bounding_box
+                z_coords = [float(bbox[2]), float(bbox[5])]
+                global_layers[name] = {
+                    "material": obj.material_name,
+                    "z_min": min(z_coords),
+                    "z_max": max(z_coords),
                 }
+                print(f"  [Global Layer]     {name} ({obj.material_name}, Z=[{min(z_coords):.2f}, {max(z_coords):.2f}] mm)")
 
-            # 3. Third, check for port sheets (PortSheet1, PortSheet2, etc.)
-            elif obj_name.startswith("PortSheet"):
-                port_sheets.append(obj_name)
+            elif name.startswith("L2_Ground") or name.startswith("Ground_Plane") or name.startswith("GND"):
+                bbox = obj.bounding_box
+                z_coords = [float(bbox[2]), float(bbox[5])]
+                global_layers[name] = {
+                    "material": obj.material_name,
+                    "z_min": min(z_coords),
+                    "z_max": max(z_coords),
+                }
+                print(f"  [Global Ground]    {name} ({obj.material_name}, Z=[{min(z_coords):.2f}, {max(z_coords):.2f}] mm)")
 
-            # 4. Fourth, regular active elements (Patches, Feeds, etc.)
+            elif "PortSheet" in name or name.startswith("Port_"):
+                port_sheets.append(name)
+                print(f"  [Port Sheet]       {name}")
+
             else:
-                source_obj = source_modeler.get_object_from_name(obj_name)
-                # Skip vacuum objects (like BoundingBox, RadiatingSurface) to avoid clutter
-                if source_obj and source_obj.material_name.lower() == "vacuum":
-                    print(f"  Skipping vacuum object: '{obj_name}'")
-                    continue
-                active_elements.append(obj_name)
-
-        print("\nUnit-cell structure classified:")
-        print(f"  Global Layers:    {list(global_layers.keys())}")
-        print(f"  Port Sheets:      {port_sheets}")
-        print(f"  Dummy Cutouts:    {list(dummy_solids.keys())}")
-        print(f"  Active Elements:  {active_elements}")
-
-        # --- Check/Compute PhaseCentreCS ---
-        offset = [0.0, 0.0, 0.0]
-        cs_map = {cs.name: cs for cs in source_modeler.coordinate_systems}
+                active_elements.append(name)
+                print(f"  [Active Element]   {name}")
 
         run_opt = False
+        offset = [0.0, 0.0, 0.0]
+
+        cs_map = {cs.name: cs for cs in source_modeler.coordinate_systems}
         if "PhaseCentreCS" in cs_map:
             cs_obj = cs_map["PhaseCentreCS"]
             try:
-                # Direct evaluation to bypass PyAEDT temp_var post-processing assignment bug
                 dx_mm = float(self.source_design_app.evaluate_expression(cs_obj.props["OriginX"])) * 1000.0
                 dy_mm = float(self.source_design_app.evaluate_expression(cs_obj.props["OriginY"])) * 1000.0
                 dz_mm = float(self.source_design_app.evaluate_expression(cs_obj.props["OriginZ"])) * 1000.0
@@ -223,7 +249,11 @@ class MimoHfssBuilder:
                 except Exception:
                     offset = [0.0, 0.0, 0.0]
             print(f"\n[INFO] PhaseCentreCS found in unit-cell design. Origin offset: {offset} mm.")
-            if sys.stdin.isatty():
+            if use_existing_cs is True:
+                user_input = "y"
+            elif use_existing_cs is False:
+                user_input = "n"
+            elif sys.stdin.isatty():
                 user_input = input("Do you want to use the existing PhaseCentreCS? (y/n) [default: y]: ")
             else:
                 user_input = "y"
@@ -234,22 +264,22 @@ class MimoHfssBuilder:
             print("\n" + "=" * 80)
             print("[WARNING] PhaseCentreCS was NOT found in the unit-cell design!")
             print("=" * 80 + "\n")
-            if sys.stdin.isatty():
+            if use_existing_cs is True:
+                run_opt = False
+                print("[INFO] Proceeding without PhaseCentreCS offset [0.0, 0.0, 0.0] mm.")
+            elif sys.stdin.isatty():
                 user_input = input("Do you want to run Optimetrics to calculate the Phase Centre? (y/n) [default: y]: ")
-            else:
-                user_input = "y"
-            if user_input.strip().lower() not in ["n", "no"]:
-                run_opt = True
-            else:
-                if sys.stdin.isatty():
-                    user_input2 = input("Proceed without PhaseCentreCS offset? (y/n) [default: y]: ")
+                if user_input.strip().lower() not in ["n", "no"]:
+                    run_opt = True
                 else:
-                    user_input2 = "y"
-                if user_input2.strip().lower() in ["n", "no"]:
-                    print("[INFO] Aborted by user.")
-                    self.close()
-                    sys.exit(0)
-                print("[INFO] Proceeding with zero offset [0.0, 0.0, 0.0] mm.")
+                    user_input2 = input("Proceed without PhaseCentreCS offset? (y/n) [default: y]: ")
+                    if user_input2.strip().lower() in ["n", "no"]:
+                        print("[INFO] Aborted by user.")
+                        self.close()
+                        sys.exit(0)
+                    print("[INFO] Proceeding with zero offset [0.0, 0.0, 0.0] mm.")
+            else:
+                run_opt = True
 
         if run_opt:
             offset = self._run_phase_centre_opt(source_modeler, global_layers, active_elements, operating_frequency_ghz)
@@ -267,7 +297,11 @@ class MimoHfssBuilder:
         # To avoid the buggy delete-and-recreate race condition in AEDT,
         # we check if the design exists. If so, we reuse it and clear its modeler.
         if self.target_design_name in design_list:
-            if sys.stdin.isatty():
+            if overwrite is True:
+                user_input = "y"
+            elif overwrite is False:
+                user_input = "n"
+            elif sys.stdin.isatty():
                 user_input = input(
                     (
                         f"Design '{self.target_design_name}' already exists. "
@@ -298,10 +332,12 @@ class MimoHfssBuilder:
                 target_modeler.delete(all_objs)
 
             # Clear coordinate systems
-            cs_names = [cs.name for cs in target_modeler.coordinate_systems]
-            if cs_names:
-                print(f"  Clearing {len(cs_names)} coordinate systems...")
-                target_modeler.delete(cs_names)
+            target_modeler.set_working_coordinate_system("Global")
+            for cs in list(target_modeler.coordinate_systems):
+                try:
+                    cs.delete()
+                except Exception:
+                    pass
 
             # Setup and sweep purging will be handled at the end of synthesis in configure_simulation_setup
         else:
@@ -343,32 +379,62 @@ class MimoHfssBuilder:
 
         target_modeler = self.target_design_app.modeler
 
+        # Measure unit-cell bounding box relative to PhaseCentreCS (offset)
+        # Note: We measure exclusively from active elements and port sheets so that
+        # the measurement reflects the true element reach (L_feed) and is never corrupted
+        # by pre-existing or oversized substrate boundaries.
+        uc_x_extents = []
+        uc_y_extents = []
+        for obj_name in list(global_layers.keys()) + active_elements + port_sheets:
+            try:
+                obj = self.source_design_app.modeler.get_object_from_name(obj_name)
+                if obj:
+                    bb = obj.bounding_box
+                    uc_x_extents.extend([abs(float(bb[0]) - offset[0]), abs(float(bb[3]) - offset[0])])
+                    uc_y_extents.extend([abs(float(bb[1]) - offset[1]), abs(float(bb[4]) - offset[1])])
+            except Exception:
+                pass
+
+        unit_cell_extent_x = max(uc_x_extents) if uc_x_extents else 5.0
+        unit_cell_extent_y = max(uc_y_extents) if uc_y_extents else 5.0
+        unit_cell_extent_max = max(unit_cell_extent_x, unit_cell_extent_y)
+
+        # Calculate clearance using lambda_0 / 4 (quarter wavelength) rule of thumb
+        speed_of_light_mm_s = 2.99792458e11
+        wavelength_mm = speed_of_light_mm_s / (operating_frequency_ghz * 1e9)
+        airbox_clearance_mm = 0.25 * wavelength_mm
+
+        # Inject geometric constants into target design
+        self.target_design_app["unitCellExtentX"] = f"{unit_cell_extent_x:.4f}mm"
+        self.target_design_app["unitCellExtentY"] = f"{unit_cell_extent_y:.4f}mm"
+        self.target_design_app["unitCellExtent"] = f"{unit_cell_extent_max:.4f}mm"
+        self.target_design_app["unitCellHalfWidth"] = f"{unit_cell_extent_x:.4f}mm"
+        self.target_design_app["unitCellHalfLength"] = f"{unit_cell_extent_y:.4f}mm"
+        self.target_design_app["airboxClearance"] = f"{airbox_clearance_mm:.4f}mm"
+        self.target_design_app["pcbMargin"] = f"{self.pcb_margin_mm:.4f}mm"
+
+        # Inject layout variables from layout metadata
+        layout_vars = layout_metadata.get("variables", {})
+        for var_name, var_expr in layout_vars.items():
+            self.target_design_app[var_name] = str(var_expr)
+
         # --- STEP 3: Size & Draw Global Contiguous Board ---
         # Sort layers by prefix (L1, L12, L2...) to ensure they are created in stackup order
         sorted_layers = sorted(global_layers.keys(), key=lambda name: name.split("_")[0])
         ground_layer_names = []
 
-        # Track overall board bounds for Airbox radiation boundary creation
+        # Track overall board bounds for numerical fallback and Z calculation
         overall_x_min = None
         overall_x_max = None
         overall_y_min = None
         overall_y_max = None
 
-        print("\nConstructing global contiguous board layers:")
         for layer_name in sorted_layers:
             layer_info = global_layers[layer_name]
-            z_min = layer_info["z_min"]
-            z_max = layer_info["z_max"]
-            thickness = z_max - z_min
-            material = layer_info["material"]
-
-            # Query the unit-cell object to get its exact bounding box (for X-bounds)
             layer_obj = self.source_design_app.modeler.get_object_from_name(layer_name)
             bbox = layer_obj.bounding_box
             x_min_uc, x_max_uc = float(bbox[0]), float(bbox[3])
 
-            # Query all active elements and port sheets to get the Y-bounds (longitudinal bounds)
-            # This crops out empty substrate margin and forces the board to terminate directly where the feedlines end.
             y_min_active_uc = None
             y_max_active_uc = None
             for active_name in active_elements + port_sheets:
@@ -383,13 +449,11 @@ class MimoHfssBuilder:
                 except Exception:
                     pass
 
-            # Fallback to substrate bounds if no active elements are present
             if y_min_active_uc is None:
                 y_min_active_uc = float(bbox[1])
             if y_max_active_uc is None:
                 y_max_active_uc = float(bbox[4])
 
-            # Define the 4 corners: X matches the substrate edges, Y matches the feedline edges
             corners = [
                 (x_min_uc, y_min_active_uc),
                 (x_max_uc, y_min_active_uc),
@@ -397,21 +461,18 @@ class MimoHfssBuilder:
                 (x_max_uc, y_max_active_uc),
             ]
 
-            # Calculate global bounding box by union of all rotated/translated footprints
             all_x_glob = []
             all_y_glob = []
-            for element in elements:
-                pos = element["pos"]
-                yaw_deg = element.get("yaw", 0.0)
+            for element in elements_list:
+                pos = element.get("position", element.get("pos", [0.0, 0.0, 0.0]))
+                yaw_deg = float(element.get("yaw", element.get("rotation_yaw", element.get("rotation", 0.0))))
                 rad = math.radians(yaw_deg)
                 cos_val = math.cos(rad)
                 sin_val = math.sin(rad)
 
                 for cx, cy in corners:
-                    # Rotate corner around origin
                     rx = cx * cos_val - cy * sin_val
                     ry = cx * sin_val + cy * cos_val
-                    # Translate to element position
                     all_x_glob.append(rx + pos[0])
                     all_y_glob.append(ry + pos[1])
 
@@ -420,7 +481,6 @@ class MimoHfssBuilder:
             global_y_min = min(all_y_glob) - self.pcb_margin_mm
             global_y_max = max(all_y_glob) + self.pcb_margin_mm
 
-            # Track overall bounds across all board layers
             if overall_x_min is None or global_x_min < overall_x_min:
                 overall_x_min = global_x_min
             if overall_x_max is None or global_x_max > overall_x_max:
@@ -430,16 +490,40 @@ class MimoHfssBuilder:
             if overall_y_max is None or global_y_max > overall_y_max:
                 overall_y_max = global_y_max
 
-            board_width = global_x_max - global_x_min
-            board_height = global_y_max - global_y_min
-            origin_x = global_x_min
-            origin_y = global_y_min
+        # Determine arrayBoardWidth and arrayBoardLength formulas or values
+        # We use arrayBoardWidth / arrayBoardLength for the synthesized board layers so that
+        # any internal unit-cell variables (like boardWidth / boardLength / sub_L) retain their
+        # single-element values without double-expanding the feedlines.
+        board_config = layout_metadata.get("board", {})
+        width_formula = board_config.get("width_formula")
+        length_formula = board_config.get("length_formula")
+
+        board_width_calc = overall_x_max - overall_x_min if overall_x_max is not None else 10.0
+        board_height_calc = overall_y_max - overall_y_min if overall_y_max is not None else 10.0
+
+        if width_formula:
+            self.target_design_app["arrayBoardWidth"] = str(width_formula)
+        else:
+            self.target_design_app["arrayBoardWidth"] = f"{board_width_calc:.4f}mm"
+
+        if length_formula:
+            self.target_design_app["arrayBoardLength"] = str(length_formula)
+        else:
+            self.target_design_app["arrayBoardLength"] = f"{board_height_calc:.4f}mm"
+
+        print("\nConstructing global contiguous board layers:")
+        for layer_name in sorted_layers:
+            layer_info = global_layers[layer_name]
+            z_min = layer_info["z_min"]
+            z_max = layer_info["z_max"]
+            thickness = z_max - z_min
+            material = layer_info["material"]
 
             if layer_name.endswith("_Substrate"):
                 print(f"  Creating substrate '{layer_name}' (material={material}, thickness={thickness:.2f} mm)")
                 sub_board = target_modeler.create_box(
-                    origin=[origin_x, origin_y, z_min - offset[2]],
-                    sizes=[board_width, board_height, thickness],
+                    origin=["-arrayBoardWidth / 2", "-arrayBoardLength / 2", f"{z_min - offset[2]:.4f}mm"],
+                    sizes=["arrayBoardWidth", "arrayBoardLength", f"{thickness:.4f}mm"],
                     name=layer_name,
                     material=material,
                 )
@@ -447,25 +531,24 @@ class MimoHfssBuilder:
 
             elif layer_name.endswith("_Ground"):
                 ground_layer_names.append(layer_name)
-                # If ground is modeled as infinitely thin sheet (thickness = 0)
                 if thickness == 0.0:
-                    print(f"  Creating ground plane sheet '{layer_name}' at Z={z_min - offset[2]}")
+                    print(f"  Creating ground plane sheet '{layer_name}' at Z={z_min - offset[2]:.2f} mm")
                     target_modeler.create_rectangle(
                         orientation="XY",
-                        origin=[origin_x, origin_y, z_min - offset[2]],
-                        sizes=[board_width, board_height],
+                        origin=["-arrayBoardWidth / 2", "-arrayBoardLength / 2", f"{z_min - offset[2]:.4f}mm"],
+                        sizes=["arrayBoardWidth", "arrayBoardLength"],
                         name=layer_name,
                     )
                 else:
                     print(f"  Creating ground plane block '{layer_name}' (thickness={thickness:.2f} mm)")
                     target_modeler.create_box(
-                        origin=[origin_x, origin_y, z_min - offset[2]],
-                        sizes=[board_width, board_height, thickness],
+                        origin=["-arrayBoardWidth / 2", "-arrayBoardLength / 2", f"{z_min - offset[2]:.4f}mm"],
+                        sizes=["arrayBoardWidth", "arrayBoardLength", f"{thickness:.4f}mm"],
                         name=layer_name,
                         material=material,
                     )
 
-        # --- STEP 4: Replicate and Translate Elements ---
+        # --- STEP 4: Replicate Elements via Dedicated Coordinate Systems ---
         all_replicate_sources = active_elements + port_sheets
         for dummy_list in dummy_solids.values():
             all_replicate_sources.extend(dummy_list)
@@ -475,6 +558,7 @@ class MimoHfssBuilder:
 
         # Optimization: Copy the templates from the source design to the target design exactly ONCE.
         print("\nCopying template geometries to target design...")
+        target_modeler.set_working_coordinate_system("Global")
         self.target_design_app.copy_solid_bodies_from(
             design=self.source_design_app,
             assignment=all_replicate_sources,
@@ -493,11 +577,12 @@ class MimoHfssBuilder:
 
         self.target_design_app.set_active_design(self.target_design_name)
 
-        print("Replicating structures to array grid...")
-        for element in elements:
-            raw_label = element["label"]
-            pos = element["pos"]
-            element_yaw = float(element.get("yaw", 0.0))
+        print("Replicating structures to array grid with element coordinate systems...")
+        for element in elements_list:
+            raw_label = element.get("label", element.get("name", "Element"))
+            pos = element.get("position", element.get("pos", [0.0, 0.0, 0.0]))
+            pos_expr = element.get("position_expression", element.get("pos_expr", None))
+            element_yaw = float(element.get("yaw", element.get("rotation_yaw", element.get("rotation", 0.0))))
             pol = str(element.get("polarization", element.get("pol", ""))).strip().upper()
 
             # Append polarization suffix if specified and not already present in the label
@@ -506,10 +591,41 @@ class MimoHfssBuilder:
             else:
                 label = raw_label
 
-            print(f"  Replicating element: {label} to position {pos} mm (yaw={element_yaw:.1f} deg)...")
+            cs_name = f"CS_{label}"
+            print(f"\n  Setting up element {label} (yaw={element_yaw:.1f} deg)...")
+
+            # Determine parametric origin of the element CS
+            if pos_expr:
+                cs_origin = [str(pos_expr[0]), str(pos_expr[1]), f"{-offset[2]:.4f}mm"]
+            else:
+                cs_origin = [f"{pos[0]:.4f}mm", f"{pos[1]:.4f}mm", f"{-offset[2]:.4f}mm"]
+
+            # Calculate pointing vectors for the CS rotation around Z
+            rad = math.radians(element_yaw)
+            cos_val = math.cos(rad)
+            sin_val = math.sin(rad)
+            x_pointing = [cos_val, sin_val, 0.0]
+            y_pointing = [-sin_val, cos_val, 0.0]
+
+            # Recreate coordinate system if it exists
+            cs_map = {cs.name: cs for cs in target_modeler.coordinate_systems}
+            if cs_name in cs_map:
+                try:
+                    cs_map[cs_name].delete()
+                except Exception:
+                    pass
+
+            print(f"  Creating relative coordinate system '{cs_name}' at origin {cs_origin}...")
+            target_modeler.create_coordinate_system(
+                origin=cs_origin,
+                reference_cs="Global",
+                name=cs_name,
+                mode="axis",
+                x_pointing=x_pointing,
+                y_pointing=y_pointing,
+            )
 
             # Duplicate all templates locally using duplicate_along_line with a dummy Z offset of 1.0 mm.
-            # This completely bypasses the X11 clipboard copy/paste mechanism to avoid hangs in headless containers.
             success, pasted_names = target_modeler.duplicate_along_line(
                 assignment=all_replicate_sources,
                 vector=[0, 0, 1.0],
@@ -524,7 +640,7 @@ class MimoHfssBuilder:
                 vector=[0, 0, -1.0],
             )
 
-            # Rename duplicated objects and track ports/dummy solids
+            # Rename duplicated objects, assign to element CS, and track ports/dummy solids
             renamed_objs = []
             for pasted_name in pasted_names:
                 # Strip numerical suffixes added by AEDT duplicate if any (e.g. L1_Patch_1 -> L1_Patch)
@@ -535,7 +651,8 @@ class MimoHfssBuilder:
                         break
 
                 new_name = f"{base_name}_{label}"
-                target_modeler.get_object_from_name(pasted_name).name = new_name
+                obj = target_modeler.get_object_from_name(pasted_name)
+                obj.name = new_name
                 renamed_objs.append(new_name)
 
                 # Track port sheets
@@ -556,23 +673,37 @@ class MimoHfssBuilder:
                 )
 
             # Calculate the rotated phase centre offset
-            rad = math.radians(element_yaw)
-            cos_val = math.cos(rad)
-            sin_val = math.sin(rad)
-
-            # Rotate offset around Z axis
             rot_dx = offset[0] * cos_val - offset[1] * sin_val
             rot_dy = offset[0] * sin_val + offset[1] * cos_val
             rot_dz = offset[2]
 
-            # Move element to final position (compensating for the phase centre offset)
+            # In Z, the element must be translated by (pos[2] - rot_dz) so its vertical positioning
+            # relative to the substrate and ground plane matches the unit-cell design exactly.
+            z_pos_val = float(pos[2]) if len(pos) > 2 else 0.0
+            z_shift_str = f"{z_pos_val - rot_dz:.4f}mm"
+
+            # Move element to final position
+            if pos_expr:
+                x_move = f"{pos_expr[0]} - {rot_dx:.4f}mm" if abs(rot_dx) > 1e-4 else str(pos_expr[0])
+                y_move = f"{pos_expr[1]} - {rot_dy:.4f}mm" if abs(rot_dy) > 1e-4 else str(pos_expr[1])
+                move_vector = [x_move, y_move, z_shift_str]
+            else:
+                move_vector = [
+                    f"{pos[0] - rot_dx:.4f}mm",
+                    f"{pos[1] - rot_dy:.4f}mm",
+                    z_shift_str,
+                ]
+
             target_modeler.move(
                 assignment=renamed_objs,
-                vector=[pos[0] - rot_dx, pos[1] - rot_dy, pos[2] - rot_dz],
+                vector=move_vector,
             )
 
+        # Reset working coordinate system to Global
+        target_modeler.set_working_coordinate_system("Global")
+
         # Clean up the original template geometries at the origin of the target design
-        print("Cleaning up template geometries...")
+        print("\nCleaning up template geometries...")
         target_modeler.delete(all_replicate_sources)
 
         # --- STEP 5: Perform Boolean Dummy Operations ---
@@ -597,8 +728,8 @@ class MimoHfssBuilder:
                 print(f"  Uniting {len(dummy_instances)} objects with '{target_solid}'")
                 target_modeler.unite(assignment=[target_solid] + dummy_instances)
 
-        # --- STEP 6: Assign Lumped Port Excitations ---
-        print("\nAssigning port excitations...")
+        # --- STEP 6: Assign Wave Port Excitations ---
+        print("\nAssigning wave port excitations...")
         # Use first identified ground plane as the default reference ground
         default_ground = ground_layer_names[0] if ground_layer_names else "Ground_Plane"
 
@@ -608,14 +739,23 @@ class MimoHfssBuilder:
                 suffix = suffix[1:]
             port_name = f"Port_{suffix}"
 
-            print(f"  Assigning lumped port to sheet '{port_sheet}' referencing '{default_ground}'")
-            self.target_design_app.lumped_port(
-                assignment=port_sheet,
-                reference=default_ground,
-                integration_line=Gravity.ZNeg,
-                impedance=50.0,
-                name=port_name,
-            )
+            print(f"  Assigning wave port to sheet '{port_sheet}' referencing '{default_ground}'")
+            try:
+                self.target_design_app.wave_port(
+                    assignment=port_sheet,
+                    reference=default_ground,
+                    integration_line=Gravity.ZNeg,
+                    name=port_name,
+                )
+            except Exception as e:
+                print(f"  Warning: wave_port assignment failed ({e}), falling back to lumped_port...")
+                self.target_design_app.lumped_port(
+                    assignment=port_sheet,
+                    reference=default_ground,
+                    integration_line=Gravity.ZNeg,
+                    impedance=50.0,
+                    name=port_name,
+                )
 
         # Enable Port Post Processing Effects to satisfy warning constraints
         try:
@@ -640,27 +780,20 @@ class MimoHfssBuilder:
             all_z_coords.extend([layer_info["z_min"], layer_info["z_max"]])
         overall_z_min = (min(all_z_coords) if all_z_coords else 0.0) - offset[2]
         overall_z_max = (max(all_z_coords) if all_z_coords else 1.0) - offset[2]
+        total_z_thickness = overall_z_max - overall_z_min
 
-        # Calculate clearance using lambda_0 / 4 (quarter wavelength) rule of thumb
-        speed_of_light_mm_s = 2.99792458e11
-        wavelength_mm = speed_of_light_mm_s / (operating_frequency_ghz * 1e9)
-        airbox_clearance_mm = 0.25 * wavelength_mm
-
-        airbox_x_min = overall_x_min - airbox_clearance_mm
-        airbox_x_max = overall_x_max + airbox_clearance_mm
-        airbox_y_min = overall_y_min - airbox_clearance_mm
-        airbox_y_max = overall_y_max + airbox_clearance_mm
-        airbox_z_min = overall_z_min - airbox_clearance_mm
-        airbox_z_max = overall_z_max + airbox_clearance_mm
-
-        airbox_width = airbox_x_max - airbox_x_min
-        airbox_height = airbox_y_max - airbox_y_min
-        airbox_thickness = airbox_z_max - airbox_z_min
-
-        print(f"  Creating Airbox solid (clearance={airbox_clearance_mm:.2f} mm)")
+        print(f"  Creating flush lateral Airbox solid (airboxClearance={airbox_clearance_mm:.2f} mm)")
         airbox_obj = target_modeler.create_box(
-            origin=[airbox_x_min, airbox_y_min, airbox_z_min],
-            sizes=[airbox_width, airbox_height, airbox_thickness],
+            origin=[
+                "-arrayBoardWidth / 2",
+                "-arrayBoardLength / 2",
+                f"{overall_z_min:.4f}mm - airboxClearance",
+            ],
+            sizes=[
+                "arrayBoardWidth",
+                "arrayBoardLength",
+                f"{total_z_thickness:.4f}mm + 2 * airboxClearance",
+            ],
             name="Airbox",
             material="vacuum",
         )
@@ -1336,8 +1469,8 @@ def load_layout_file(layout_path):
 
     Returns
     -------
-    list of dict
-        List of element dictionaries describing positions, yaws, polarizations, and roles.
+    dict or list of dict
+        Layout dictionary containing 'metadata' and 'elements', or list of element dictionaries.
     """
     layout_path = os.path.abspath(layout_path)
     ext = os.path.splitext(layout_path)[1].lower()
@@ -1373,12 +1506,38 @@ if __name__ == "__main__":
         help="Optional path to custom elements layout YAML or JSON file",
     )
     parser.add_argument(
+        "-f",
+        "--overwrite",
+        "--overwrite-design",
+        action="store_true",
+        default=False,
+        help="Automatically overwrite/clear target HFSS design if it already exists",
+    )
+    parser.add_argument(
+        "-y",
+        "--yes",
+        "--accept-all",
+        action="store_true",
+        default=False,
+        help="Accept all affirmative defaults (use existing CS, overwrite existing design, setup results, and run simulation)",
+    )
+    parser.add_argument(
+        "--build-only",
+        action="store_true",
+        default=False,
+        help="Build model only: automatically decline results creation and decline simulation run without prompting",
+    )
+    parser.add_argument(
+        "--use-existing-cs",
+        "--use-existing-phase-centre",
+        action="store_true",
+        default=False,
+        help="Use existing PhaseCentreCS in the unit cell without prompting or running Optimetrics",
+    )
+    parser.add_argument(
         "--centre-freq", "--center-freq", type=float, default=79.0, help="Centre frequency in GHz (default: 79.0)"
     )
     parser.add_argument("--bandwidth", type=float, default=4.0, help="Sweep bandwidth in GHz (default: 4.0)")
-    parser.add_argument(
-        "--run-simulation", action="store_true", help="Automatically launch HFSS simulation ('Analyze All') after synthesis"
-    )
 
     args = parser.parse_args()
 
@@ -1412,10 +1571,24 @@ if __name__ == "__main__":
                 operating_frequency_ghz=args.centre_freq,
                 subarray_spacing_mm=10.0,
             )
+
+        if args.build_only:
+            setup_results = False
+            run_simulation = False
+        elif args.yes:
+            setup_results = True
+            run_simulation = True
+        else:
+            setup_results = None
+            run_simulation = None
+
         builder.synthesize_array_in_hfss(
             elements_list,
             operating_frequency_ghz=args.centre_freq,
-            run_simulation=True if args.run_simulation else None,
+            use_existing_cs=True if (args.use_existing_cs or args.yes) else None,
+            overwrite=True if (args.overwrite or args.yes) else None,
+            setup_results=setup_results,
+            run_simulation=run_simulation,
         )
     finally:
         builder.close()

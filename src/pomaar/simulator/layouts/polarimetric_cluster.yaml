@@ -1,0 +1,61 @@
+metadata:
+  topology: polarimetric_cluster
+  center_frequency_ghz: 79.0
+  bandwidth_ghz: 4.0
+  variables:
+    copolarSpacing: 2.6600mm
+    clusterRadius: copolarSpacing / 2
+    crosspolarSpacing: sqrt(2) * clusterRadius
+    pcbMargin: 0.0mm
+  board:
+    width_formula: 2 * (clusterRadius + unitCellExtent + pcbMargin)
+    length_formula: 2 * (clusterRadius + unitCellExtent + pcbMargin)
+elements:
+- label: Tx
+  role: Tx
+  polarization: h
+  position:
+  - 1.33
+  - 0.0
+  - 0.0
+  position_expression:
+  - clusterRadius
+  - 0mm
+  - 0mm
+  yaw: 90.0
+- label: Rx
+  role: Rx
+  polarization: h
+  position:
+  - -1.33
+  - 0.0
+  - 0.0
+  position_expression:
+  - -clusterRadius
+  - 0mm
+  - 0mm
+  yaw: 270.0
+- label: Tx
+  role: Tx
+  polarization: v
+  position:
+  - 0.0
+  - 1.33
+  - 0.0
+  position_expression:
+  - 0mm
+  - clusterRadius
+  - 0mm
+  yaw: 180.0
+- label: Rx
+  role: Rx
+  polarization: v
+  position:
+  - 0.0
+  - -1.33
+  - 0.0
+  position_expression:
+  - 0mm
+  - -clusterRadius
+  - 0mm
+  yaw: 0.0

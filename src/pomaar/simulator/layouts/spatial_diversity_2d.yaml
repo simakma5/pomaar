@@ -1,0 +1,113 @@
+metadata:
+  topology: spatial_diversity_2d
+  center_frequency_ghz: 79.0
+  bandwidth_ghz: 4.0
+  variables:
+    rxSpacingX: 1.9000mm
+    rxSpacingY: 1.9000mm
+    txSpacingX: 5.6900mm
+    txSpacingY: 6.0000mm
+    txOffsetY: 12.0000mm
+    pcbMargin: 0.0mm
+  board:
+    width_formula: max((3 - 1) * rxSpacingX, (3 - 1) * txSpacingX) + 2 * (unitCellExtentX
+      + pcbMargin)
+    length_formula: max((3 - 1) * rxSpacingY, txOffsetY + txSpacingY) + 2 * (unitCellExtentY
+      + pcbMargin)
+elements:
+- label: Rx_Az_1
+  role: Rx
+  position:
+  - -1.9
+  - 0.0
+  - 0.0
+  position_expression:
+  - (0 - (3 - 1) / 2.0) * rxSpacingX
+  - 0mm
+  - 0mm
+  polarization: v
+  yaw: 0.0
+- label: Rx_Az_2
+  role: Rx
+  position:
+  - 0.0
+  - 0.0
+  - 0.0
+  position_expression:
+  - (1 - (3 - 1) / 2.0) * rxSpacingX
+  - 0mm
+  - 0mm
+  polarization: v
+  yaw: 0.0
+- label: Rx_Az_3
+  role: Rx
+  position:
+  - 1.9
+  - 0.0
+  - 0.0
+  position_expression:
+  - (2 - (3 - 1) / 2.0) * rxSpacingX
+  - 0mm
+  - 0mm
+  polarization: v
+  yaw: 0.0
+- label: Rx_El_1
+  role: Rx
+  position:
+  - 0.0
+  - 1.9
+  - 0.0
+  position_expression:
+  - 0mm
+  - 1 * rxSpacingY
+  - 0mm
+  polarization: v
+  yaw: 0.0
+- label: Rx_El_2
+  role: Rx
+  position:
+  - 0.0
+  - 3.8
+  - 0.0
+  position_expression:
+  - 0mm
+  - 2 * rxSpacingY
+  - 0mm
+  polarization: v
+  yaw: 0.0
+- label: Tx_1
+  role: Tx
+  position:
+  - -5.69
+  - 12.0
+  - 0.0
+  position_expression:
+  - (0 - (3 - 1) / 2.0) * txSpacingX
+  - txOffsetY
+  - 0mm
+  polarization: v
+  yaw: 180.0
+- label: Tx_2
+  role: Tx
+  position:
+  - 0.0
+  - 18.0
+  - 0.0
+  position_expression:
+  - (1 - (3 - 1) / 2.0) * txSpacingX
+  - txOffsetY + txSpacingY
+  - 0mm
+  polarization: v
+  yaw: 180.0
+- label: Tx_3
+  role: Tx
+  position:
+  - 5.69
+  - 12.0
+  - 0.0
+  position_expression:
+  - (2 - (3 - 1) / 2.0) * txSpacingX
+  - txOffsetY
+  - 0mm
+  polarization: v
+  yaw: 180.0
