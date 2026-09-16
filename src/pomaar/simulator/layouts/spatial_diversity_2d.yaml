@@ -8,22 +8,22 @@ metadata:
     txSpacingX: 5.6900mm
     txSpacingY: 6.0000mm
     txOffsetY: 12.0000mm
-    pcbMargin: 0.0mm
+    arrayCenterY: (txOffsetY + txSpacingY) / 2
+    pcbMargin: 0.0000mm
   board:
     width_formula: max((3 - 1) * rxSpacingX, (3 - 1) * txSpacingX) + 2 * (unitCellExtentX
       + pcbMargin)
-    length_formula: max((3 - 1) * rxSpacingY, txOffsetY + txSpacingY) + 2 * (unitCellExtentY
-      + pcbMargin)
+    length_formula: (txOffsetY + txSpacingY) + 2 * (unitCellExtentY + pcbMargin)
 elements:
 - label: Rx_Az_1
   role: Rx
   position:
   - -1.9
-  - 0.0
+  - -9.0
   - 0.0
   position_expression:
   - (0 - (3 - 1) / 2.0) * rxSpacingX
-  - 0mm
+  - -arrayCenterY
   - 0mm
   polarization: v
   yaw: 0.0
@@ -31,11 +31,11 @@ elements:
   role: Rx
   position:
   - 0.0
-  - 0.0
+  - -9.0
   - 0.0
   position_expression:
   - (1 - (3 - 1) / 2.0) * rxSpacingX
-  - 0mm
+  - -arrayCenterY
   - 0mm
   polarization: v
   yaw: 0.0
@@ -43,11 +43,11 @@ elements:
   role: Rx
   position:
   - 1.9
-  - 0.0
+  - -9.0
   - 0.0
   position_expression:
   - (2 - (3 - 1) / 2.0) * rxSpacingX
-  - 0mm
+  - -arrayCenterY
   - 0mm
   polarization: v
   yaw: 0.0
@@ -55,11 +55,11 @@ elements:
   role: Rx
   position:
   - 0.0
-  - 1.9
+  - -7.1
   - 0.0
   position_expression:
   - 0mm
-  - 1 * rxSpacingY
+  - 1 * rxSpacingY - arrayCenterY
   - 0mm
   polarization: v
   yaw: 0.0
@@ -67,11 +67,11 @@ elements:
   role: Rx
   position:
   - 0.0
-  - 3.8
+  - -5.2
   - 0.0
   position_expression:
   - 0mm
-  - 2 * rxSpacingY
+  - 2 * rxSpacingY - arrayCenterY
   - 0mm
   polarization: v
   yaw: 0.0
@@ -79,11 +79,11 @@ elements:
   role: Tx
   position:
   - -5.69
-  - 12.0
+  - 3.0
   - 0.0
   position_expression:
   - (0 - (3 - 1) / 2.0) * txSpacingX
-  - txOffsetY
+  - txOffsetY - arrayCenterY
   - 0mm
   polarization: v
   yaw: 180.0
@@ -91,11 +91,11 @@ elements:
   role: Tx
   position:
   - 0.0
-  - 18.0
+  - 9.0
   - 0.0
   position_expression:
   - (1 - (3 - 1) / 2.0) * txSpacingX
-  - txOffsetY + txSpacingY
+  - txOffsetY + txSpacingY - arrayCenterY
   - 0mm
   polarization: v
   yaw: 180.0
@@ -103,11 +103,11 @@ elements:
   role: Tx
   position:
   - 5.69
-  - 12.0
+  - 3.0
   - 0.0
   position_expression:
   - (2 - (3 - 1) / 2.0) * txSpacingX
-  - txOffsetY
+  - txOffsetY - arrayCenterY
   - 0mm
   polarization: v
   yaw: 180.0

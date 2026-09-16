@@ -868,7 +868,6 @@ class MimoHfssBuilder:
             raise RuntimeError("Array design not synthesized yet.")
 
         # Check and purge any existing analysis setups and their sweeps
-        # Check and purge any existing analysis setups and their sweeps
         try:
             setup_names = list(self.target_design_app.setup_names)
         except Exception:
@@ -1528,6 +1527,18 @@ if __name__ == "__main__":
         help="Build model only: automatically decline results creation and decline simulation run without prompting",
     )
     parser.add_argument(
+        "--results-only",
+        action="store_true",
+        default=False,
+        help="Skip building; only set up post-processing results on an existing design",
+    )
+    parser.add_argument(
+        "--simulate-only",
+        action="store_true",
+        default=False,
+        help="Skip building; only launch simulation ('Analyze All') on an existing design",
+    )
+    parser.add_argument(
         "--use-existing-cs",
         "--use-existing-phase-centre",
         action="store_true",
@@ -1560,35 +1571,64 @@ if __name__ == "__main__":
 
     try:
         builder.connect_desktop()
-        if args.layout_path:
-            print(f"Loading custom layout from: {args.layout_path}")
-            elements_list = load_layout_file(args.layout_path)
-        else:
-            print(f"No custom layout provided. Using default coplanar layout at {args.centre_freq} GHz...")
-            elements_list = builder.calculate_default_coplanar_layout(
-                transmitter_count=4,
-                receiver_count=4,
-                operating_frequency_ghz=args.centre_freq,
-                subarray_spacing_mm=10.0,
+
+        if args.results_only or args.simulate_only:
+            target_design = builder.target_design_name
+            print(f"\n[INFO] Connecting directly to target design '{target_design}' in '{args.project_path}'...")
+            from ansys.aedt.core import Hfss
+
+            builder.target_design_app = Hfss(
+                project=args.project_path,
+                design=target_design,
+                new_desktop=False,
+                close_on_exit=False,
             )
 
-        if args.build_only:
-            setup_results = False
-            run_simulation = False
-        elif args.yes:
-            setup_results = True
-            run_simulation = True
-        else:
-            setup_results = None
-            run_simulation = None
+            if args.results_only:
+                metric = "3" if args.yes else None
+                builder.create_post_processing_reports(metric_choice=metric)
+                builder.target_design_app.save_project()
 
-        builder.synthesize_array_in_hfss(
-            elements_list,
-            operating_frequency_ghz=args.centre_freq,
-            use_existing_cs=True if (args.use_existing_cs or args.yes) else None,
-            overwrite=True if (args.overwrite or args.yes) else None,
-            setup_results=setup_results,
-            run_simulation=run_simulation,
-        )
+            if args.simulate_only:
+                print("\nRunning HFSS built-in design validation...")
+                validation_ok = builder.target_design_app.validate_simple()
+                if validation_ok == 1 or validation_ok is True:
+                    print("  Design validation: PASSED.")
+                else:
+                    print("  [WARNING] Design validation returned issues.")
+                print("\nLaunching HFSS simulation ('Analyze All')...")
+                builder.target_design_app.analyze()
+                builder.target_design_app.save_project()
+        else:
+            if args.layout_path:
+                print(f"Loading custom layout from: {args.layout_path}")
+                elements_list = load_layout_file(args.layout_path)
+            else:
+                print(f"No custom layout provided. Using default coplanar layout at {args.centre_freq} GHz...")
+                elements_list = builder.calculate_default_coplanar_layout(
+                    transmitter_count=4,
+                    receiver_count=4,
+                    operating_frequency_ghz=args.centre_freq,
+                    subarray_spacing_mm=10.0,
+                )
+
+            if args.build_only:
+                setup_results = False
+                run_simulation = False
+            elif args.yes:
+                setup_results = True
+                run_simulation = True
+            else:
+                setup_results = None
+                run_simulation = None
+
+            builder.synthesize_array_in_hfss(
+                elements_list,
+                operating_frequency_ghz=args.centre_freq,
+                use_existing_cs=True if (args.use_existing_cs or args.yes) else None,
+                overwrite=True if (args.overwrite or args.yes) else None,
+                setup_results=setup_results,
+                run_simulation=run_simulation,
+            )
     finally:
         builder.close()

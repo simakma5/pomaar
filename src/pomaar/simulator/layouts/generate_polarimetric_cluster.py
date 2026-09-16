@@ -7,7 +7,6 @@ with parameterized radial distance from the geometrical centre.
 import argparse
 import math
 from pathlib import Path
-import sys
 import yaml
 
 
@@ -46,6 +45,12 @@ def main():
         type=float,
         default=4.0,
         help="Sweep bandwidth in GHz (default: 4.0)",
+    )
+    parser.add_argument(
+        "--pcb-margin",
+        type=float,
+        default=0.0,
+        help="Additional PCB margin in mm (default: 0.0)",
     )
     parser.add_argument(
         "-o",
@@ -91,7 +96,7 @@ def main():
                 "copolarSpacing": f"{copol_spacing_mm:.4f}mm",
                 "clusterRadius": "copolarSpacing / 2",
                 "crosspolarSpacing": "sqrt(2) * clusterRadius",
-                "pcbMargin": "0.0mm",
+                "pcbMargin": f"{args.pcb_margin:.4f}mm",
             },
             "board": {
                 "width_formula": "2 * (clusterRadius + unitCellExtent + pcbMargin)",

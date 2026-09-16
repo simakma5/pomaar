@@ -6,21 +6,21 @@ metadata:
     rxSpacing: 1.9000mm
     txSpacing: 7.6000mm
     txOffsetY: 12.0000mm
-    pcbMargin: 0.0mm
+    pcbMargin: 0.0000mm
   board:
-    width_formula: max((4 - 1) * rxSpacing, (4 - 1) * txSpacing) + 2 * (unitCellExtentX
+    width_formula: max((4 - 1) * rxSpacing, (4 - 1) * txSpacing) + 2 * (unitCellExtent
       + pcbMargin)
-    length_formula: txOffsetY + 2 * (unitCellExtentY + pcbMargin)
+    length_formula: txOffsetY + 2 * (unitCellExtent + pcbMargin)
 elements:
 - label: Rx_1
   role: Rx
   position:
   - -2.85
-  - 0.0
+  - -6.0
   - 0.0
   position_expression:
   - (0 - (4 - 1) / 2.0) * rxSpacing
-  - 0mm
+  - -txOffsetY / 2
   - 0mm
   polarization: v
   yaw: 0.0
@@ -28,11 +28,11 @@ elements:
   role: Rx
   position:
   - -2.85
-  - 0.0
+  - -6.0
   - 0.0
   position_expression:
   - (0 - (4 - 1) / 2.0) * rxSpacing
-  - 0mm
+  - -txOffsetY / 2
   - 0mm
   polarization: h
   yaw: 90.0
@@ -40,11 +40,11 @@ elements:
   role: Rx
   position:
   - -0.95
-  - 0.0
+  - -6.0
   - 0.0
   position_expression:
   - (1 - (4 - 1) / 2.0) * rxSpacing
-  - 0mm
+  - -txOffsetY / 2
   - 0mm
   polarization: v
   yaw: 0.0
@@ -52,11 +52,11 @@ elements:
   role: Rx
   position:
   - -0.95
-  - 0.0
+  - -6.0
   - 0.0
   position_expression:
   - (1 - (4 - 1) / 2.0) * rxSpacing
-  - 0mm
+  - -txOffsetY / 2
   - 0mm
   polarization: h
   yaw: 90.0
@@ -64,11 +64,11 @@ elements:
   role: Rx
   position:
   - 0.95
-  - 0.0
+  - -6.0
   - 0.0
   position_expression:
   - (2 - (4 - 1) / 2.0) * rxSpacing
-  - 0mm
+  - -txOffsetY / 2
   - 0mm
   polarization: v
   yaw: 0.0
@@ -76,11 +76,11 @@ elements:
   role: Rx
   position:
   - 0.95
-  - 0.0
+  - -6.0
   - 0.0
   position_expression:
   - (2 - (4 - 1) / 2.0) * rxSpacing
-  - 0mm
+  - -txOffsetY / 2
   - 0mm
   polarization: h
   yaw: 90.0
@@ -88,11 +88,11 @@ elements:
   role: Rx
   position:
   - 2.85
-  - 0.0
+  - -6.0
   - 0.0
   position_expression:
   - (3 - (4 - 1) / 2.0) * rxSpacing
-  - 0mm
+  - -txOffsetY / 2
   - 0mm
   polarization: v
   yaw: 0.0
@@ -100,11 +100,11 @@ elements:
   role: Rx
   position:
   - 2.85
-  - 0.0
+  - -6.0
   - 0.0
   position_expression:
   - (3 - (4 - 1) / 2.0) * rxSpacing
-  - 0mm
+  - -txOffsetY / 2
   - 0mm
   polarization: h
   yaw: 90.0
@@ -112,11 +112,11 @@ elements:
   role: Tx
   position:
   - -11.4
-  - 12.0
+  - 6.0
   - 0.0
   position_expression:
   - (0 - (4 - 1) / 2.0) * txSpacing
-  - txOffsetY
+  - txOffsetY / 2
   - 0mm
   polarization: v
   yaw: 180.0
@@ -124,11 +124,11 @@ elements:
   role: Tx
   position:
   - -3.8
-  - 12.0
+  - 6.0
   - 0.0
   position_expression:
   - (1 - (4 - 1) / 2.0) * txSpacing
-  - txOffsetY
+  - txOffsetY / 2
   - 0mm
   polarization: h
   yaw: 270.0
@@ -136,11 +136,11 @@ elements:
   role: Tx
   position:
   - 3.8
-  - 12.0
+  - 6.0
   - 0.0
   position_expression:
   - (2 - (4 - 1) / 2.0) * txSpacing
-  - txOffsetY
+  - txOffsetY / 2
   - 0mm
   polarization: v
   yaw: 180.0
@@ -148,11 +148,11 @@ elements:
   role: Tx
   position:
   - 11.4
-  - 12.0
+  - 6.0
   - 0.0
   position_expression:
   - (3 - (4 - 1) / 2.0) * txSpacing
-  - txOffsetY
+  - txOffsetY / 2
   - 0mm
   polarization: h
   yaw: 270.0

@@ -6,7 +6,7 @@ metadata:
     copolarSpacing: 2.6600mm
     clusterRadius: copolarSpacing / 2
     crosspolarSpacing: sqrt(2) * clusterRadius
-    pcbMargin: 0.0mm
+    pcbMargin: 0.0000mm
   board:
     width_formula: 2 * (clusterRadius + unitCellExtent + pcbMargin)
     length_formula: 2 * (clusterRadius + unitCellExtent + pcbMargin)
