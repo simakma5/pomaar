@@ -33,7 +33,9 @@ class MimoHfssBuilder:
     ):
         self.project_path = os.path.abspath(project_path)
         self.source_design_name = source_design_name
-        self.target_design_name = target_design_name if target_design_name else f"{source_design_name}MimoArray"
+        self.target_design_name = (
+            target_design_name if target_design_name else f"{source_design_name}MimoArray"
+        )
         self.pcb_margin_mm = pcb_margin_mm
         self.grpc_port = grpc_port
         self.non_graphical = non_graphical
@@ -200,11 +202,21 @@ class MimoHfssBuilder:
                 continue
 
             # Skip vacuum domain solids, radiation boundaries, or airboxes present in source design
-            if obj.material_name.lower() == "vacuum" or "RadiatingSurface" in name or "Airbox" in name or "RadiationBox" in name:
+            if (
+                obj.material_name.lower() == "vacuum"
+                or "RadiatingSurface" in name
+                or "Airbox" in name
+                or "RadiationBox" in name
+            ):
                 print(f"  [Skipped Boundary] {name} ({obj.material_name})")
                 continue
 
-            if name.startswith("L12_") or name.startswith("L23_") or name.startswith("L34_") or name.startswith("L45_"):
+            if (
+                name.startswith("L12_")
+                or name.startswith("L23_")
+                or name.startswith("L34_")
+                or name.startswith("L45_")
+            ):
                 bbox = obj.bounding_box
                 z_coords = [float(bbox[2]), float(bbox[5])]
                 global_layers[name] = {
@@ -212,9 +224,15 @@ class MimoHfssBuilder:
                     "z_min": min(z_coords),
                     "z_max": max(z_coords),
                 }
-                print(f"  [Global Layer]     {name} ({obj.material_name}, Z=[{min(z_coords):.2f}, {max(z_coords):.2f}] mm)")
+                print(
+                    f"  [Global Layer]     {name} ({obj.material_name}, Z=[{min(z_coords):.2f}, {max(z_coords):.2f}] mm)"
+                )
 
-            elif name.startswith("L2_Ground") or name.startswith("Ground_Plane") or name.startswith("GND"):
+            elif (
+                name.startswith("L2_Ground")
+                or name.startswith("Ground_Plane")
+                or name.startswith("GND")
+            ):
                 bbox = obj.bounding_box
                 z_coords = [float(bbox[2]), float(bbox[5])]
                 global_layers[name] = {
@@ -222,7 +240,9 @@ class MimoHfssBuilder:
                     "z_min": min(z_coords),
                     "z_max": max(z_coords),
                 }
-                print(f"  [Global Ground]    {name} ({obj.material_name}, Z=[{min(z_coords):.2f}, {max(z_coords):.2f}] mm)")
+                print(
+                    f"  [Global Ground]    {name} ({obj.material_name}, Z=[{min(z_coords):.2f}, {max(z_coords):.2f}] mm)"
+                )
 
             elif "PortSheet" in name or name.startswith("Port_"):
                 port_sheets.append(name)
@@ -239,9 +259,18 @@ class MimoHfssBuilder:
         if "PhaseCentreCS" in cs_map:
             cs_obj = cs_map["PhaseCentreCS"]
             try:
-                dx_mm = float(self.source_design_app.evaluate_expression(cs_obj.props["OriginX"])) * 1000.0
-                dy_mm = float(self.source_design_app.evaluate_expression(cs_obj.props["OriginY"])) * 1000.0
-                dz_mm = float(self.source_design_app.evaluate_expression(cs_obj.props["OriginZ"])) * 1000.0
+                dx_mm = (
+                    float(self.source_design_app.evaluate_expression(cs_obj.props["OriginX"]))
+                    * 1000.0
+                )
+                dy_mm = (
+                    float(self.source_design_app.evaluate_expression(cs_obj.props["OriginY"]))
+                    * 1000.0
+                )
+                dz_mm = (
+                    float(self.source_design_app.evaluate_expression(cs_obj.props["OriginZ"]))
+                    * 1000.0
+                )
                 offset = [round(dx_mm, 3), round(dy_mm, 3), round(dz_mm, 3)]
             except Exception:
                 try:
@@ -254,7 +283,9 @@ class MimoHfssBuilder:
             elif use_existing_cs is False:
                 user_input = "n"
             elif sys.stdin.isatty():
-                user_input = input("Do you want to use the existing PhaseCentreCS? (y/n) [default: y]: ")
+                user_input = input(
+                    "Do you want to use the existing PhaseCentreCS? (y/n) [default: y]: "
+                )
             else:
                 user_input = "y"
             if user_input.strip().lower() in ["n", "no"]:
@@ -268,11 +299,15 @@ class MimoHfssBuilder:
                 run_opt = False
                 print("[INFO] Proceeding without PhaseCentreCS offset [0.0, 0.0, 0.0] mm.")
             elif sys.stdin.isatty():
-                user_input = input("Do you want to run Optimetrics to calculate the Phase Centre? (y/n) [default: y]: ")
+                user_input = input(
+                    "Do you want to run Optimetrics to calculate the Phase Centre? (y/n) [default: y]: "
+                )
                 if user_input.strip().lower() not in ["n", "no"]:
                     run_opt = True
                 else:
-                    user_input2 = input("Proceed without PhaseCentreCS offset? (y/n) [default: y]: ")
+                    user_input2 = input(
+                        "Proceed without PhaseCentreCS offset? (y/n) [default: y]: "
+                    )
                     if user_input2.strip().lower() in ["n", "no"]:
                         print("[INFO] Aborted by user.")
                         self.close()
@@ -282,7 +317,9 @@ class MimoHfssBuilder:
                 run_opt = True
 
         if run_opt:
-            offset = self._run_phase_centre_opt(source_modeler, global_layers, active_elements, operating_frequency_ghz)
+            offset = self._run_phase_centre_opt(
+                source_modeler, global_layers, active_elements, operating_frequency_ghz
+            )
 
         project_name = self.source_design_app.project_name
         design_list = self.source_design_app.design_list
@@ -339,6 +376,15 @@ class MimoHfssBuilder:
                 except Exception:
                     pass
 
+            # Clear any leftover Optimetrics setups to prevent validation errors with deleted setups
+            try:
+                opt_names = list(self.target_design_app.ooptimetrics.GetSetupNames())
+                if opt_names:
+                    print(f"  Clearing {len(opt_names)} existing Optimetrics setups...")
+                    self.target_design_app.ooptimetrics.DeleteSetups(opt_names)
+            except Exception:
+                pass
+
             # Setup and sweep purging will be handled at the end of synthesis in configure_simulation_setup
         else:
             print(f"Creating new HFSS array design '{self.target_design_name}'...")
@@ -372,7 +418,10 @@ class MimoHfssBuilder:
         # This prevents copied objects in the target design from retaining stale/cached design variable dimensions.
         try:
             print("Syncing design variables from source to target design...")
-            for var_name, var_expr in self.source_design_app.variable_manager.design_variables.items():
+            for (
+                var_name,
+                var_expr,
+            ) in self.source_design_app.variable_manager.design_variables.items():
                 self.target_design_app[var_name] = var_expr
         except Exception as e:
             print(f"  Warning: Failed to sync design variables ({e})")
@@ -390,8 +439,12 @@ class MimoHfssBuilder:
                 obj = self.source_design_app.modeler.get_object_from_name(obj_name)
                 if obj:
                     bb = obj.bounding_box
-                    uc_x_extents.extend([abs(float(bb[0]) - offset[0]), abs(float(bb[3]) - offset[0])])
-                    uc_y_extents.extend([abs(float(bb[1]) - offset[1]), abs(float(bb[4]) - offset[1])])
+                    uc_x_extents.extend(
+                        [abs(float(bb[0]) - offset[0]), abs(float(bb[3]) - offset[0])]
+                    )
+                    uc_y_extents.extend(
+                        [abs(float(bb[1]) - offset[1]), abs(float(bb[4]) - offset[1])]
+                    )
             except Exception:
                 pass
 
@@ -465,7 +518,9 @@ class MimoHfssBuilder:
             all_y_glob = []
             for element in elements_list:
                 pos = element.get("position", element.get("pos", [0.0, 0.0, 0.0]))
-                yaw_deg = float(element.get("yaw", element.get("rotation_yaw", element.get("rotation", 0.0))))
+                yaw_deg = float(
+                    element.get("yaw", element.get("rotation_yaw", element.get("rotation", 0.0)))
+                )
                 rad = math.radians(yaw_deg)
                 cos_val = math.cos(rad)
                 sin_val = math.sin(rad)
@@ -520,9 +575,15 @@ class MimoHfssBuilder:
             material = layer_info["material"]
 
             if layer_name.endswith("_Substrate"):
-                print(f"  Creating substrate '{layer_name}' (material={material}, thickness={thickness:.2f} mm)")
+                print(
+                    f"  Creating substrate '{layer_name}' (material={material}, thickness={thickness:.2f} mm)"
+                )
                 sub_board = target_modeler.create_box(
-                    origin=["-arrayBoardWidth / 2", "-arrayBoardLength / 2", f"{z_min - offset[2]:.4f}mm"],
+                    origin=[
+                        "-arrayBoardWidth / 2",
+                        "-arrayBoardLength / 2",
+                        f"{z_min - offset[2]:.4f}mm",
+                    ],
                     sizes=["arrayBoardWidth", "arrayBoardLength", f"{thickness:.4f}mm"],
                     name=layer_name,
                     material=material,
@@ -532,17 +593,29 @@ class MimoHfssBuilder:
             elif layer_name.endswith("_Ground"):
                 ground_layer_names.append(layer_name)
                 if thickness == 0.0:
-                    print(f"  Creating ground plane sheet '{layer_name}' at Z={z_min - offset[2]:.2f} mm")
+                    print(
+                        f"  Creating ground plane sheet '{layer_name}' at Z={z_min - offset[2]:.2f} mm"
+                    )
                     target_modeler.create_rectangle(
                         orientation="XY",
-                        origin=["-arrayBoardWidth / 2", "-arrayBoardLength / 2", f"{z_min - offset[2]:.4f}mm"],
+                        origin=[
+                            "-arrayBoardWidth / 2",
+                            "-arrayBoardLength / 2",
+                            f"{z_min - offset[2]:.4f}mm",
+                        ],
                         sizes=["arrayBoardWidth", "arrayBoardLength"],
                         name=layer_name,
                     )
                 else:
-                    print(f"  Creating ground plane block '{layer_name}' (thickness={thickness:.2f} mm)")
+                    print(
+                        f"  Creating ground plane block '{layer_name}' (thickness={thickness:.2f} mm)"
+                    )
                     target_modeler.create_box(
-                        origin=["-arrayBoardWidth / 2", "-arrayBoardLength / 2", f"{z_min - offset[2]:.4f}mm"],
+                        origin=[
+                            "-arrayBoardWidth / 2",
+                            "-arrayBoardLength / 2",
+                            f"{z_min - offset[2]:.4f}mm",
+                        ],
                         sizes=["arrayBoardWidth", "arrayBoardLength", f"{thickness:.4f}mm"],
                         name=layer_name,
                         material=material,
@@ -582,7 +655,9 @@ class MimoHfssBuilder:
             raw_label = element.get("label", element.get("name", "Element"))
             pos = element.get("position", element.get("pos", [0.0, 0.0, 0.0]))
             pos_expr = element.get("position_expression", element.get("pos_expr", None))
-            element_yaw = float(element.get("yaw", element.get("rotation_yaw", element.get("rotation", 0.0))))
+            element_yaw = float(
+                element.get("yaw", element.get("rotation_yaw", element.get("rotation", 0.0)))
+            )
             pol = str(element.get("polarization", element.get("pol", ""))).strip().upper()
 
             # Append polarization suffix if specified and not already present in the label
@@ -684,8 +759,12 @@ class MimoHfssBuilder:
 
             # Move element to final position
             if pos_expr:
-                x_move = f"{pos_expr[0]} - {rot_dx:.4f}mm" if abs(rot_dx) > 1e-4 else str(pos_expr[0])
-                y_move = f"{pos_expr[1]} - {rot_dy:.4f}mm" if abs(rot_dy) > 1e-4 else str(pos_expr[1])
+                x_move = (
+                    f"{pos_expr[0]} - {rot_dx:.4f}mm" if abs(rot_dx) > 1e-4 else str(pos_expr[0])
+                )
+                y_move = (
+                    f"{pos_expr[1]} - {rot_dy:.4f}mm" if abs(rot_dy) > 1e-4 else str(pos_expr[1])
+                )
                 move_vector = [x_move, y_move, z_shift_str]
             else:
                 move_vector = [
@@ -714,7 +793,9 @@ class MimoHfssBuilder:
 
             # Verify if the target solid exists in the target modeler before executing
             if target_solid not in target_modeler.object_names:
-                print(f"  Warning: Target solid '{target_solid}' not found in layout. Skipping boolean {operation}.")
+                print(
+                    f"  Warning: Target solid '{target_solid}' not found in layout. Skipping boolean {operation}."
+                )
                 continue
 
             if operation == "Subtract":
@@ -748,7 +829,9 @@ class MimoHfssBuilder:
                     name=port_name,
                 )
             except Exception as e:
-                print(f"  Warning: wave_port assignment failed ({e}), falling back to lumped_port...")
+                print(
+                    f"  Warning: wave_port assignment failed ({e}), falling back to lumped_port..."
+                )
                 self.target_design_app.lumped_port(
                     assignment=port_sheet,
                     reference=default_ground,
@@ -767,7 +850,9 @@ class MimoHfssBuilder:
                 port_name = f"Port_{suffix}"
                 port_assignments[f"{port_name}:1"] = ("1W", "0deg")
 
-            self.target_design_app.edit_sources(assignment=port_assignments, include_port_post_processing=True)
+            self.target_design_app.edit_sources(
+                assignment=port_assignments, include_port_post_processing=True
+            )
             print("  Enabled 'Include Port Post Processing Effects' in Edit Sources.")
         except Exception as e:
             print(f"  Warning: Could not enable port post processing effects ({e})")
@@ -782,7 +867,9 @@ class MimoHfssBuilder:
         overall_z_max = (max(all_z_coords) if all_z_coords else 1.0) - offset[2]
         total_z_thickness = overall_z_max - overall_z_min
 
-        print(f"  Creating flush lateral Airbox solid (airboxClearance={airbox_clearance_mm:.2f} mm)")
+        print(
+            f"  Creating flush lateral Airbox solid (airboxClearance={airbox_clearance_mm:.2f} mm)"
+        )
         airbox_obj = target_modeler.create_box(
             origin=[
                 "-arrayBoardWidth / 2",
@@ -810,14 +897,8 @@ class MimoHfssBuilder:
         except Exception as e:
             print(f"  Warning: Failed to set Airbox transparency ({e})")
 
-        # Configure simulation setup and sweep
-        if self.is_new_design:
-            # Configure simulation setup and sweep in the target design
-            self.configure_simulation_setup()
-        else:
-            print(
-                "\n[INFO] Reusing existing design: Preserving all existing simulation setups and frequency sweeps."
-            )
+        # Configure simulation setup and sweep by inheriting from the element design
+        self.configure_simulation_setup()
 
         # As the last step of building, ask the user whether to set up results (far-field sphere & post-processing reports)
         if setup_results is None:
@@ -844,7 +925,9 @@ class MimoHfssBuilder:
             assert False, "HFSS design validation failed."
 
         self.target_design_app.save_project()
-        print(f"\nMIMO array synthesis successfully completed in design '{self.target_design_name}'.")
+        print(
+            f"\nMIMO array synthesis successfully completed in design '{self.target_design_name}'."
+        )
 
         # As the very last step, ask the user if they want to launch the simulation ('Analyze All')
         if run_simulation is None:
@@ -863,9 +946,28 @@ class MimoHfssBuilder:
             print("\n[INFO] Skipping simulation execution. Model synthesis is complete.")
 
     def configure_simulation_setup(self):
-        """Configures the single-frequency adaptive mesh setup and frequency sweep in the target design."""
+        """
+        Configures the adaptive mesh setup and frequency sweep in the target design,
+        inheriting the configuration (single/multi-frequency/broadband meshing,
+        frequency specifications, lambda refinement, passes, and all frequency sweeps)
+        from the single-element design.
+
+        First attempts to natively copy-paste the setup from the source design module.
+        If native copy-paste is unavailable, recreates the setup and sweeps manually
+        from the source design's properties. If no setup exists in the source design,
+        creates a default broadband setup.
+        """
         if not self.target_design_app:
             raise RuntimeError("Array design not synthesized yet.")
+
+        # Clear any leftover Optimetrics setups that may be unlinked
+        try:
+            opt_names = list(self.target_design_app.ooptimetrics.GetSetupNames())
+            if opt_names:
+                print(f"  Clearing {len(opt_names)} existing Optimetrics setups...")
+                self.target_design_app.ooptimetrics.DeleteSetups(opt_names)
+        except Exception:
+            pass
 
         # Check and purge any existing analysis setups and their sweeps
         try:
@@ -874,7 +976,7 @@ class MimoHfssBuilder:
             setup_names = []
 
         if setup_names:
-            print(f"  Clearing {len(setup_names)} existing analysis setups and their sweeps...")
+            print(f"  Clearing {len(setup_names)} existing analysis setups and their sweeps in target design...")
             for s_name in setup_names:
                 try:
                     setup_obj = self.target_design_app.get_setup(s_name)
@@ -902,49 +1004,156 @@ class MimoHfssBuilder:
                 except Exception:
                     pass
 
-        setup_name = "ArraySetup"
-        print(
-            f"\nConfiguring single-frequency adaptive mesh setup '{setup_name}' at {self.centre_frequency_ghz} GHz..."
-        )
+        target_setup_name = "ArraySetup"
+        source_setups = list(self.source_design_app.setup_names) if self.source_design_app else []
+        copied_successfully = False
 
-        # Create setup fresh
-        setup = self.target_design_app.create_setup(name=setup_name)
+        if source_setups:
+            src_setup_name = getattr(self.source_design_app, "active_setup", None) or source_setups[0]
+            print(
+                f"\nInheriting analysis setup and frequency sweep from element design ('{src_setup_name}')..."
+            )
+            # Primary approach: Native CopyDrivenSetup / PasteDrivenSetup via oanalysis
+            try:
+                self.source_design_app.oanalysis.CopyDrivenSetup(src_setup_name)
+                pasted_name = self.target_design_app.oanalysis.PasteDrivenSetup()
+                if pasted_name:
+                    if pasted_name != target_setup_name:
+                        self.target_design_app.oanalysis.RenameSetup(pasted_name, target_setup_name)
+                    copied_successfully = True
+                    print(f"  Successfully copy-pasted and renamed setup to '{target_setup_name}'.")
+            except Exception as err:
+                print(
+                    f"  Warning: Native CopyDrivenSetup/PasteDrivenSetup encountered an issue ({err}). Falling back to manual recreation..."
+                )
 
-        setup.props["Frequency"] = f"{self.centre_frequency_ghz}GHz"
-        setup.props["MaximumPasses"] = 21
-        setup.props["MaxDeltaS"] = 0.02
-        setup.props["SaveFields"] = True
-        setup.update()
+            # Secondary approach: Manual recreation from source properties
+            if not copied_successfully:
+                try:
+                    print(f"  Recreating setup '{target_setup_name}' from source properties...")
+                    src_setup = self.source_design_app.get_setup(src_setup_name)
+                    solve_type = str(src_setup.props.get("SolveType", "BroadBand")).lower()
 
-        # Deduce frequency sweep bounds
-        start_freq = self.centre_frequency_ghz - self.bandwidth_ghz / 2.0
-        end_freq = self.centre_frequency_ghz + self.bandwidth_ghz / 2.0
+                    setup = self.target_design_app.create_setup(name=target_setup_name)
+                    setup.auto_update = False
 
-        sweep_name = "Sweep"
-        print(
-            f"Configuring interpolating frequency sweep '{sweep_name}' ({start_freq:.2f} GHz - {end_freq:.2f} GHz, 401",
-            "points)...",
-        )
+                    max_passes = src_setup.props.get("MaximumPasses", 21)
+                    max_delta_s = src_setup.props.get("MaxDeltaS", 0.02)
 
-        # Try to delete default sweep if created automatically
-        try:
-            # Initialize sweeps cache to prevent NoneType iterable error
-            _ = setup.sweeps
-            for sname in list(setup.get_sweep_names()):
-                setup.delete_sweep(sname)
-        except Exception:
-            pass
+                    if solve_type == "broadband":
+                        adaptive_freqs = src_setup.props.get("MultipleAdaptiveFreqsSetup", {})
+                        low_f = adaptive_freqs.get("Low", f"{self.centre_frequency_ghz - self.bandwidth_ghz / 2.0}GHz")
+                        high_f = adaptive_freqs.get("High", f"{self.centre_frequency_ghz + self.bandwidth_ghz / 2.0}GHz")
+                        setup.enable_adaptive_setup_broadband(
+                            low_frequency=low_f,
+                            high_frequency=high_f,
+                            max_passes=max_passes,
+                            max_delta_s=max_delta_s,
+                        )
+                        print(f"  Configured Broadband adaptive mesh: Low={low_f}, High={high_f}, MaxPasses={max_passes}, MaxDeltaS={max_delta_s}")
+                    elif solve_type == "multifrequency":
+                        adaptive_freqs = src_setup.props.get("MultipleAdaptiveFreqsSetup", {})
+                        freq_list = list(adaptive_freqs.keys()) if isinstance(adaptive_freqs, dict) else [f"{self.centre_frequency_ghz}GHz"]
+                        setup.enable_adaptive_setup_multifrequency(
+                            frequencies=freq_list,
+                            max_delta_s=max_delta_s,
+                        )
+                        print(f"  Configured Multi-Frequency adaptive mesh: Frequencies={freq_list}, MaxDeltaS={max_delta_s}")
+                    else:
+                        freq = src_setup.props.get("Frequency", f"{self.centre_frequency_ghz}GHz")
+                        setup.enable_adaptive_setup_single(
+                            freq=freq,
+                            max_passes=max_passes,
+                            max_delta_s=max_delta_s,
+                        )
+                        print(f"  Configured Single-Frequency adaptive mesh: Frequency={freq}, MaxPasses={max_passes}, MaxDeltaS={max_delta_s}")
 
-        self.target_design_app.create_linear_count_sweep(
-            setup=setup_name,
-            unit="GHz",
-            start_frequency=start_freq,
-            stop_frequency=end_freq,
-            num_of_freq_points=401,
-            name=sweep_name,
-            save_fields=True,
-            sweep_type="Interpolating",
-        )
+                    # Replicate meshing, convergence, and solver options
+                    for prop_key in [
+                        "BasisOrder", "DoLambdaRefine", "DoMaterialLambda", "SetLambdaTarget",
+                        "Target", "UseMaxTetIncrease", "PortAccuracy", "SaveFields", "SaveAnyFields",
+                        "PercentRefinement", "MinimumPasses", "MinimumConvergedPasses", "DrivenSolverType"
+                    ]:
+                        if prop_key in src_setup.props:
+                            setup.props[prop_key] = src_setup.props[prop_key]
+
+                    setup.auto_update = True
+                    setup.update()
+
+                    # Recreate frequency sweeps
+                    try:
+                        src_sweeps = src_setup.get_sweep_names()
+                    except Exception:
+                        src_sweeps = []
+
+                    for sw_name in src_sweeps:
+                        sw_src = src_setup.get_sweep(sw_name)
+                        if hasattr(sw_src, "props"):
+                            sw_props = sw_src.props
+                            range_type = sw_props.get("RangeType", "LinearCount")
+                            sw_type = sw_props.get("Type", "Interpolating")
+                            start_f = sw_props.get("RangeStart", f"{self.centre_frequency_ghz - self.bandwidth_ghz / 2.0}GHz")
+                            end_f = sw_props.get("RangeEnd", f"{self.centre_frequency_ghz + self.bandwidth_ghz / 2.0}GHz")
+                            save_fields = sw_props.get("SaveFields", True)
+
+                            if range_type == "LinearCount":
+                                count = sw_props.get("RangeCount", 401)
+                                self.target_design_app.create_linear_count_sweep(
+                                    setup=target_setup_name,
+                                    unit="GHz" if ("GHz" in str(start_f) or "GHz" in str(end_f)) else "",
+                                    start_frequency=start_f,
+                                    stop_frequency=end_f,
+                                    num_of_freq_points=count,
+                                    name=sw_name,
+                                    save_fields=save_fields,
+                                    sweep_type=sw_type,
+                                )
+                                print(f"  Created {sw_type} sweep '{sw_name}': {start_f} to {end_f} ({count} points, SaveFields={save_fields})")
+                            elif range_type == "LinearStep":
+                                step = sw_props.get("RangeStep", "10MHz")
+                                self.target_design_app.create_linear_step_sweep(
+                                    setup=target_setup_name,
+                                    unit="GHz" if ("GHz" in str(start_f) or "GHz" in str(end_f)) else "",
+                                    start_frequency=start_f,
+                                    stop_frequency=end_f,
+                                    step_size=step,
+                                    name=sw_name,
+                                    save_fields=save_fields,
+                                    sweep_type=sw_type,
+                                )
+                                print(f"  Created {sw_type} sweep '{sw_name}': {start_f} to {end_f} (step {step}, SaveFields={save_fields})")
+                    copied_successfully = True
+                except Exception as err2:
+                    print(f"  Warning: Manual recreation failed ({err2}). Falling back to default setup...")
+
+        # Fallback if source design has no setups or if recreation failed
+        if not copied_successfully:
+            start_freq = self.centre_frequency_ghz - self.bandwidth_ghz / 2.0
+            end_freq = self.centre_frequency_ghz + self.bandwidth_ghz / 2.0
+            print(
+                f"\nConfiguring default broadband adaptive mesh setup '{target_setup_name}' ({start_freq:.2f} GHz - {end_freq:.2f} GHz)..."
+            )
+            setup = self.target_design_app.create_setup(name=target_setup_name)
+            setup.enable_adaptive_setup_broadband(
+                low_frequency=f"{start_freq:.4f}GHz",
+                high_frequency=f"{end_freq:.4f}GHz",
+                max_passes=21,
+                max_delta_s=0.02,
+            )
+            sweep_name = "Sweep"
+            print(
+                f"Configuring interpolating frequency sweep '{sweep_name}' ({start_freq:.2f} GHz - {end_freq:.2f} GHz, 401 points)..."
+            )
+            self.target_design_app.create_linear_count_sweep(
+                setup=target_setup_name,
+                unit="GHz",
+                start_frequency=start_freq,
+                stop_frequency=end_freq,
+                num_of_freq_points=401,
+                name=sweep_name,
+                save_fields=True,
+                sweep_type="Interpolating",
+            )
 
     def create_post_processing_reports(self, metric_choice=None):
         """Creates standard S-parameter and Far-Field reports in the target design."""
@@ -966,7 +1175,19 @@ class MimoHfssBuilder:
 
         rx_ports = sorted([p for p in port_names if "Rx" in p])
         tx_ports = sorted([p for p in port_names if "Tx" in p])
-        setup_sweep = "ArraySetup : Sweep"
+
+        target_setups = list(self.target_design_app.setup_names)
+        if target_setups:
+            s_name = "ArraySetup" if "ArraySetup" in target_setups else target_setups[0]
+            try:
+                s_obj = self.target_design_app.get_setup(s_name)
+                sw_names = s_obj.get_sweep_names()
+                sw_name = sw_names[0] if sw_names else "Sweep"
+            except Exception:
+                sw_name = "Sweep"
+            setup_sweep = f"{s_name} : {sw_name}"
+        else:
+            setup_sweep = "ArraySetup : Sweep"
 
         # Get list of existing reports to avoid duplicate report generation
         try:
@@ -1039,7 +1260,7 @@ class MimoHfssBuilder:
             plot_name = "Tx1-to-Rx crosstalk"
             if plot_name not in existing_reports:
                 tx1 = tx_ports[0]
-                print(f"  Generating Tx1-to-Rx crosstalk report...")
+                print("  Generating Tx1-to-Rx crosstalk report...")
                 tx_to_rx = [f"dB(S({rx},{tx1}))" for rx in rx_ports]
                 try:
                     self.target_design_app.post.create_report(
@@ -1086,42 +1307,60 @@ class MimoHfssBuilder:
         # 5. Far Field Setups and Radiation Patterns
         # (a) InfiniteSphere: Standard IEEE Theta-Phi system (z-axis zenith, theta 0..180, phi 0..360)
         sphere_name = "InfiniteSphere"
-        print(f"  Configuring Infinite Sphere '{sphere_name}' (IEEE convention: theta 0..180 deg, phi 0..360 deg)...")
+        print(
+            f"  Configuring Infinite Sphere '{sphere_name}' (IEEE convention: theta 0..180 deg, phi 0..360 deg)..."
+        )
         try:
             self.target_design_app.insert_infinite_sphere(
                 name=sphere_name,
                 definition="Theta-Phi",
-                phi_start=0, phi_stop=360, phi_step=5,
-                theta_start=0, theta_stop=180, theta_step=1,
-                units="deg"
+                phi_start=0,
+                phi_stop=360,
+                phi_step=5,
+                theta_start=0,
+                theta_stop=180,
+                theta_step=1,
+                units="deg",
             )
         except Exception as e:
             print(f"  Warning: Failed to create infinite sphere '{sphere_name}' ({e})")
 
         # (b) Setup 1: 'Phi0 cut' in Az Over El system (azimuth -180..180 step 2, elevation 0..0 step 0)
         phi0_sphere = "Phi0 cut"
-        print(f"  Configuring Infinite Sphere '{phi0_sphere}' (Az Over El: az -180..180 step 2, el 0..0 step 0)...")
+        print(
+            f"  Configuring Infinite Sphere '{phi0_sphere}' (Az Over El: az -180..180 step 2, el 0..0 step 0)..."
+        )
         try:
             self.target_design_app.insert_infinite_sphere(
                 name=phi0_sphere,
                 definition="Az Over El",
-                phi_start=-180, phi_stop=180, phi_step=2,
-                theta_start=0, theta_stop=0, theta_step=0,
-                units="deg"
+                phi_start=-180,
+                phi_stop=180,
+                phi_step=2,
+                theta_start=0,
+                theta_stop=0,
+                theta_step=0,
+                units="deg",
             )
         except Exception as e:
             print(f"  Warning: Failed to create infinite sphere '{phi0_sphere}' ({e})")
 
         # (b) Setup 2: 'Phi90 cut' in Az Over El system (azimuth 0..0 step 0, elevation -180..180 step 2)
         phi90_sphere = "Phi90 cut"
-        print(f"  Configuring Infinite Sphere '{phi90_sphere}' (Az Over El: az 0..0 step 0, el -180..180 step 2)...")
+        print(
+            f"  Configuring Infinite Sphere '{phi90_sphere}' (Az Over El: az 0..0 step 0, el -180..180 step 2)..."
+        )
         try:
             self.target_design_app.insert_infinite_sphere(
                 name=phi90_sphere,
                 definition="Az Over El",
-                phi_start=0, phi_stop=0, phi_step=0,
-                theta_start=-180, theta_stop=180, theta_step=2,
-                units="deg"
+                phi_start=0,
+                phi_stop=0,
+                phi_step=0,
+                theta_start=-180,
+                theta_stop=180,
+                theta_step=2,
+                units="deg",
             )
         except Exception as e:
             print(f"  Warning: Failed to create infinite sphere '{phi90_sphere}' ({e})")
@@ -1132,7 +1371,11 @@ class MimoHfssBuilder:
         if plot_name not in existing_reports:
             try:
                 print(f"  Generating {plot_name} report...")
-                vars_3d = {"Theta": ["All"], "Phi": ["All"], "Freq": [f"{self.centre_frequency_ghz}GHz"]}
+                vars_3d = {
+                    "Theta": ["All"],
+                    "Phi": ["All"],
+                    "Freq": [f"{self.centre_frequency_ghz}GHz"],
+                }
                 self.target_design_app.post.create_report(
                     expressions=[f"db({total_qty})"],
                     setup_sweep_name=setup_sweep,
@@ -1142,7 +1385,7 @@ class MimoHfssBuilder:
                     report_category="Far Fields",
                     plot_name=plot_name,
                     context=sphere_name,
-                    plot_type="3D Polar Plot"
+                    plot_type="3D Polar Plot",
                 )
             except Exception as e:
                 print(f"  Warning: Failed to create {plot_name} report ({e})")
@@ -1154,7 +1397,11 @@ class MimoHfssBuilder:
         if plot_name not in existing_reports:
             try:
                 print(f"  Generating {plot_name} report (Az Over El)...")
-                vars_phi0 = {"AzimuthAngle": ["All"], "ElevationAngle": ["All"], "Freq": [f"{self.centre_frequency_ghz}GHz"]}
+                vars_phi0 = {
+                    "AzimuthAngle": ["All"],
+                    "ElevationAngle": ["All"],
+                    "Freq": [f"{self.centre_frequency_ghz}GHz"],
+                }
                 self.target_design_app.post.create_report(
                     expressions=[f"db({total_qty})"],
                     setup_sweep_name=setup_sweep,
@@ -1163,7 +1410,7 @@ class MimoHfssBuilder:
                     report_category="Far Fields",
                     plot_name=plot_name,
                     context=phi0_sphere,
-                    plot_type="Rectangular Plot"
+                    plot_type="Rectangular Plot",
                 )
             except Exception as e:
                 print(f"  Warning: Failed to create {plot_name} report ({e})")
@@ -1175,7 +1422,11 @@ class MimoHfssBuilder:
         if plot_name not in existing_reports:
             try:
                 print(f"  Generating {plot_name} report (Az Over El)...")
-                vars_phi90 = {"AzimuthAngle": ["All"], "ElevationAngle": ["All"], "Freq": [f"{self.centre_frequency_ghz}GHz"]}
+                vars_phi90 = {
+                    "AzimuthAngle": ["All"],
+                    "ElevationAngle": ["All"],
+                    "Freq": [f"{self.centre_frequency_ghz}GHz"],
+                }
                 self.target_design_app.post.create_report(
                     expressions=[f"db({total_qty})"],
                     setup_sweep_name=setup_sweep,
@@ -1184,7 +1435,7 @@ class MimoHfssBuilder:
                     report_category="Far Fields",
                     plot_name=plot_name,
                     context=phi90_sphere,
-                    plot_type="Rectangular Plot"
+                    plot_type="Rectangular Plot",
                 )
             except Exception as e:
                 print(f"  Warning: Failed to create {plot_name} report ({e})")
@@ -1197,8 +1448,12 @@ class MimoHfssBuilder:
         plot_name = "XPD Phi0"
         if plot_name not in existing_reports:
             try:
-                print(f"  Generating XPD Phi0 report...")
-                vars_phi0 = {"AzimuthAngle": ["All"], "ElevationAngle": ["All"], "Freq": [f"{self.centre_frequency_ghz}GHz"]}
+                print("  Generating XPD Phi0 report...")
+                vars_phi0 = {
+                    "AzimuthAngle": ["All"],
+                    "ElevationAngle": ["All"],
+                    "Freq": [f"{self.centre_frequency_ghz}GHz"],
+                }
                 self.target_design_app.post.create_report(
                     expressions=xpd_expression,
                     setup_sweep_name=setup_sweep,
@@ -1207,7 +1462,7 @@ class MimoHfssBuilder:
                     report_category="Far Fields",
                     plot_name=plot_name,
                     context=phi0_sphere,
-                    plot_type="Rectangular Plot"
+                    plot_type="Rectangular Plot",
                 )
             except Exception as e:
                 print(f"  Warning: Failed to create {plot_name} report ({e})")
@@ -1217,8 +1472,12 @@ class MimoHfssBuilder:
         plot_name = "XPD Phi90"
         if plot_name not in existing_reports:
             try:
-                print(f"  Generating XPD Phi90 report...")
-                vars_phi90 = {"AzimuthAngle": ["All"], "ElevationAngle": ["All"], "Freq": [f"{self.centre_frequency_ghz}GHz"]}
+                print("  Generating XPD Phi90 report...")
+                vars_phi90 = {
+                    "AzimuthAngle": ["All"],
+                    "ElevationAngle": ["All"],
+                    "Freq": [f"{self.centre_frequency_ghz}GHz"],
+                }
                 self.target_design_app.post.create_report(
                     expressions=xpd_expression,
                     setup_sweep_name=setup_sweep,
@@ -1227,7 +1486,7 @@ class MimoHfssBuilder:
                     report_category="Far Fields",
                     plot_name=plot_name,
                     context=phi90_sphere,
-                    plot_type="Rectangular Plot"
+                    plot_type="Rectangular Plot",
                 )
             except Exception as e:
                 print(f"  Warning: Failed to create {plot_name} report ({e})")
@@ -1257,7 +1516,9 @@ class MimoHfssBuilder:
             setup_name="ArraySetup", sweep_name="LastSweep", filename=output_touchstone_path
         )
 
-    def _run_phase_centre_opt(self, source_modeler, global_layers, active_elements, operating_frequency_ghz):
+    def _run_phase_centre_opt(
+        self, source_modeler, global_layers, active_elements, operating_frequency_ghz
+    ):
         """Runs HFSS Optimetrics to find the exact phase centre of the antenna."""
         print("\nStarting automated Phase Centre extraction...")
 
@@ -1315,10 +1576,14 @@ class MimoHfssBuilder:
 
         # Activate variable optimization with ranges
         self.source_design_app.activate_variable_optimization(
-            "PhaseCentreX", minimum=f"{x_centre - x_span / 2.0:.3f}mm", maximum=f"{x_centre + x_span / 2.0:.3f}mm"
+            "PhaseCentreX",
+            minimum=f"{x_centre - x_span / 2.0:.3f}mm",
+            maximum=f"{x_centre + x_span / 2.0:.3f}mm",
         )
         self.source_design_app.activate_variable_optimization(
-            "PhaseCentreY", minimum=f"{y_centre - y_span / 2.0:.3f}mm", maximum=f"{y_centre + y_span / 2.0:.3f}mm"
+            "PhaseCentreY",
+            minimum=f"{y_centre - y_span / 2.0:.3f}mm",
+            maximum=f"{y_centre + y_span / 2.0:.3f}mm",
         )
         self.source_design_app.activate_variable_optimization(
             "PhaseCentreZ", minimum=f"{top_z - 1.0:.3f}mm", maximum=f"{top_z + 2.0:.3f}mm"
@@ -1335,15 +1600,19 @@ class MimoHfssBuilder:
 
         print(f"  Creating temporary coordinate system '{temp_cs_name}'...")
         source_modeler.create_coordinate_system(
-            origin=["PhaseCentreX", "PhaseCentreY", "PhaseCentreZ"], reference_cs="Global", name=temp_cs_name
+            origin=["PhaseCentreX", "PhaseCentreY", "PhaseCentreZ"],
+            reference_cs="Global",
+            name=temp_cs_name,
         )
 
         # Create Far Field Infinite Sphere Setup
         # We sweep theta from -40 to 40 degrees at phi=0
         sphere_name = "PhaseCentreSphere"
-        print(f"  Creating far-field infinite sphere setup '{sphere_name}' bound to '{temp_cs_name}'...")
+        print(
+            f"  Creating far-field infinite sphere setup '{sphere_name}' bound to '{temp_cs_name}'..."
+        )
         try:
-            self.source_design_app.field_setups[sphere_name].delete()
+            self.source_design_app.ofieldsetup.DeleteSetup([sphere_name])
         except Exception:
             pass
 
@@ -1359,21 +1628,115 @@ class MimoHfssBuilder:
             custom_coordinate_system=temp_cs_name,
         )
 
+        # Detect operating frequency from source design setup
+        def _extract_setup_freq(app):
+            import re
+            setups = app.setup_names
+            if not setups:
+                return None
+            sname = getattr(app, "active_setup", None) or setups[0]
+            s = app.get_setup(sname)
+            props = s.props
+
+            def _parse_ghz(val):
+                if not val:
+                    return None
+                m = re.match(r"([\d.]+)\s*([a-zA-Z]*)", str(val).strip())
+                if not m:
+                    return None
+                num, unit = float(m.group(1)), m.group(2).lower()
+                if unit in ["", "ghz"]:
+                    return num
+                elif unit == "mhz":
+                    return num / 1e3
+                elif unit == "khz":
+                    return num / 1e6
+                elif unit == "hz":
+                    return num / 1e9
+                elif unit == "thz":
+                    return num * 1e3
+                return num
+
+            if "Frequency" in props and props["Frequency"]:
+                f = _parse_ghz(props["Frequency"])
+                if f:
+                    return f
+
+            mafs = props.get("MultipleAdaptiveFreqsSetup", {})
+            if isinstance(mafs, dict):
+                if "Low" in mafs and "High" in mafs:
+                    flow, fhigh = _parse_ghz(mafs["Low"]), _parse_ghz(mafs["High"])
+                    if flow and fhigh:
+                        return (flow + fhigh) / 2.0
+                elif "AdaptAt" in mafs and isinstance(mafs["AdaptAt"], list):
+                    freqs = [_parse_ghz(x.get("Frequency")) for x in mafs["AdaptAt"] if "Frequency" in x]
+                    freqs = [f for f in freqs if f]
+                    if freqs:
+                        return sum(freqs) / len(freqs)
+                else:
+                    freqs = [_parse_ghz(k) for k in mafs.keys()]
+                    freqs = [f for f in freqs if f]
+                    if freqs:
+                        return sum(freqs) / len(freqs)
+
+            for sw_name in s.get_sweep_names():
+                sw = s.get_sweep(sw_name)
+                if hasattr(sw, "props"):
+                    s_start = _parse_ghz(sw.props.get("RangeStart"))
+                    s_end = _parse_ghz(sw.props.get("RangeEnd"))
+                    if s_start and s_end:
+                        return (s_start + s_end) / 2.0
+            return None
+
+        detected_freq = _extract_setup_freq(self.source_design_app)
+        opt_freq = operating_frequency_ghz
+        if detected_freq:
+            if operating_frequency_ghz == 79.0 and abs(operating_frequency_ghz - detected_freq) > 5.0:
+                print(
+                    f"  [INFO] Auto-detected source design operating frequency: {detected_freq:.2f} GHz (overriding default 79.0 GHz)"
+                )
+                opt_freq = detected_freq
+            elif operating_frequency_ghz is None:
+                opt_freq = detected_freq
+        if opt_freq is None:
+            opt_freq = 79.0
+
+        # Select appropriate solution sweep for Optimetrics
+        # PyAEDT requires a valid entry from existing_analysis_sweeps in "Setup : Sweep" format
+        setup_name = (
+            getattr(self.source_design_app, "active_setup", None)
+            or (self.source_design_app.setup_names[0] if self.source_design_app.setup_names else None)
+        )
+        existing_sweeps = list(self.source_design_app.existing_analysis_sweeps)
+        candidate_sweeps = (
+            [sw for sw in existing_sweeps if sw.startswith(f"{setup_name} :")] if setup_name else []
+        )
+
+        solution_sweep = None
+        if self.source_design_app.nominal_sweep in candidate_sweeps:
+            solution_sweep = self.source_design_app.nominal_sweep
+        elif candidate_sweeps:
+            non_adaptive = [s for s in candidate_sweeps if "adaptive" not in s.lower()]
+            solution_sweep = non_adaptive[0] if non_adaptive else candidate_sweeps[0]
+        elif existing_sweeps:
+            solution_sweep = existing_sweeps[0]
+
         # Create Optimetrics Optimization Setup
         opt_setup_name = "PhaseCentreOpt"
-        print(f"  Creating Optimetrics setup '{opt_setup_name}'...")
+        print(
+            f"  Creating Optimetrics setup '{opt_setup_name}' (solution='{solution_sweep}', freq={opt_freq:.2f} GHz)..."
+        )
         try:
             self.source_design_app.optimizations.delete(opt_setup_name)
         except Exception:
             pass
 
-        source_setup = self.source_design_app.setup_names[0] if self.source_design_app.setup_names else None
         _ = self.source_design_app.optimizations.add(
             calculation="pk2pk(cang_deg(rEphi))",
             ranges={
                 "Theta": ("-40deg", "40deg"),
                 "Phi": "0deg",
-                "Freq": f"{operating_frequency_ghz}GHz",
+                "Freq": f"{opt_freq:.2f}GHz",
             },
             optimization_type="Optimization",
             variables=["PhaseCentreX", "PhaseCentreY", "PhaseCentreZ"],
@@ -1381,7 +1744,7 @@ class MimoHfssBuilder:
             context=sphere_name,
             report_type="Far Fields",
             condition="Minimize",
-            solution=source_setup,
+            solution=solution_sweep,
         )
 
         print("  Running Phase Centre Optimization in HFSS...")
@@ -1390,6 +1753,20 @@ class MimoHfssBuilder:
         except Exception as e:
             print(f"  [ERROR] Optimization failed: {e}")
             print("  Falling back to zero offset [0.0, 0.0, 0.0] mm.")
+            try:
+                self.source_design_app.optimizations.delete(opt_setup_name)
+            except Exception:
+                pass
+            try:
+                self.source_design_app.ofieldsetup.DeleteSetup([sphere_name])
+            except Exception:
+                pass
+            try:
+                cs_map = {cs.name: cs for cs in source_modeler.coordinate_systems}
+                if temp_cs_name in cs_map:
+                    cs_map[temp_cs_name].delete()
+            except Exception:
+                pass
             return [0.0, 0.0, 0.0]
 
         # Retrieve optimized values
@@ -1404,7 +1781,9 @@ class MimoHfssBuilder:
         opt_y_rounded = round(opt_y, 3)
         opt_z_rounded = round(opt_z, 3)
 
-        print(f"  Optimized Phase Centre coordinates: [{opt_x_rounded}, {opt_y_rounded}, {opt_z_rounded}] mm")
+        print(
+            f"  Optimized Phase Centre coordinates: [{opt_x_rounded}, {opt_y_rounded}, {opt_z_rounded}] mm"
+        )
 
         # Clean up temporary setups
         print("  Cleaning up temporary Optimetrics configurations...")
@@ -1413,7 +1792,7 @@ class MimoHfssBuilder:
         except Exception:
             pass
         try:
-            self.source_design_app.field_setups[sphere_name].delete()
+            self.source_design_app.ofieldsetup.DeleteSetup([sphere_name])
         except Exception:
             pass
         try:
@@ -1477,17 +1856,21 @@ def load_layout_file(layout_path):
     with open(layout_path, "r", encoding="utf-8") as f:
         if ext in [".yaml", ".yml"]:
             import yaml
+
             return yaml.safe_load(f)
         elif ext == ".json":
             import json
+
             return json.load(f)
         else:
             try:
                 import yaml
+
                 return yaml.safe_load(f)
             except Exception:
                 f.seek(0)
                 import json
+
                 return json.load(f)
 
 
@@ -1546,9 +1929,15 @@ if __name__ == "__main__":
         help="Use existing PhaseCentreCS in the unit cell without prompting or running Optimetrics",
     )
     parser.add_argument(
-        "--centre-freq", "--center-freq", type=float, default=79.0, help="Centre frequency in GHz (default: 79.0)"
+        "--centre-freq",
+        "--center-freq",
+        type=float,
+        default=79.0,
+        help="Centre frequency in GHz (default: 79.0)",
     )
-    parser.add_argument("--bandwidth", type=float, default=4.0, help="Sweep bandwidth in GHz (default: 4.0)")
+    parser.add_argument(
+        "--bandwidth", type=float, default=4.0, help="Sweep bandwidth in GHz (default: 4.0)"
+    )
 
     args = parser.parse_args()
 
@@ -1574,7 +1963,9 @@ if __name__ == "__main__":
 
         if args.results_only or args.simulate_only:
             target_design = builder.target_design_name
-            print(f"\n[INFO] Connecting directly to target design '{target_design}' in '{args.project_path}'...")
+            print(
+                f"\n[INFO] Connecting directly to target design '{target_design}' in '{args.project_path}'..."
+            )
             from ansys.aedt.core import Hfss
 
             builder.target_design_app = Hfss(
@@ -1604,7 +1995,9 @@ if __name__ == "__main__":
                 print(f"Loading custom layout from: {args.layout_path}")
                 elements_list = load_layout_file(args.layout_path)
             else:
-                print(f"No custom layout provided. Using default coplanar layout at {args.centre_freq} GHz...")
+                print(
+                    f"No custom layout provided. Using default coplanar layout at {args.centre_freq} GHz..."
+                )
                 elements_list = builder.calculate_default_coplanar_layout(
                     transmitter_count=4,
                     receiver_count=4,
