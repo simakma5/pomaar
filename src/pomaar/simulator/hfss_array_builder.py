@@ -13,6 +13,7 @@ import sys
 from ansys.aedt.core import Desktop, Hfss
 from ansys.aedt.core.generic.constants import Axis, Gravity
 from ansys.aedt.core.generic.data_handlers import _dict2arg
+from ansys.aedt.core.generic.general_methods import grpc_active_sessions
 import numpy as np
 
 SPEED_OF_LIGHT_MM_S = 2.99792458e11
@@ -189,7 +190,7 @@ class MimoHfssBuilder:
         source_design_name,
         target_design_name=None,
         pcb_margin_mm=0.0,
-        grpc_port=50051,
+        grpc_port=None,
         non_graphical=True,
         centre_frequency_ghz=None,
         bandwidth_ghz=4.0,
@@ -229,6 +230,10 @@ class MimoHfssBuilder:
                 "Refusing to connect from outside the AEDT container: run this via "
                 "`ansys-vnc exec`, or set POMAAR_ALLOW_NATIVE_AEDT=1 for a native AEDT install."
             )
+        if self.grpc_port is None:
+            # Attach to the open GUI session, whose gRPC port is the first free one from 50051
+            graphical_ports = grpc_active_sessions(non_graphical=False)
+            self.grpc_port = graphical_ports[0] if graphical_ports else 50051
         print(f"Connecting to or starting AEDT on port {self.grpc_port}...")
         try:
             self.desktop_session = Desktop(
@@ -2078,10 +2083,10 @@ def main(argv=None):
     parser.add_argument(
         "--port",
         type=int,
-        default=50051,
+        default=None,
         help=(
             "gRPC port of the AEDT session to connect to; a new session is started on it if "
-            "none answers (default: 50051)"
+            "none answers (default: the running AEDT GUI's port, else 50051)"
         ),
     )
 
