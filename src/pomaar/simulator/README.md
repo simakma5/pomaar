@@ -6,21 +6,22 @@ This sub-project automates a three-stage simulation pipeline linking **Ansys HFS
 
 ## 1. Prerequisites & Environment Setup
 
-The pipeline requires **Ansys Electronics Desktop (AEDT) 2025.2 or newer** and a Python environment with PyAEDT (`ansys-aedt-core`).
+The pipeline requires **Ansys Electronics Desktop (AEDT) 2025.2 or newer** and a Python environment with PyAEDT (`pyaedt`), provided by this repository's `uv` environment (`uv sync`).
 
-### Option A: Running in the Podman Container (Recommended)
-If you are running in the `ansys_vnc_desktop` container, the environment is already pre-configured with Python and AEDT. Simply execute commands using:
+### Option A: Running in the AEDT container (Linux, recommended)
+On the Fedora workstation, AEDT runs in the `ansys-vnc` container (see `~/Repositories/ansys-vnc`). Python scripts must run **inside** that container: from the host, PyAEDT cannot see the container's gRPC session and would silently start a native AEDT instead (the builder refuses to do so). The container mounts `~/Repositories` and the host's `uv` Python installations, so the project's `.venv` works there unchanged:
 ```bash
-podman exec -it -w /home/martin/Repositories/pomaar ansys_vnc_desktop <command>
+ansys-vnc start                      # once; then open the GUI from the VNC desktop or `ansys-vnc aedt`
+cd ~/Repositories/pomaar
+ansys-vnc exec .venv/bin/hfss_array_builder <path_to_project.aedt> <unit_cell_design_name> [layout.yaml]
 ```
+`ansys-vnc exec` keeps the current directory and pins the process to the compute cores. The builder connects to the GUI session's gRPC port (`--port`, default `$ANSYS_VNC_GRPC_PORT` or 50051) and starts a non-graphical AEDT in the container if none is listening.
 
-### Option B: Running Natively (Windows / Linux)
+### Option B: Running natively (Windows / supported Linux)
 Ensure that:
 1. `ANSYSEM_ROOT252` (or your corresponding AEDT installation path) is set in your environment variables.
-2. The `pomaar` package dependencies are installed:
-   ```bash
-   pip install numpy scipy matplotlib ansys-aedt-core>=1.1.0
-   ```
+2. The `pomaar` package dependencies are installed (`uv sync`).
+3. On Linux outside a container, set `POMAAR_ALLOW_NATIVE_AEDT=1` to let the builder start or connect to AEDT.
 
 ---
 
@@ -29,9 +30,9 @@ Ensure that:
 ### Module 1: HFSS Full-Wave Array Synthesis (`hfss_array_builder.py`)
 This script automates the creation of a planar MIMO array on a single contiguous PCB board by copying, replicating, and boolean-cutting template geometries from an isolated unit-cell element design.
 
-To run:
+To run (prefix with `ansys-vnc exec .venv/bin/` in the container setup):
 ```bash
-hfss_array_builder <path_to_project.aedt> <unit_cell_design_name>
+hfss_array_builder <path_to_project.aedt> <unit_cell_design_name> [layout.yaml]
 ```
 * **Example:**
   ```bash
@@ -44,7 +45,7 @@ This script links the synthesized full-wave design as a composite antenna source
 
 To run:
 ```bash
-python3 -m pomaar.simulator.sbr_simulator <path_to_project.aedt> <synthesized_mimo_design_name>
+ansys-vnc exec .venv/bin/python -m pomaar.simulator.sbr_simulator <path_to_project.aedt> <synthesized_mimo_design_name>
 ```
 
 ---

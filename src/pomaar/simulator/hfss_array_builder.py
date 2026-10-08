@@ -46,6 +46,10 @@ class BuildAbortedError(Exception):
     """Raised when the user declines to continue at an interactive prompt."""
 
 
+class NativeAedtRefusedError(RuntimeError):
+    """Raised when connecting from a Linux host outside the AEDT container."""
+
+
 def _confirm(question, preset=None, default=True):
     """
     Resolves a yes/no decision: a preset (from CLI flags) wins, then an interactive prompt,
@@ -213,6 +217,18 @@ class MimoHfssBuilder:
 
     def connect_desktop(self):
         """Starts or connects to an existing AEDT session via gRPC."""
+        # On a Linux host, PyAEDT cannot see a containerised AEDT's gRPC socket (separate network
+        # namespace) and silently launches a native AEDT instead, which crashes there. Run the
+        # builder inside the container (`ansys-vnc exec ...`) or set POMAAR_ALLOW_NATIVE_AEDT=1.
+        if (
+            sys.platform.startswith("linux")
+            and not os.path.exists("/run/.containerenv")
+            and os.environ.get("POMAAR_ALLOW_NATIVE_AEDT") != "1"
+        ):
+            raise NativeAedtRefusedError(
+                "Refusing to connect from outside the AEDT container: run this via "
+                "`ansys-vnc exec`, or set POMAAR_ALLOW_NATIVE_AEDT=1 for a native AEDT install."
+            )
         print(f"Connecting to or starting AEDT on port {self.grpc_port}...")
         try:
             self.desktop_session = Desktop(
@@ -2059,6 +2075,16 @@ def main(argv=None):
         help="Far-field phase reference mode for SBR+ antenna linking: 'single' (array centroid PhaseCentreCS, default) or 'per-port' (individual element CS)",
     )
 
+    parser.add_argument(
+        "--port",
+        type=int,
+        default=int(os.environ.get("ANSYS_VNC_GRPC_PORT", 50051)),
+        help=(
+            "gRPC port of the AEDT session to connect to; a new session is started on it if "
+            "none answers (default: $ANSYS_VNC_GRPC_PORT, else 50051)"
+        ),
+    )
+
     args = parser.parse_args(argv)
 
     # Determine target design name from layout file if provided
@@ -2076,6 +2102,7 @@ def main(argv=None):
         centre_frequency_ghz=args.centre_freq,
         bandwidth_ghz=args.bandwidth,
         phase_reference_mode=args.phase_reference_mode,
+        grpc_port=args.port,
         non_graphical=True,
     )
 
@@ -2144,6 +2171,9 @@ def main(argv=None):
     except BuildAbortedError as e:
         print(f"[INFO] {e}")
         return 0
+    except NativeAedtRefusedError as e:
+        print(f"[ERROR] {e}")
+        return 2
     finally:
         builder.close()
     return 0
