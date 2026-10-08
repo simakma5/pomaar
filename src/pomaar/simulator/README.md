@@ -15,7 +15,7 @@ ansys-vnc start                      # once; then open the GUI from the VNC desk
 cd ~/Repositories/pomaar
 ansys-vnc exec .venv/bin/hfss_array_builder <path_to_project.aedt> <unit_cell_design_name> [layout.yaml]
 ```
-`ansys-vnc exec` keeps the current directory and pins the process to the compute cores. The builder connects to the GUI session's gRPC port (`--port`, default `$ANSYS_VNC_GRPC_PORT` or 50051) and starts a non-graphical AEDT in the container if none is listening.
+`ansys-vnc exec` keeps the current directory and pins the process to the compute cores. The builder connects to the GUI session's gRPC port (`--port`, default 50051) and starts a non-graphical AEDT in the container if none is listening.
 
 ### Option B: Running natively (Windows / supported Linux)
 Ensure that:

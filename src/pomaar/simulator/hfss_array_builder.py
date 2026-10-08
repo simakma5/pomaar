@@ -2078,10 +2078,10 @@ def main(argv=None):
     parser.add_argument(
         "--port",
         type=int,
-        default=int(os.environ.get("ANSYS_VNC_GRPC_PORT", 50051)),
+        default=50051,
         help=(
             "gRPC port of the AEDT session to connect to; a new session is started on it if "
-            "none answers (default: $ANSYS_VNC_GRPC_PORT, else 50051)"
+            "none answers (default: 50051)"
         ),
     )
 
