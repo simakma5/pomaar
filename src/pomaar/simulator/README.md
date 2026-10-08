@@ -37,7 +37,7 @@ hfss_array_builder <path_to_project.aedt> <unit_cell_design_name>
   ```bash
   hfss_array_builder ~/Projects/AEDT/mimo-polarimetry/mimo_polarimetry.aedt "ApertureCoupledPatch"
   ```
-* **What it does:** Creates/updates a target design named `ApertureCoupledPatchMimoArray`, syncs design variables, sizes the PCB board to perfectly fit feedlines, duplicates Tx and Rx elements according to grid positions, pre-enables post-processing, assigns $50\,\Omega$ lumped ports, and draws a $\lambda_0/4$ vacuum radiation Airbox.
+* **What it does:** Creates/updates a target design named `ApertureCoupledPatchMimoArray`, syncs design variables, sizes the PCB board to perfectly fit feedlines, duplicates Tx and Rx elements according to grid positions, pre-enables post-processing, assigns wave ports (lumped-port fallback), excites the first Tx port for far-field reports, draws a $\lambda_0/4$ vacuum radiation Airbox, and sets up Theta-Phi far-field spheres in `PhaseCentreCS` with realized-gain pattern and directivity-based XPD reports.
 
 ### Module 2: SBR+ Target Solver (`sbr_simulator.py`)
 This script links the synthesized full-wave design as a composite antenna source in SBR+, imports target geometries (e.g., calibration spheres or complex vehicle CAD), and coordinates bistatic solves.
@@ -66,5 +66,5 @@ To ensure the automated builder script runs successfully without manual alignmen
 >    * Slots, holes, or feed cutouts must be modeled as vacuum solids and named `f"{operation}_{target}"`:
 >      * Example: `Subtract_L2_Ground` will automatically be replicated at every grid position and subtracted from the ground plane.
 > 4. **PhaseCentreCS Coordinate System:**
->    * You **must** create a Relative Coordinate System named exactly **`PhaseCentreCS`** at the radiation phase center of the unit cell.
->    * The script automatically retrieves `PhaseCentreCS` offsets to rotate/shift elements during replication. If missing, it displays a warning and defaults to a `[0,0,0]` offset.
+>    * The unit cell should contain a Relative Coordinate System named exactly **`PhaseCentreCS`** at the radiation phase center of the unit cell.
+>    * The script automatically retrieves `PhaseCentreCS` offsets to rotate/shift elements during replication. If it is missing (or you decline to reuse it), the builder fits it by weighted least squares to the co-polar far-field phase of the solved unit cell (solving the unit-cell setup first if needed); declining the fit falls back to a `[0,0,0]` offset.
