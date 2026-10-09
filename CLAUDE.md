@@ -12,8 +12,8 @@ is gitignored except for its folder structure.
 
 ## Commands
 
-* `uv sync` installs the package editable into `.venv`, including the `hfss_array_builder` and
-  `sbr_simulator` console scripts. Python >= 3.12.
+* `uv sync` installs the package editable into `.venv`, including the `hfss_array_builder`,
+  `sbr_simulator`, `sbr_results` and `bistaticity_analysis` console scripts. Python >= 3.12.
 * `uvx ruff check src` and `uvx ruff format src` lint and format (line length 100, isort with
   `force-sort-within-sections`). `hfss_array_builder.py` has about 39 pre-existing E501 warnings;
   don't add new ones.
@@ -30,7 +30,7 @@ launcher `ansys-vnc` on PATH). Every PyAEDT script must run **inside** that cont
 ```bash
 ansys-vnc exec hfss_array_builder <project.aedt> <UnitCellDesign> [layout.yaml] [flags]
 ansys-vnc exec sbr_simulator <project.aedt> <ArrayDesign> [--target ...] [flags]
-ansys-vnc exec python -m pomaar.simulator.sbr_results <project> <SbrDesign> <out.npz> \
+ansys-vnc exec sbr_results <project> <SbrDesign> <out.npz> \
     --setup "Setup : Sweep_Scattered" [--sweep-variable VAR]   # export for the processor
 ansys-vnc solve <project.aedt> Design:Nominal:Setup   # headless batch solve
 ```

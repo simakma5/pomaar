@@ -3,7 +3,7 @@
 Bistaticity study of the dual-polarised horn cluster: polarimetric signatures versus the
 co-polar Tx-Rx spacing, from an SBR+ sweep exported by `sbr_results`.
 
-    python -m pomaar.simulator.bistaticity_analysis data/interim/bistatic_sweep/<sweep>.npz \
+    bistaticity_analysis data/interim/bistatic_sweep/<sweep>.npz \
         [--out data/processed/bistaticity] [--gate auto|on|off] [--background <no_target>.npz]
 
 Figures and a metrics CSV land in --out. The README ("Bistaticity study") explains every step.

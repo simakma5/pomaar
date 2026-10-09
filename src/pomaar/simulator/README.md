@@ -135,11 +135,11 @@ and covered by `tests/test_polarimetry_processor.py`.
 ```bash
 # 1. Export the scattered-field solution (inside the container, attached to the GUI session;
 #    refuses to start an AEDT)
-ansys-vnc exec python -m pomaar.simulator.sbr_results mimo_polarimetry \
+ansys-vnc exec sbr_results mimo_polarimetry \
     LinkedDualPolHornCluster data/interim/bistatic_sweep/sphere_boresight_3m_scattered.npz \
     --setup "Setup : Sweep_Scattered" --sweep-variable copolarSpacingLambda
 # 2. Analyse (host or container); figures + CSVs go to --out
-.venv/bin/python -m pomaar.simulator.bistaticity_analysis \
+.venv/bin/bistaticity_analysis \
     data/interim/bistatic_sweep/sphere_boresight_3m_scattered.npz \
     --out data/processed/bistaticity_scattered
 ```

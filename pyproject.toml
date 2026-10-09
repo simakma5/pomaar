@@ -30,6 +30,8 @@ dependencies = [
 [project.scripts]
 hfss_array_builder = "pomaar.simulator.hfss_array_builder:main"
 sbr_simulator = "pomaar.simulator.sbr_simulator:main"
+sbr_results = "pomaar.simulator.sbr_results:main"
+bistaticity_analysis = "pomaar.simulator.bistaticity_analysis:main"
 
 [project.optional-dependencies]
 dev = [

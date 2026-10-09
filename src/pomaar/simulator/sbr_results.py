@@ -5,7 +5,7 @@ SBR+ result export: pulls the swept S-parameters of a solved (parametric) SBR+ d
 
 Run inside the AEDT container, attached to the running GUI session:
 
-    ansys-vnc exec .venv/bin/python -m pomaar.simulator.sbr_results <project> <design> <out.npz> \
+    ansys-vnc exec sbr_results <project> <design> <out.npz> \
         [--setup "Setup : Sweep_Scattered"] [--sweep-variable copolarSpacingLambda] [--port 50051]
 """
 
