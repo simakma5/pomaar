@@ -694,22 +694,8 @@ class SbrSimulationManager:
         return {key: pols for key, pols in elements.items() if set(pols) == {"H", "V"}}
 
     # ------------------------------------------------------------------------------------------
-    # Other steps (not used by setup_sbr_design)
+    # Results
     # ------------------------------------------------------------------------------------------
-
-    def import_target_cad(self, cad_path):
-        """Replaces the canonical target with a CAD file imported into TargetCS."""
-        if not self.sbr_app:
-            raise RuntimeError("SBR+ design not initialized.")
-
-        cad_path = os.path.abspath(cad_path)
-        print(f"Importing target CAD file: {cad_path}")
-        for obj_name in self.target_object_names:
-            self.sbr_app.modeler.delete(obj_name)
-        self.sbr_app.modeler.set_working_coordinate_system(TARGET_CS)
-        self.sbr_app.modeler.import_3d_cad(cad_path)
-        self.sbr_app.modeler.set_working_coordinate_system("Global")
-        self.sbr_app.save_project()
 
     def export_results(self, output_path, sweep_variable=None, solution=None):
         """
