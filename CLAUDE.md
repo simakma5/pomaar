@@ -28,15 +28,18 @@ AEDT 2025 R2 runs only inside the `ansys-vnc` Podman container (repo `~/Reposito
 launcher `ansys-vnc` on PATH). Every PyAEDT script must run **inside** that container:
 
 ```bash
-ansys-vnc exec .venv/bin/hfss_array_builder <project.aedt> <UnitCellDesign> [layout.yaml] [flags]
-ansys-vnc exec .venv/bin/sbr_simulator <project.aedt> <ArrayDesign> [--target ...] [flags]
-ansys-vnc exec .venv/bin/python -m pomaar.simulator.sbr_results <project> <SbrDesign> <out.npz> \
+ansys-vnc exec hfss_array_builder <project.aedt> <UnitCellDesign> [layout.yaml] [flags]
+ansys-vnc exec sbr_simulator <project.aedt> <ArrayDesign> [--target ...] [flags]
+ansys-vnc exec python -m pomaar.simulator.sbr_results <project> <SbrDesign> <out.npz> \
     --setup "Setup : Sweep_Scattered" [--sweep-variable VAR]   # export for the processor
 ansys-vnc solve <project.aedt> Design:Nominal:Setup   # headless batch solve
 ```
 
 * **The project `.venv` works inside the container** because the host's uv Python is mounted
-  there.
+  there. `ansys-vnc exec`/`shell` put the nearest `.venv` first on `PATH` (`--no-venv` opts out).
+* **Leftover processes.** Stopping a command on the host does not stop it in the container;
+  `ansys-vnc ps` lists AEDT sessions (with kind and gRPC port), solvers and Python processes, and
+  `ansys-vnc kill <pid | :port>` ends them (it refuses the GUI without `--force`).
 * **Never connect from the host.** PyAEDT on the host cannot see the container's gRPC session and
   silently starts a native AEDT, which crashes. The builder raises `NativeAedtRefusedError` there
   unless `POMAAR_ALLOW_NATIVE_AEDT=1`.

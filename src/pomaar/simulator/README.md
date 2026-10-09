@@ -13,9 +13,9 @@ On the Fedora workstation, AEDT runs in the `ansys-vnc` container (see `~/Reposi
 ```bash
 ansys-vnc start                      # once; then open the GUI from the VNC desktop or `ansys-vnc aedt`
 cd ~/Repositories/pomaar
-ansys-vnc exec .venv/bin/hfss_array_builder <path_to_project.aedt> <unit_cell_design_name> [layout.yaml]
+ansys-vnc exec hfss_array_builder <path_to_project.aedt> <unit_cell_design_name> [layout.yaml]
 ```
-`ansys-vnc exec` keeps the current directory and pins the process to the compute cores. The builder connects to the running GUI session's gRPC port (found automatically; `--port` overrides it) and starts a non-graphical AEDT in the container if none is listening.
+`ansys-vnc exec` keeps the current directory, pins the process to the compute cores and puts the nearest `.venv` (here the project's) first on `PATH`, so the console scripts and `python` run by name. The builder connects to the running GUI session's gRPC port (found automatically; `--port` overrides it) and starts a non-graphical AEDT in the container if none is listening.
 
 ### Option B: Running natively (Windows / supported Linux)
 Ensure that:
@@ -30,7 +30,7 @@ Ensure that:
 ### Module 1: HFSS Full-Wave Array Synthesis (`hfss_array_builder.py`)
 This script automates the creation of a planar MIMO array on a single contiguous PCB board by copying, replicating, and boolean-cutting template geometries from an isolated unit-cell element design.
 
-To run (prefix with `ansys-vnc exec .venv/bin/` in the container setup):
+To run (prefix with `ansys-vnc exec` in the container setup):
 ```bash
 hfss_array_builder <path_to_project.aedt> <unit_cell_design_name> [layout.yaml]
 ```
@@ -43,7 +43,7 @@ hfss_array_builder <path_to_project.aedt> <unit_cell_design_name> [layout.yaml]
 ### Module 2: SBR+ Target Solver (`sbr_simulator.py`)
 This script builds an SBR+ design next to a solved HFSS antenna design of the same project: it places a canonical PEC target, links the HFSS design as the antenna source, pairs every Tx port with every Rx port, copies the frequency sweep, creates quick-look S-parameter reports and optionally solves.
 
-To run (prefix with `ansys-vnc exec .venv/bin/` in the container setup; `uv sync` installs the script):
+To run (prefix with `ansys-vnc exec` in the container setup; `uv sync` installs the script):
 ```bash
 sbr_simulator <path_to_project.aedt> <hfss_design_name> [--target dihedral] [--size 40mm] [--distance 4meter] [--map-variables VAR ...] [--field-type farfield] [--simulate | --no-simulate]
 ```
@@ -135,7 +135,7 @@ and covered by `tests/test_polarimetry_processor.py`.
 ```bash
 # 1. Export the scattered-field solution (inside the container, attached to the GUI session;
 #    refuses to start an AEDT)
-ansys-vnc exec .venv/bin/python -m pomaar.simulator.sbr_results mimo_polarimetry \
+ansys-vnc exec python -m pomaar.simulator.sbr_results mimo_polarimetry \
     LinkedDualPolHornCluster data/interim/bistatic_sweep/sphere_boresight_3m_scattered.npz \
     --setup "Setup : Sweep_Scattered" --sweep-variable copolarSpacingLambda
 # 2. Analyse (host or container); figures + CSVs go to --out
