@@ -194,7 +194,7 @@ class MimoHfssBuilder:
         non_graphical=True,
         centre_frequency_ghz=None,
         bandwidth_ghz=4.0,
-        phase_reference_mode="single",
+        phase_reference_mode="per_port",
     ):
         self.project_path = os.path.abspath(project_path)
         self.source_design_name = source_design_name
@@ -1018,8 +1018,9 @@ class MimoHfssBuilder:
 
         # --- STEP 6b: Create Array PhaseCentreCS & Configure Far-field Phase Reference ---
         # PhaseCentreCS sits at the centroid of the element phase centres with global axes. It is
-        # the CS of all far-field spheres (z = boresight, x = co-polar reference) and the single
-        # far-field phase reference. Lateral coordinates stay parametric when the layout is.
+        # the CS of all far-field spheres (z = boresight, x = co-polar reference). The far-field
+        # phase reference for SBR+ linking is per port (element CSs) unless mode 'single' puts it
+        # here. Lateral coordinates stay parametric when the layout is.
         if element_phase_centres:
             count = len(element_phase_centres)
             avg_z = sum(pt[2] for pt in element_phase_centres) / count
@@ -1727,11 +1728,13 @@ class MimoHfssBuilder:
         ----------
         mode : str, optional
             Phase reference mode:
-            - "single" (default): Assigns a single coordinate system (array centroid 'PhaseCentreCS')
-              to all excitations. This preserves the inter-element spatial phase differences (array manifold)
-              necessary for MIMO radar SBR+ simulations.
-            - "per_port" or "per-port": Assigns individual coordinate systems to each port
-              (e.g. 'CS_<label>' for each element).
+            - "per_port" or "per-port" (default): each port's far field is referenced to its own
+              element CS 'CS_<label>' (at the element phase centre). A linked SBR+ antenna then
+              launches each port's rays from that point, so the Tx/Rx geometry (bistatic angles,
+              path lengths) is modelled by the ray tracer and stays exact for near targets.
+            - "single": all ports share 'PhaseCentreCS' (array centroid). SBR+ then launches every
+              port from the centroid and the element offsets survive only as far-field pattern
+              phase, which is valid only for targets in the far field of the whole array.
         cs_name : str, optional
             The coordinate system name to use when mode="single". Default is "PhaseCentreCS".
         """
@@ -1739,7 +1742,7 @@ class MimoHfssBuilder:
             raise RuntimeError("Target array design not connected or synthesized yet.")
 
         if mode is None:
-            mode = getattr(self, "phase_reference_mode", "single")
+            mode = getattr(self, "phase_reference_mode", "per_port")
         normalized_mode = str(mode).lower().replace("-", "_")
 
         print(f"\nConfiguring Far-field Phase Reference (mode='{normalized_mode}')...")
@@ -2076,8 +2079,11 @@ def main(argv=None):
         "--phase-reference-mode",
         "--phase-ref-mode",
         choices=["single", "per-port"],
-        default="single",
-        help="Far-field phase reference mode for SBR+ antenna linking: 'single' (array centroid PhaseCentreCS, default) or 'per-port' (individual element CS)",
+        default="per-port",
+        help=(
+            "Far-field phase reference for SBR+ antenna linking: 'per-port' (each port at its "
+            "element CS, default) or 'single' (array centroid PhaseCentreCS)"
+        ),
     )
 
     parser.add_argument(

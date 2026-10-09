@@ -29,6 +29,7 @@ dependencies = [
 
 [project.scripts]
 hfss_array_builder = "pomaar.simulator.hfss_array_builder:main"
+sbr_simulator = "pomaar.simulator.sbr_simulator:main"
 
 [project.optional-dependencies]
 dev = [
