@@ -66,6 +66,11 @@ sbr_simulator <path_to_project.aedt> <hfss_design_name> [--target dihedral] [--s
   7. Creates quick-look reports. SBR+ splits the solution `Setup : Sweep` (total) into `Setup : Sweep_Incident`, the direct Tx→Rx coupling between the proxy ports, and `Setup : Sweep_Scattered`, the target return (total = incident + scattered). The coupling dominates the total at short Tx/Rx spacings, so target signatures must be read from `Setup : Sweep_Scattered`. Reports: `S-parameters dB` (total) and `S-parameters dB (scattered)` for all Tx/Rx pairs, and, per dual-polarised Tx/Rx element pair from the scattered solution, `Co-pol VV/HH` (`S_VV/S_HH` in dB and degrees; ideally 0 dB for both, with the dihedral's phase 180° away from the sphere's) and `Cross-pol isolation` (`S_HV/S_HH`, `S_VH/S_VV` in dB).
   8. Asks whether to solve (`--simulate` / `--no-simulate` decide silently). Solving also solves the HFSS design where its linked solution is missing.
 
+  `SbrSimulationManager.export_results(path, sweep_variable)` writes the solved scattered solution to an `.npz` for Module 3 (via `sbr_results.py`, which is also a standalone CLI; see §4.2).
+
+### Module 3: Offline Polarimetric Post-Processing (`polarimetry_processor.py`, `bistaticity_analysis.py`)
+Pure NumPy, no AEDT: `MimoPolarimetryProcessor` loads an exported sweep and computes polarimetric signatures; `bistaticity_analysis` plots them against the Tx–Rx spacing. Section 4 documents the full chain, its validation and the first results.
+
 ---
 
 ## 3. Unit-Cell Design Rules (Strict Modeling Constraints)
@@ -117,8 +122,10 @@ and covered by `tests/test_polarimetry_processor.py`.
 
   Co-polar pairs (TxH–RxH, TxV–RxV) are d apart along the two diagonals. Cross-polar pairs are
   d/√2 apart along x.
-* **Scene:** `LinkedDualPolHornCluster` (SBR+). It contains the far-field linked antenna and a PEC
-  sphere of radius `targetRadius` = 100 mm, centred at `targetRange` = 3 m on boresight. The setup
+* **Scene:** the hand-built `LinkedDualPolHornCluster` (SBR+), which predates `sbr_simulator`. It
+  contains the far-field linked antenna and a PEC sphere of radius `targetRadius` = 100 mm,
+  centred at `targetRange` = 3 m on boresight. For designs built by `sbr_simulator --target sphere`,
+  pass `targetDistance` as `--target-range` and `targetSize` as `--target-radius`. The setup
   uses 4 rays/λ and 5 bounces, and sweeps 74–84 GHz in 201 points (Δf = 50 MHz). The parametric
   sweep `copolarSpacingLambda` = 1.41…8.41 (step 1) gives a co-polar bistatic angle
   β = 2·atan(d/2R) of only 0.11°…0.63°.
@@ -219,8 +226,8 @@ components:
 Because the coupling is 30–60 dB stronger, a 0.1 % irregularity in it reaches the target's level
 at every delay. When the total solution is gated, this contaminates the co-pol channels at 3.41λ
 and 5.41λ. It also leaks into the cross-pol channels *inside* the gate, where the guard-band check
-cannot see it: gated total-field cross-pol came out at −30…−41 dB, whereas the scattered solution
-gives −35…−56 dB.
+cannot see it: gated total-field cross-pol came out at −30…−41 dB at 79 GHz, whereas the scattered
+solution gives −36…−57 dB (§4.7).
 
 > [!IMPORTANT]
 > **Remove the coupling at its source.** Export `Setup : Sweep_Scattered`. Equivalently, subtract
@@ -276,11 +283,13 @@ figures:
   target, drawn dotted in panel (3). Cross-pol less than 10 dB above it is "unresolved", and every
   metric using cross-pol channels is flagged.
 
-**Geometric compensation.** `spherical_wave_phase` focuses each channel on the sphere's front
-point. For this square every element is d/2 from the centroid, so all four channels have
-identical paths (spread 0 µm), and compensation changes no ratio (≤ 3·10⁻¹⁴ °).
-
 ### 4.5 Signatures (panels of `signatures_vs_spacing.png`)
+
+Before the signatures are computed, `compensate_geometry` divides each channel by its
+spherical-wave phase to the sphere's front point (`spherical_wave_phase`), gated or not. For this
+square every element is d/2 from the centroid, so all four channels have identical paths (spread
+0 µm), and compensation changes no ratio (≤ 3·10⁻¹⁴ °). It matters for off-boresight targets
+(§4.6).
 
 Each panel plots one scalar against spacing, with β on the top axis. The line is the 79 GHz value
 and the band is the min–max over the valid band: the whole sweep when ungated, 77.45–80.55 GHz
@@ -369,7 +378,8 @@ processing error, not a limit of the configuration.**
    cross-pol (mutual coupling to the orthogonal neighbour). The off-boresight angle also differs
    per element. None of this cancels under geometric compensation. It needs polarimetric
    calibration (per-channel distortion matrices from a sphere and a depolarising reference).
-4. **Coupling and multipath.** Direct coupling is removable (gating / background subtraction).
+4. **Coupling and multipath.** Direct coupling is removable (scattered solution, background
+   subtraction or gating).
    Interactions between the target and the antenna structure are absent from this SBR+ model
    unless the structure is included in the scene.
 
@@ -419,6 +429,11 @@ From `Setup : Sweep_Scattered`, processed ungated (default), i.e.
   M_VH ≈ e_rx,V · S_ideal · e_tx,H at θ ≈ β/2 for every element.
 * **Off-boresight targets.** Put the target off boresight (θ_y scan) to observe the linear term in
   simulation, and verify that per-channel compensation removes it.
-* **Dihedral and trihedral.** Add both (edge parallel and perpendicular to each baseline, and the
-  45° dihedral for reciprocity), using `REFERENCE_DIHEDRAL` for the fidelity, and range R ≈ 1 m so
-  that d·L/(λR) reaches order 1.
+* **Dihedral and trihedral.** `sbr_simulator --target dihedral|trihedral` builds both; use
+  `targetRoll` for the edge parallel and perpendicular to each baseline and for the 45° dihedral
+  (reciprocity), and a range R ≈ 1 m so that d·L/(λR) reaches order 1.
+* **Generalise `bistaticity_analysis`.** It is still specific to this study: the sphere reference
+  (`REFERENCE_SPHERE`), a boresight focal point at the sphere's front, and the `DualPolHornCluster`
+  geometry (`cluster_positions`, 20 mm feeds). Dihedral, trihedral and off-boresight runs need the
+  reference matrix, the target position and the element positions as inputs (e.g. read from the
+  SBR+ design variables and the layout).
