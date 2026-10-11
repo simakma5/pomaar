@@ -1,56 +1,73 @@
-# Polarimetric MIMO Simulation Sub-Project
+# Polarimetric MIMO simulation sub-project
 
 This sub-project automates a three-stage simulation pipeline linking **Ansys HFSS (full-wave)**, **Ansys HFSS SBR+ (ray-tracing)**, and **Python DSP post-processing** for polarimetric MIMO automotive radar array analysis.
 
 ---
 
-## 1. Prerequisites & Environment Setup
+## 1. Prerequisites and environment setup
 
 The pipeline requires **Ansys Electronics Desktop (AEDT) 2025.2 or newer** and a Python environment with PyAEDT (`pyaedt`), provided by this repository's `uv` environment (`uv sync`).
 
 ### Option A: Running in the AEDT container (Linux, recommended)
+
 On the Fedora workstation, AEDT runs in the `ansys-vnc` container (see `~/Repositories/ansys-vnc`). Python scripts must run **inside** that container: from the host, PyAEDT cannot see the container's gRPC session and would silently start a native AEDT instead (the builder refuses to do so). The container mounts `~/Repositories` and the host's `uv` Python installations, so the project's `.venv` works there unchanged:
+
 ```bash
 ansys-vnc start                      # once; then open the GUI from the VNC desktop or `ansys-vnc aedt`
 cd ~/Repositories/pomaar
 ansys-vnc exec hfss_array_builder <path_to_project.aedt> <unit_cell_design_name> [layout.yaml]
 ```
+
+To run the scripts from any directory, link them once: `ansys-vnc link --host bistaticity_analysis ~/Repositories/pomaar` writes wrappers into `~/.local/bin`. `hfss_array_builder`, `sbr_simulator` and `sbr_results` then run in the container, and `bistaticity_analysis` runs on the host. Rerun the command after adding console scripts.
 `ansys-vnc exec` keeps the current directory, pins the process to the compute cores and puts the nearest `.venv` (here the project's) first on `PATH`, so the console scripts and `python` run by name. The builder connects to the running GUI session's gRPC port (found automatically; `--port` overrides it) and starts a non-graphical AEDT in the container if none is listening.
 
 ### Option B: Running natively (Windows / supported Linux)
+
 Ensure that:
+
 1. `ANSYSEM_ROOT252` (or your corresponding AEDT installation path) is set in your environment variables.
 2. The `pomaar` package dependencies are installed (`uv sync`).
 3. On Linux outside a container, set `POMAAR_ALLOW_NATIVE_AEDT=1` to let the builder start or connect to AEDT.
 
 ---
 
-## 2. Running the Pipeline
+## 2. Running the pipeline
 
-### Module 1: HFSS Full-Wave Array Synthesis (`hfss_array_builder.py`)
+### Module 1: HFSS full-wave array synthesis (`hfss_array_builder.py`)
+
 This script automates the creation of a planar MIMO array on a single contiguous PCB board by copying, replicating, and boolean-cutting template geometries from an isolated unit-cell element design.
 
 To run (prefix with `ansys-vnc exec` in the container setup):
+
 ```bash
 hfss_array_builder <path_to_project.aedt> <unit_cell_design_name> [layout.yaml]
 ```
+
 * **Example:**
+
   ```bash
   hfss_array_builder ~/Projects/AEDT/mimo-polarimetry/mimo_polarimetry.aedt "ApertureCoupledPatch"
   ```
+
 * **What it does:** Creates/updates a target design named `ApertureCoupledPatchMimoArray`, syncs design variables, sizes the PCB board to perfectly fit feedlines, duplicates Tx and Rx elements according to grid positions, pre-enables post-processing, assigns wave ports (lumped-port fallback), excites the first Tx port for far-field reports, draws a $\lambda_0/4$ vacuum radiation Airbox, and sets up Theta-Phi far-field spheres in `PhaseCentreCS` with realized-gain pattern and directivity-based XPD reports. The far-field phase reference is set per port to each element's CS (`--phase-reference-mode per-port`, the default), so that a linked SBR+ antenna launches every port's rays from its own element phase centre; `single` references all ports to the array centroid `PhaseCentreCS` instead, which is only valid for targets in the far field of the whole array.
 
-### Module 2: SBR+ Target Solver (`sbr_simulator.py`)
+### Module 2: SBR+ target solver (`sbr_simulator.py`)
+
 This script builds an SBR+ design next to a solved HFSS antenna design of the same project: it places a canonical PEC target, links the HFSS design as the antenna source, pairs every Tx port with every Rx port, copies the frequency sweep, creates quick-look S-parameter reports and optionally solves.
 
 To run (prefix with `ansys-vnc exec` in the container setup; `uv sync` installs the script):
+
 ```bash
-sbr_simulator <path_to_project.aedt> <hfss_design_name> [--target dihedral] [--size 40mm] [--distance 4meter] [--map-variables VAR ...] [--field-type farfield] [--simulate | --no-simulate]
+sbr_simulator <path_to_project.aedt> <hfss_design_name> [--target dihedral] [--size 40mm] [--distance 4m] [--map-variables VAR ...] [--field-type farfield] [--simulate | --no-simulate]
 ```
+
 * **Example:**
+
   ```bash
   sbr_simulator ~/Projects/AEDT/mimo-polarimetry/mimo_polarimetry.aedt DualPolHornCluster --target sphere --map-variables copolarSpacingLambda
   ```
+
+* **Units:** `--distance` is in metres and `--size` in mm unless a unit is given (`4m`, `4 metres`, `4 meters` and `400mm` all work); metres are written to AEDT as its unit token `meter`.
 * **What it does**, in the design `Linked<hfss_design_name>` (`--design` overrides; an existing one is only replaced after confirmation or `--overwrite`):
   1. Creates `AntennaCS` at the global origin and places the linked antenna in it (boresight +z).
   2. Creates `TargetCS` in `AntennaCS` at the spherical position `X = targetDistance cos(targetAzimuth) sin(targetElevation)`, `Y = targetDistance sin(targetAzimuth) sin(targetElevation)`, `Z = targetDistance cos(targetElevation)`; `targetElevation` is therefore the polar angle off boresight. The CS's Euler angles ZYZ are `(Phi, Theta, Psi) = (targetAzimuth, targetElevation, targetRoll - targetAzimuth)`: the target's local z axis points radially away from the antenna without twisting, and `targetRoll` is a pure rotation about the line of sight (e.g. a 45° dihedral). Edit the TargetCS angles directly for other orientations.
@@ -63,39 +80,45 @@ sbr_simulator <path_to_project.aedt> <hfss_design_name> [--target dihedral] [--s
   4. Links the HFSS design (solution `--source-solution`, default its first frequency sweep) with *Simulate source design as needed*, *Model Visualization* of all its objects except the radiation boundary objects (`RadiatingSurface`, the builder's `Airbox`), and far-field (standard) or near-field (bumper/radome integration) results, asked interactively unless `--field-type` is given. `--map-variables` maps independent HFSS design variables to SBR+ design variables of the same name, which are created from the HFSS value when missing, so they can be swept in the SBR+ design.
   5. Selects Tx/Rx: ports whose names contain `Tx`/`Rx` and end in `H`/`V` (e.g. `TxH`, `Port_Tx_1_V`); every Tx transmits to every Rx.
   6. Creates `Setup` (4 rays per wavelength, 5 bounces, PTD + UTD, creeping waves) whose sweep `Sweep` copies the linked HFSS sweep.
-  7. Creates quick-look reports. SBR+ splits the solution `Setup : Sweep` (total) into `Setup : Sweep_Incident`, the direct Tx→Rx coupling between the proxy ports, and `Setup : Sweep_Scattered`, the target return (total = incident + scattered). The coupling dominates the total at short Tx/Rx spacings, so target signatures must be read from `Setup : Sweep_Scattered`. Reports: `S-parameters dB` (total) and `S-parameters dB (scattered)` for all Tx/Rx pairs, and, per dual-polarised Tx/Rx element pair from the scattered solution, `Co-pol VV/HH` (`S_VV/S_HH` in dB and degrees; ideally 0 dB for both, with the dihedral's phase 180° away from the sphere's) and `Cross-pol isolation` (`S_HV/S_HH`, `S_VH/S_VV` in dB).
+  7. Creates quick-look reports. SBR+ splits the solution `Setup : Sweep` (total) into `Setup : Sweep_Incident`, the direct Tx→Rx coupling between the proxy ports, and `Setup : Sweep_Scattered`, the target return (total = incident + scattered). The coupling dominates the total at short Tx/Rx spacings, so target signatures must be read from `Setup : Sweep_Scattered`. Reports: `S-parameters dB` (total) and `S-parameters dB (scattered)` for all Tx/Rx pairs, and, per dual-polarized Tx/Rx element pair from the scattered solution, `Co-pol VV/HH` (`S_VV/S_HH` in dB and degrees; ideally 0 dB for both, with the dihedral's phase 180° away from the sphere's) and `Cross-pol isolation` (`S_HV/S_HH`, `S_VH/S_VV` in dB).
   8. Asks whether to solve (`--simulate` / `--no-simulate` decide silently). Solving also solves the HFSS design where its linked solution is missing.
 
   `SbrSimulationManager.export_results(path, sweep_variable)` writes the solved scattered solution to an `.npz` for Module 3 (via `sbr_results.py`, which is also a standalone CLI; see §4.2).
 
-### Module 3: Offline Polarimetric Post-Processing (`polarimetry_processor.py`, `bistaticity_analysis.py`)
+### Module 3: Offline polarimetric post-processing (`polarimetry_processor.py`, `bistaticity_analysis.py`)
+
 Pure NumPy, no AEDT: `MimoPolarimetryProcessor` loads an exported sweep and computes polarimetric signatures; `bistaticity_analysis` plots them against the Tx–Rx spacing. Section 4 documents the full chain, its validation and the first results.
+
+### Spelling
+
+The code uses British spelling with Oxford -ize (centre, metre, polarization). Command-line flags also accept the American spelling (`--center-freq`, `--use-existing-phase-center`), layouts may use `centre_frequency_ghz` or the older `center_frequency_ghz`, and names read from AEDT designs are looked up in both spellings (e.g. a unit cell's `PhaseCentreCS` or `PhaseCenterCS`, `--map-variables centreWavelength` for an HFSS `centerWavelength`). Lengths read from AEDT accept `meter(s)` and `metre(s)`.
 
 ---
 
-## 3. Unit-Cell Design Rules (Strict Modeling Constraints)
+## 3. Unit-cell design rules (strict modelling constraints)
 
-To ensure the automated builder script runs successfully without manual alignment, any new unit-cell HFSS design **must** follow these strict modeling conventions:
+To ensure the automated builder script runs successfully without manual alignment, any new unit-cell HFSS design **must** follow these strict modelling conventions:
 
 > [!IMPORTANT]
-> **Unit-Cell Modeling Rules:**
-> 1. **PCB Layer Naming:**
+> **Unit-cell modelling rules:**
+>
+> 1. **PCB layer naming:**
 >    * Substrates and ground planes must follow the pattern `L{Order}_{Type}`:
->      * Substrates: e.g., `L12_Substrate`, `L23_Substrate` (must end with `_Substrate`).
->      * Ground Planes: e.g., `L2_Ground` (must end with `_Ground`).
-> 2. **Active Geometries & Ports:**
+>      * Substrates: e.g. `L12_Substrate`, `L23_Substrate` (must end with `_Substrate`).
+>      * Ground planes: e.g. `L2_Ground` (must end with `_Ground`).
+> 2. **Active geometries and ports:**
 >    * Copper patches/feedlines must have unique layer names (e.g. `L1_Patch`, `L3_Trace`).
->    * Port excitation faces must be named `PortSheet` or `PortSheet{N}` (e.g., `PortSheet1`).
-> 3. **Boolean Dummy Solids:**
->    * Slots, holes, or feed cutouts must be modeled as vacuum solids and named `f"{operation}_{target}"`:
+>    * Port excitation faces must be named `PortSheet` or `PortSheet{N}` (e.g. `PortSheet1`).
+> 3. **Boolean dummy solids:**
+>    * Slots, holes, or feed cutouts must be modelled as vacuum solids and named `f"{operation}_{target}"`:
 >      * Example: `Subtract_L2_Ground` will automatically be replicated at every grid position and subtracted from the ground plane.
-> 4. **PhaseCentreCS Coordinate System:**
->    * The unit cell should contain a Relative Coordinate System named exactly **`PhaseCentreCS`** at the radiation phase center of the unit cell.
+> 4. **`PhaseCentreCS` coordinate system:**
+>    * The unit cell should contain a relative coordinate system named exactly **`PhaseCentreCS`** at the radiation phase centre of the unit cell.
 >    * The script automatically retrieves `PhaseCentreCS` offsets to rotate/shift elements during replication. If it is missing (or you decline to reuse it), the builder fits it by weighted least squares to the co-polar far-field phase of the solved unit cell (solving the unit-cell setup first if needed); declining the fit falls back to a `[0,0,0]` offset.
 
 ---
 
-## 4. Bistaticity Study: Polarimetric Signatures from SBR+ Sweeps
+## 4. Bistaticity study: polarimetric signatures from SBR+ sweeps
 
 How much Tx–Rx separation can a polarimetric cluster tolerate before its polarimetric signatures
 break down? This section documents the post-processing chain for that question. It covers what the
@@ -114,7 +137,7 @@ and covered by `tests/test_polarimetry_processor.py`.
   around the origin, at (±d/2√2, ±d/2√2):
 
   | Element | Position (units of d/2√2) |
-  |---|---|
+  | --- | --- |
   | TxV | (+1, +1) |
   | RxV | (−1, −1) |
   | TxH | (+1, −1) |
@@ -133,13 +156,13 @@ and covered by `tests/test_polarimetry_processor.py`.
 ### 4.2 Running it
 
 ```bash
-# 1. Export the scattered-field solution (inside the container, attached to the GUI session;
-#    refuses to start an AEDT)
-ansys-vnc exec sbr_results mimo_polarimetry \
+# 1. Export the scattered-field solution (in the container via the `ansys-vnc link` wrapper,
+#    attached to the GUI session; refuses to start an AEDT)
+sbr_results mimo_polarimetry \
     LinkedDualPolHornCluster data/interim/bistatic_sweep/sphere_boresight_3m_scattered.npz \
     --setup "Setup : Sweep_Scattered" --sweep-variable copolarSpacingLambda
 # 2. Analyse (host or container); figures + CSVs go to --out
-.venv/bin/bistaticity_analysis \
+bistaticity_analysis \
     data/interim/bistatic_sweep/sphere_boresight_3m_scattered.npz \
     --out data/processed/bistaticity_scattered
 ```
@@ -147,7 +170,7 @@ ansys-vnc exec sbr_results mimo_polarimetry \
 A solved SBR+ design holds three solutions under the same setup and sweep:
 
 | Solution | Contents |
-|---|---|
+| --- | --- |
 | `Setup : Sweep` | Total fields |
 | `Setup : Sweep_Incident` | Incident only: the direct Tx→Rx coupling (§4.3) |
 | `Setup : Sweep_Scattered` | Scattered only: the target |
@@ -177,7 +200,7 @@ signatures = processor.signatures(REFERENCE_SPHERE)    # dict of (n_variations, 
 `MimoPolarimetryProcessor` provides the following methods:
 
 | Method | What it does |
-|---|---|
+| --- | --- |
 | `gate` | Range gating (§4.4) |
 | `calibrate_with_sphere` | Complex channel-imbalance calibration from a sphere measurement |
 | `inject_noise` | Adds complex white Gaussian noise at a given SNR |
@@ -208,7 +231,7 @@ response. Transforming each channel to the two-way-path (delay) domain (`delay_p
 components:
 
 | Component | Two-way path (wrapped) | Level |
-|---|---|---|
+| --- | --- | --- |
 | Direct Tx→Rx coupling between the proxy ports | d + 2 × 20 mm feeds ≈ 0.055–0.085 m | −35 dB (1.41λ) to −67 dB (8.41λ) |
 | Sphere specular return | 2(R − a) + feeds = 5.85 m, wraps to −0.145 m | ≈ −97.5 dB |
 
@@ -235,7 +258,7 @@ solution gives −36…−57 dB (§4.7).
 > with `--background`. Gating the total field is only a fallback, and its cross-pol values are not
 > trustworthy.
 
-### 4.4 Total-field fallback: gate-normalised time gating
+### 4.4 Total-field fallback: gate-normalized time gating
 
 Everything in this subsection applies only when gating is on (total-field data without a
 background).
@@ -247,7 +270,7 @@ background).
 3. Keep a rectangular gate of ±`half_width` around the (wrapped) target path.
 4. Transform back.
 5. Divide by the same processing applied to an ideal point reflector at `centre_path`, then
-   multiply that reflector back in (gate normalisation).
+   multiply that reflector back in (gate normalization).
 
 Step 5 removes the taper and the truncation of the target's own main lobe. What remains is only
 leakage from other paths.
@@ -255,7 +278,7 @@ leakage from other paths.
 **Chosen parameters** (validated on synthetic data with the measured levels and paths):
 
 | Parameter | Value | Why |
-|---|---|---|
+| --- | --- | --- |
 | `window` | Kaiser β = 14 | Hann leaks the −35 dB coupling into the gate (6 dB / 43° error) |
 | Half-width | ±0.06 m | Narrower truncates the target; wider reaches the coupling |
 | Valid band | taper ≥ 0.5 → 77.45–80.55 GHz (`gate_valid_band`) | Errors grow outside it |
@@ -263,7 +286,7 @@ leakage from other paths.
 **Synthetic errors:**
 
 | Case | Error |
-|---|---|
+| --- | --- |
 | Sphere, worst case (−35.6 dB coupling) | ≤ 0.015 dB / 0.12° |
 | −140 dB cross-pol term at the same delay | ≤ 1 dB / 7° |
 
@@ -296,12 +319,12 @@ and the band is the min–max over the valid band: the whole sweep when ungated,
 when gated.
 
 | # | Signature | Function | Sphere ideal | Dihedral (edge ∥ H) ideal |
-|---|---|---|---|---|
+| --- | --- | --- | --- | --- |
 | 1 | Co-pol imbalance \|S_VV/S_HH\| | `copolar_ratio` | 0 dB | 0 dB |
 | 2 | Co-pol phase difference ∠(S_VV S_HH*) | `copolar_ratio` | 0° (reference) | 180° relative to sphere |
 | 3 | Cross-pol leakage per Tx pol: \|S_VH/S_HH\| (Tx H), \|S_HV/S_VV\| (Tx V) | `crosspolar_isolation` | → −∞ | → −∞ |
 | 4a/b | Reciprocity S_HV/S_VH | `reciprocity_ratio` | (undefined, both → 0) | (use a 45° dihedral) |
-| 4c | Normalised asymmetry \|S_HV − S_VH\| / ‖S‖_F | `normalised_asymmetry` | → −∞ | → −∞ |
+| 4c | Normalized asymmetry \|S_HV − S_VH\| / ‖S‖_F | `normalized_asymmetry` | → −∞ | → −∞ |
 | 5 | Bistatic Pauli power fractions of k = [HH+VV, HH−VV, HV+VH, j(HV−VH)]/√2 | `pauli_vector`, `pauli_power_fractions` | k₁ = 1 | k₂ = 1 |
 | 6 | Infidelity 1 − \|⟨k, k_ref⟩\| / (‖k‖‖k_ref‖) | `polarimetric_fidelity` | → −∞ | → −∞ (vs `REFERENCE_DIHEDRAL`) |
 | 7 | Single-target Cloude α, cos α = \|k₁\|/‖k‖; entropy H of the band-averaged T | `alpha_angle`, `coherency_matrix`, `entropy_alpha` | 0°, H = 0 | 90°, H = 0 |
@@ -310,8 +333,8 @@ Notes on the table:
 
 * **Antisymmetric component.** k₄ is zero for any monostatic reciprocal measurement. Its power
   fraction is the direct bistaticity indicator. Note that the monostatic k_p of the literature
-  (`bistatic=False`) symmetrises it away.
-* **Entropy.** H is computed for the 4×4 (bistatic) and 3×3 (symmetrised) coherency matrices
+  (`bistatic=False`) symmetrizes it away.
+* **Entropy.** H is computed for the 4×4 (bistatic) and 3×3 (symmetrized) coherency matrices
   averaged over the valid band. For one deterministic target, H > 0 means its signature changes
   across the band.
 * **Phase reference.** All phases are relative between channels. The absolute arg S_HH is path
@@ -324,7 +347,7 @@ For a Tx at p_t and Rx at p_r, a far-field target in direction r̂ adds the phas
 this cluster the four channels have different virtual element positions:
 
 | Channel | Pair | Virtual element |
-|---|---|---|
+| --- | --- | --- |
 | HH | TxH + RxH | (0, 0) |
 | VV | TxV + RxV | (0, 0) |
 | HV | TxV + RxH | (0, +d/2√2) |
@@ -342,7 +365,7 @@ helix scattering. Values from `linear_term.csv` and the first two panels of
 `linear_term_study.png`:
 
 | d | θ_y | Δφ(HV − VH) | 45° dihedral power into k₄ |
-|---|---|---|---|
+| --- | --- | --- | --- |
 | 1.41λ | 1° | 12.5° | 1.2 % |
 | 1.41λ | 2° | 25.1° | 4.7 % |
 | 1.41λ | 5° | 62.6° | 27 % |
@@ -356,7 +379,7 @@ The k₄ fraction is periodic in θ_y, so it can also vanish by coincidence.
 
 **The linear term is deterministic and removable.** Divide each channel by `plane_wave_phase`
 for its own Tx/Rx pair and the look direction. Delay-and-sum beamforming does this implicitly, as
-long as the steering vectors use each polarisation channel's own virtual positions, not one shared
+long as the steering vectors use each polarization channel's own virtual positions, not one shared
 array. Better still, divide by `spherical_wave_phase` for the focal point, which also removes the
 Fresnel (quadratic) term. **Polarimetric errors caused by the linear term are therefore a
 processing error, not a limit of the configuration.**
@@ -377,7 +400,7 @@ processing error, not a limit of the configuration.**
    are measured by different antenna pairs. Their embedded patterns differ in gain, phase and
    cross-pol (mutual coupling to the orthogonal neighbour). The off-boresight angle also differs
    per element. None of this cancels under geometric compensation. It needs polarimetric
-   calibration (per-channel distortion matrices from a sphere and a depolarising reference).
+   calibration (per-channel distortion matrices from a sphere and a depolarizing reference).
 4. **Coupling and multipath.** Direct coupling is removable (scattered solution, background
    subtraction or gating).
    Interactions between the target and the antenna structure are absent from this SBR+ model
@@ -389,7 +412,7 @@ From `Setup : Sweep_Scattered`, processed ungated (default), i.e.
 `data/processed/bistaticity_scattered/signatures_vs_spacing.csv` (79 GHz values):
 
 | d (λ₀) | β (°) | \|S_VV/S_HH\| (dB) | ∠ (°) | Tx H leak (dB) | Tx V leak (dB) | \|S_HV/S_VH\| (dB) | Infidelity (dB) | α (°) |
-|---|---|---|---|---|---|---|---|---|
+| --- | --- | --- | --- | --- | --- | --- | --- | --- |
 | 1.41 | 0.11 | −0.08 | −0.4 | −41.3 | −36.5 | 4.7 | −40.4 | 0.78 |
 | 2.41 | 0.18 | −0.07 | 0.8 | −40.6 | −57.5 | −16.9 | −42.4 | 0.62 |
 | 3.41 | 0.26 | −0.14 | 0.6 | −40.3 | −40.5 | −0.4 | −40.4 | 0.77 |
@@ -432,7 +455,7 @@ From `Setup : Sweep_Scattered`, processed ungated (default), i.e.
 * **Dihedral and trihedral.** `sbr_simulator --target dihedral|trihedral` builds both; use
   `targetRoll` for the edge parallel and perpendicular to each baseline and for the 45° dihedral
   (reciprocity), and a range R ≈ 1 m so that d·L/(λR) reaches order 1.
-* **Generalise `bistaticity_analysis`.** It is still specific to this study: the sphere reference
+* **Generalize `bistaticity_analysis`.** It is still specific to this study: the sphere reference
   (`REFERENCE_SPHERE`), a boresight focal point at the sphere's front, and the `DualPolHornCluster`
   geometry (`cluster_positions`, 20 mm feeds). Dihedral, trihedral and off-boresight runs need the
   reference matrix, the target position and the element positions as inputs (e.g. read from the

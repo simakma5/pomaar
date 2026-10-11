@@ -44,7 +44,7 @@ def main():
     if args.tx_spacing is None:
         args.tx_spacing = args.rx_count * args.rx_spacing
 
-    # Element positions are centered around the array centroid.
+    # Element positions are centred around the array centroid.
     # Rx row sits at y = -txOffsetY/2, Tx row at y = +txOffsetY/2.
     rx_y = -args.tx_offset_y / 2.0
     tx_y = args.tx_offset_y / 2.0
@@ -85,7 +85,7 @@ def main():
     layout_data = {
         "metadata": {
             "topology": "contiguous_ula",
-            "center_frequency_ghz": args.centre_freq,
+            "centre_frequency_ghz": args.centre_freq,
             "bandwidth_ghz": args.bandwidth,
             "variables": {
                 "rxSpacing": f"{args.rx_spacing:.4f}mm",
@@ -113,10 +113,10 @@ def main():
         yaml.dump(layout_data, f, sort_keys=False)
 
     print(f"Generated layout with {args.rx_count} Rx and {args.tx_count} Tx elements.")
-    print(f"  Centre Frequency: {args.centre_freq} GHz (lambda_0 = {lambda_0:.2f} mm)")
+    print(f"  Centre frequency: {args.centre_freq} GHz (lambda_0 = {lambda_0:.2f} mm)")
     print(f"  Rx Spacing: {args.rx_spacing} mm")
     print(f"  Tx Spacing: {args.tx_spacing:.2f} mm")
-    print(f"  Rx row at y = {rx_y:.2f} mm, Tx row at y = {tx_y:.2f} mm (centered)")
+    print(f"  Rx row at y = {rx_y:.2f} mm, Tx row at y = {tx_y:.2f} mm (centred)")
     print(f"Layout written to: {output_path}")
     print(f"\nTo synthesize in HFSS, run:")
     print(

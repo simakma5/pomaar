@@ -19,7 +19,7 @@ def main():
         "-r",
         type=float,
         default=None,
-        help="Radial distance of elements from the center in mm (default: 0.35 * lambda_0 => copol baseline = 0.7 * lambda_0)",
+        help="Radial distance of elements from the centre in mm (default: 0.35 * lambda_0 => copol baseline = 0.7 * lambda_0)",
     )
     parser.add_argument(
         "--radius-lambda",
@@ -34,11 +34,11 @@ def main():
         help="Co-polar baseline spacing (2*r) in mm (default: 0.7 * lambda_0)",
     )
     parser.add_argument(
-        "--center-freq",
         "--centre-freq",
+        "--center-freq",
         type=float,
         default=79.0,
-        help="Center frequency in GHz (default: 79.0)",
+        help="Centre frequency in GHz (default: 79.0)",
     )
     parser.add_argument(
         "--bandwidth",
@@ -62,7 +62,7 @@ def main():
     args = parser.parse_args()
 
     # Speed of light in vacuum (mm/s) -> wavelength in mm
-    lambda_0 = 299.792458 / args.center_freq
+    lambda_0 = 299.792458 / args.centre_freq
 
     # Determine radial distance (mm)
     if args.radius is not None:
@@ -82,15 +82,15 @@ def main():
     # - Horizontal pair (H-pol) along X-axis:
     #   * Tx_H at (+r, 0): yaw = 90 deg (feedline to +X, H-pol)
     #   * Rx_H at (-r, 0): yaw = 270 deg (feedline to -X, H-pol)
-    #   * Co-polar HH baseline: d_co = 2*r along X, virtual phase center = [0, 0, 0]
+    #   * Co-polar HH baseline: d_co = 2*r along X, virtual phase centre = [0, 0, 0]
     # - Vertical pair (V-pol) along Y-axis:
     #   * Tx_V at (0, +r): yaw = 180 deg (feedline to +Y, V-pol)
     #   * Rx_V at (0, -r): yaw = 0 deg (feedline to -Y, V-pol)
-    #   * Co-polar VV baseline: d_co = 2*r along Y, virtual phase center = [0, 0, 0]
+    #   * Co-polar VV baseline: d_co = 2*r along Y, virtual phase centre = [0, 0, 0]
     layout_data = {
         "metadata": {
             "topology": "polarimetric_cluster",
-            "center_frequency_ghz": args.center_freq,
+            "centre_frequency_ghz": args.centre_freq,
             "bandwidth_ghz": args.bandwidth,
             "variables": {
                 "copolarSpacing": f"{copol_spacing_mm:.4f}mm",
@@ -147,7 +147,7 @@ def main():
         yaml.dump(layout_data, f, sort_keys=False)
 
     print(
-        f"Generated 4-element polarimetric cluster layout at {args.center_freq} GHz (lambda_0 = {lambda_0:.2f} mm):"
+        f"Generated 4-element polarimetric cluster layout at {args.centre_freq} GHz (lambda_0 = {lambda_0:.2f} mm):"
     )
     print(f"  Radial Distance (r):        {radius_mm:.3f} mm ({radius_mm / lambda_0:.3f} * lambda_0)")
     print(
@@ -156,11 +156,11 @@ def main():
     print(
         f"  Cross-Polar Baseline (d_x): {crosspol_spacing_mm:.3f} mm ({crosspol_spacing_mm / lambda_0:.3f} * lambda_0)"
     )
-    print(f"  Virtual Phase Centers:      r_v(HH) = r_v(VV) = [0.0, 0.0, 0.0]")
+    print(f"  Virtual phase centres:      r_v(HH) = r_v(VV) = [0.0, 0.0, 0.0]")
     print(f"Layout written to: {output_path}")
     print("\nTo synthesize in HFSS, run:")
     print(
-        f"  hfss_array_builder <project_path> <source_design_name> {output_path} --center-freq {args.center_freq} --bandwidth {args.bandwidth}"
+        f"  hfss_array_builder <project_path> <source_design_name> {output_path} --centre-freq {args.centre_freq} --bandwidth {args.bandwidth}"
     )
 
 

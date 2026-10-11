@@ -35,10 +35,10 @@ FF_REPORT_XPD_PHI90 = "XPD Phi90"
 
 # Pattern quantities. Realized gain is used for absolute patterns. XPD is a co/cross ratio and is
 # therefore identical for Directivity, Gain and Realized gain (they differ only by a common
-# power normalisation); directivity is used so that XPD does not depend on port mismatch settings.
+# power normalization); directivity is used so that XPD does not depend on port mismatch settings.
 # With 'Linear' polarization (slant 0) and an unrotated CS, CoPolar/CrossPolar are Ludwig-3 X/Y
-# referenced to the sphere CS x-axis: XPD of an x-polarised (H) port is Co - Cross, and of a
-# y-polarised (V) port Cross - Co.
+# referenced to the sphere CS x-axis: XPD of an x-polarized (H) port is Co - Cross, and of a
+# y-polarized (V) port Cross - Co.
 XPD_X_POL_EXPRESSION = "dB(DirCoPolar) - dB(DirCrossPolar)"
 XPD_Y_POL_EXPRESSION = "dB(DirCrossPolar) - dB(DirCoPolar)"
 
@@ -121,13 +121,36 @@ def _length_mm(app, expression):
     create its temporary 'pyaedt_evaluator' variable in the design.
     """
     match = re.fullmatch(
-        r"\s*([-+]?[\d.]+(?:[eE][-+]?\d+)?)\s*(mm|um|nm|cm|m|mil|in)?\s*", str(expression)
+        r"\s*([-+]?[\d.]+(?:[eE][-+]?\d+)?)\s*(mm|um|nm|cm|m|metres?|meters?|mil|in)?\s*",
+        str(expression),
     )
     if match:
+        unit = match.group(2)
+        # AEDT writes metres as 'meter'; British and plural spellings are accepted as well
+        if unit and unit.startswith(("metre", "meter")):
+            unit = "m"
         scale = {None: 1.0, "mm": 1.0, "um": 1e-3, "nm": 1e-6, "cm": 10.0, "m": 1e3,
                  "mil": 0.0254, "in": 25.4}
-        return float(match.group(1)) * scale[match.group(2)]
+        return float(match.group(1)) * scale[unit]
     return float(app.evaluate_expression(expression)) * 1000.0
+
+
+def _spelling_variants(name):
+    """
+    The name itself plus its British/American counterparts (Centre/Center, Metre/Meter), British
+    first, so that designs, coordinate systems and variables named in either spelling are found.
+    """
+    pairs = (("Centre", "Center"), ("centre", "center"), ("Metre", "Meter"), ("metre", "meter"))
+    british, american = name, name
+    for british_part, american_part in pairs:
+        british = british.replace(american_part, british_part)
+        american = american.replace(british_part, american_part)
+    return list(dict.fromkeys([name, british, american]))
+
+
+def _find_by_spelling(names, name):
+    """Returns the first of `name`'s spelling variants present in `names`, or None."""
+    return next((variant for variant in _spelling_variants(name) if variant in names), None)
 
 
 def _port_name_from_sheet(sheet_name):
@@ -218,7 +241,7 @@ class MimoHfssBuilder:
 
     def connect_desktop(self):
         """Starts or connects to an existing AEDT session via gRPC."""
-        # On a Linux host, PyAEDT cannot see a containerised AEDT's gRPC socket (separate network
+        # On a Linux host, PyAEDT cannot see a containerized AEDT's gRPC socket (separate network
         # namespace) and silently launches a native AEDT instead, which crashes there. Run the
         # builder inside the container (`ansys-vnc exec ...`) or set POMAAR_ALLOW_NATIVE_AEDT=1.
         if (
@@ -359,8 +382,12 @@ class MimoHfssBuilder:
         if operating_frequency_ghz is not None:
             self.centre_frequency_ghz = float(operating_frequency_ghz)
         elif self.centre_frequency_ghz is None:
-            if "center_frequency_ghz" in layout_metadata:
-                self.centre_frequency_ghz = float(layout_metadata["center_frequency_ghz"])
+            # Layouts written before the British-spelling rename use "center_frequency_ghz"
+            layout_frequency = layout_metadata.get(
+                "centre_frequency_ghz", layout_metadata.get("center_frequency_ghz")
+            )
+            if layout_frequency is not None:
+                self.centre_frequency_ghz = float(layout_frequency)
             else:
                 self.centre_frequency_ghz = (
                     _setup_frequency_ghz(self.source_design_app) or DEFAULT_CENTRE_FREQUENCY_GHZ
@@ -431,8 +458,10 @@ class MimoHfssBuilder:
         offset = [0.0, 0.0, 0.0]
 
         cs_map = {cs.name: cs for cs in source_modeler.coordinate_systems}
-        if "PhaseCentreCS" in cs_map:
-            cs_props = cs_map["PhaseCentreCS"].props
+        # Also finds a unit cell's 'PhaseCenterCS'
+        phase_centre_cs = _find_by_spelling(cs_map, "PhaseCentreCS")
+        if phase_centre_cs:
+            cs_props = cs_map[phase_centre_cs].props
             try:
                 offset = [
                     round(_length_mm(self.source_design_app, cs_props[key]), 3)
@@ -440,11 +469,11 @@ class MimoHfssBuilder:
                 ]
             except Exception as e:
                 print(
-                    f"  Warning: Could not evaluate PhaseCentreCS origin ({e}); using zero offset."
+                    f"  Warning: Could not evaluate {phase_centre_cs} origin ({e}); using zero offset."
                 )
-            print(f"\n[INFO] PhaseCentreCS found in unit-cell design. Origin offset: {offset} mm.")
+            print(f"\n[INFO] {phase_centre_cs} found in unit-cell design. Origin offset: {offset} mm.")
             if not _confirm(
-                "Do you want to use the existing PhaseCentreCS?", preset=use_existing_cs
+                f"Do you want to use the existing {phase_centre_cs}?", preset=use_existing_cs
             ):
                 run_fit = True
         else:
@@ -903,7 +932,7 @@ class MimoHfssBuilder:
 
             # Move element to final position
             if pos_expr:
-                # Parenthesised so that negative offsets and unary minus in the layout
+                # Parenthesized so that negative offsets and unary minus in the layout
                 # expression never produce ambiguous terms such as "-r - -0.005mm"
                 x_move = (
                     f"({pos_expr[0]}) - ({rot_dx:.4f}mm)"
@@ -1758,7 +1787,7 @@ class MimoHfssBuilder:
                 self.target_design_app.oboundary.SetSinglePhaseCenter(target_cs)
                 print(f"  Successfully set Single Far-field Phase Reference to '{target_cs}'.")
             except Exception as e:
-                print(f"  Warning: Failed to set single phase center to '{target_cs}' ({e})")
+                print(f"  Warning: Failed to set single phase centre to '{target_cs}' ({e})")
         elif normalized_mode == "per_port":
             try:
                 raw_excitations = self.target_design_app.excitation_names
@@ -1791,7 +1820,7 @@ class MimoHfssBuilder:
                     f"  Successfully set Per-Port Far-field Phase Reference for {len(mapping)} ports: {summary_str}"
                 )
             except Exception as e:
-                print(f"  Warning: Failed to set per-port phase center ({e})")
+                print(f"  Warning: Failed to set per-port phase centre ({e})")
         else:
             print(f"  Warning: Unknown phase reference mode '{mode}'. Skipping.")
 
@@ -1804,7 +1833,7 @@ class MimoHfssBuilder:
         over the cap theta <= cap_deg (all phi) at the centre frequency. A phase centre at d makes
         the far-field phase vary as arg E_co(u) = psi_0 + k u.d (u = unit direction), so d is the
         |E_co|-weighted least-squares solution of that linear model. Unlike a single-cut phase
-        flatness optimisation, this constrains X, Y and Z and needs no extra solves. The separate
+        flatness optimization, this constrains X, Y and Z and needs no extra solves. The separate
         phi = 0 / 90 plane fits are reported as a measure of astigmatism.
 
         Returns
@@ -2058,6 +2087,7 @@ def main(argv=None):
     parser.add_argument(
         "--use-existing-cs",
         "--use-existing-phase-centre",
+        "--use-existing-phase-center",
         action="store_true",
         default=False,
         help="Use existing PhaseCentreCS in the unit cell without prompting or re-fitting it",

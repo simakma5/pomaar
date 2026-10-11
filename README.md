@@ -12,13 +12,13 @@ of new theory and calibration procedures to enhance the classification of vulner
 ## Project Organization
 
 ```
-├── LICENSE            <- Open-source license
+├── LICENSE            <- Open-source licence
 ├── README.md          <- The top-level README for anyone using this project.
 ├── data
 │   ├── calibration    <- Calibration data (matrices, antenna patterns).
 │   ├── external       <- Data from third party sources.
 │   ├── interim        <- Intermediate data that has been transformed.
-│   ├── processed      <- The final, canonical data sets for modeling.
+│   ├── processed      <- The final, canonical data sets for modelling.
 │   └── raw            <- The original, immutable data dump.
 │
 ├── docs               <- A default mkdocs project; see www.mkdocs.org for details

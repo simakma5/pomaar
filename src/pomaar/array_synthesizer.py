@@ -34,7 +34,7 @@ def interleave_linear_arrays(tx_h: np.ndarray, tx_v: np.ndarray) -> tuple[np.nda
 
 class ArraySynthesizer:
     def __init__(self, name="2D polarimetric MIMO layout", highlight_overlaps=True):
-        """Positions are in units of lambda/2, representing the electromagnetic phase centers of the antennas."""
+        """Positions are in units of lambda/2, representing the electromagnetic phase centres of the antennas."""
         self.name = name
         self.highlight_overlaps = highlight_overlaps
         self.logger = logging.getLogger(f"{__name__}.{self.__class__.__name__}")
@@ -181,7 +181,7 @@ class ArraySynthesizer:
             )
         # Highlight calibration overlaps
         if self.highlight_overlaps:
-            calibration_overlaps, redundant_overlaps = self._analyze_calibration_overlaps()
+            calibration_overlaps, redundant_overlaps = self._analyse_calibration_overlaps()
             if calibration_overlaps.size:
                 ax2.scatter(
                     calibration_overlaps[:, 0],
@@ -226,7 +226,7 @@ class ArraySynthesizer:
     # endregion
     # region private methods
 
-    def _analyze_calibration_overlaps(self):
+    def _analyse_calibration_overlaps(self):
         """
         Identifies channel overlaps at each virtual position, distinguishing between
         calibration and redundant ones. Utilizes a binning approach to group nearby

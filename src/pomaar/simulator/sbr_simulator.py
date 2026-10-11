@@ -22,6 +22,7 @@ from pomaar.simulator.hfss_array_builder import (
     BuildAbortedError,
     NativeAedtRefusedError,
     _confirm,
+    _find_by_spelling,
     _length_mm,
     _parse_frequency_ghz,
 )
@@ -34,7 +35,7 @@ FIELD_TYPES = ("farfield", "nearfield")
 # Defaults for 79 GHz (lambda = 3.8 mm). 'size' is the sphere radius or the dihedral/trihedral
 # edge length. A 40 mm target has 2 D^2 / lambda <= 3.4 m for all three types (D = 2a, a*sqrt(3)
 # and a*sqrt(2)), so a 4 m range keeps it in its own far field.
-DEFAULT_TARGET_DISTANCE = "4meter"
+DEFAULT_TARGET_DISTANCE = "4m"
 DEFAULT_TARGET_SIZE = "40mm"
 
 ANTENNA_CS = "AntennaCS"
@@ -61,7 +62,7 @@ def _parse_port(port_name):
     """
     Classifies a source port name as (role, polarization, element key), e.g. 'TxH' ->
     ('Tx', 'H', 'Tx') and 'Port_Tx_1_H' -> ('Tx', 'H', 'Port_Tx_1_'); None if it is neither.
-    The element key pairs the H and V ports of one dual-polarised element.
+    The element key pairs the H and V ports of one dual-polarized element.
     """
     role = re.search(r"(Tx|Rx)", port_name)
     pol = re.search(r"([HV])$", port_name)
@@ -297,7 +298,7 @@ class SbrSimulationManager:
         """(a) AntennaCS at the global origin; (b) spherically placed, ZYZ-rotated TargetCS."""
         app = self.sbr_app
         variables = [
-            ("targetDistance", _with_unit(target_distance, "meter")),
+            ("targetDistance", _aedt_length(target_distance, "meter")),
             ("targetAzimuth", _with_unit(target_azimuth, "deg")),
             ("targetElevation", _with_unit(target_elevation, "deg")),
             ("targetRoll", _with_unit(target_roll, "deg")),
@@ -343,7 +344,7 @@ class SbrSimulationManager:
             raise ValueError(f"target_type must be one of {TARGET_TYPES}, not '{target_type}'")
         app = self.sbr_app
         modeler = app.modeler
-        app["targetSize"] = _with_unit(size, "mm")
+        app["targetSize"] = _aedt_length(size, "mm")
         if target_type == "none":
             print("No target: this design solves the background (direct Tx/Rx coupling) only.")
             self.target_object_names = []
@@ -405,7 +406,8 @@ class SbrSimulationManager:
 
         independent = list(src.variable_manager.independent_design_variable_names)
         expressions = {v: src.variable_manager.variables[v].expression for v in independent}
-        mapped = list(mapped_variables or [])
+        # A name given in either spelling (e.g. centreWavelength) maps the HFSS variable as spelt
+        mapped = [_find_by_spelling(expressions, name) or name for name in mapped_variables or []]
         for name in mapped:
             if name not in expressions:
                 raise ValueError(
@@ -563,9 +565,8 @@ class SbrSimulationManager:
         centre_ghz = (start + stop) / 2.0 if start and stop else DEFAULT_CENTRE_FREQUENCY_GHZ
         wavelength_mm = SPEED_OF_LIGHT_MM_S / (centre_ghz * 1e9)
         size_mm = _length_mm(self.sbr_app, self.sbr_app["targetSize"])
-        # AEDT spells metres 'meter'; _length_mm parses 'm'
-        distance = re.sub(r"meter$", "m", self.sbr_app["targetDistance"].strip())
-        distance_mm = _length_mm(self.sbr_app, distance)
+        # _length_mm reads AEDT's 'meter' as well as m/metre(s)
+        distance_mm = _length_mm(self.sbr_app, self.sbr_app["targetDistance"])
         aperture_mm = {
             "sphere": 2.0 * size_mm,
             "dihedral": math.sqrt(3.0) * size_mm,
@@ -582,7 +583,7 @@ class SbrSimulationManager:
     def create_reports(self):
         """
         (g) Quick-look reports: |S| in dB for every Tx/Rx pair (total and scattered), and per
-        dual-polarised Tx/Rx element pair the co-pol ratio S_VV/S_HH (dB and phase) and the
+        dual-polarized Tx/Rx element pair the co-pol ratio S_VV/S_HH (dB and phase) and the
         cross-pol isolation of the scattered (target-only) solution.
         """
         total = f"{SETUP_NAME} : {SWEEP_NAME}"
@@ -724,6 +725,19 @@ class SbrSimulationManager:
             self.desktop_session = None
 
 
+def _aedt_length(value, default_unit):
+    """
+    A length as AEDT expects it. Bare numbers get `default_unit`; values in m, metre(s) or
+    meter(s) are written with AEDT's unit token for metres, 'meter'; other units (mm, cm, ...)
+    and expressions are kept as they are.
+    """
+    text = str(value).strip()
+    match = re.fullmatch(r"([-+]?[\d.]+(?:[eE][-+]?\d+)?)\s*(m|metres?|meters?)?", text)
+    if not match:
+        return text
+    return f"{match[1]}{'meter' if match[2] else default_unit}"
+
+
 def _with_unit(value, unit):
     """Appends a unit to bare numbers; strings with units or expressions are kept as they are."""
     if isinstance(value, (int, float)):
@@ -762,7 +776,10 @@ def main(argv=None):
     parser.add_argument(
         "--size",
         default=DEFAULT_TARGET_SIZE,
-        help=f"Sphere radius or dihedral/trihedral edge length (default: {DEFAULT_TARGET_SIZE})",
+        help=(
+            "Sphere radius or dihedral/trihedral edge length, in mm unless another unit is given "
+            f"(e.g. 40, 40mm, 0.04m, 0.04 metres; default: {DEFAULT_TARGET_SIZE})"
+        ),
     )
     parser.add_argument(
         "--roughness",
@@ -779,7 +796,10 @@ def main(argv=None):
     parser.add_argument(
         "--distance",
         default=DEFAULT_TARGET_DISTANCE,
-        help=f"Target distance from AntennaCS (default: {DEFAULT_TARGET_DISTANCE})",
+        help=(
+            "Target distance from AntennaCS, in metres unless another unit is given "
+            f"(e.g. 4, 4m, 4 metres, 4 meters, 400mm; default: {DEFAULT_TARGET_DISTANCE})"
+        ),
     )
     parser.add_argument("--azimuth", default="0deg", help="Target azimuth (default: 0deg)")
     parser.add_argument(

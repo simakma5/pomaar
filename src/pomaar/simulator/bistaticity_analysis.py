@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Bistaticity study of the dual-polarised horn cluster: polarimetric signatures versus the
+Bistaticity study of the dual-polarized horn cluster: polarimetric signatures versus the
 co-polar Tx-Rx spacing, from an SBR+ sweep exported by `sbr_results`.
 
     bistaticity_analysis data/interim/bistatic_sweep/<sweep>.npz \
@@ -281,13 +281,13 @@ def plot_signatures(
         ("(1) Co-pol imbalance |S_VV / S_HH|", "dB", [("copol_ratio_db", None)]),
         ("(2) Co-pol phase difference ∠(S_VV S_HH*)", "deg", [("copol_phase_deg", None)]),
         (
-            "(3) Cross-pol leakage per Tx polarisation",
+            "(3) Cross-pol leakage per Tx polarization",
             "dB",
             [("xpol_txh_db", "Tx H: |S_VH / S_HH|"), ("xpol_txv_db", "Tx V: |S_HV / S_VV|")],
         ),
         ("(4a) Reciprocity |S_HV / S_VH|", "dB", [("reciprocity_db", None)]),
         ("(4b) Reciprocity phase ∠(S_HV S_VH*)", "deg", [("reciprocity_phase_deg", None)]),
-        ("(4c) Normalised asymmetry |S_HV − S_VH| / ‖S‖", "dB", [("asymmetry_db", None)]),
+        ("(4c) Normalized asymmetry |S_HV − S_VH| / ‖S‖", "dB", [("asymmetry_db", None)]),
     ]
     for panel_index, (ax, (title, unit, series)) in enumerate(zip(axes, panels)):
         panel_flags = flagged if panel_index < 2 else flagged_crosspol
@@ -372,7 +372,7 @@ def plot_signatures(
         marker="o",
         markersize=3,
         linewidth=1.5,
-        label="H, 3×3 (symmetrised)",
+        label="H, 3×3 (symmetrized)",
     )
     ax_entropy.tick_params(labelsize=6.5, colors=MUTED)
     ax_entropy.grid(True, color=GRID, linewidth=0.5)
@@ -568,7 +568,7 @@ def main():
     gate_snr_db = db20(gate_peak / guard_peak)
     path_deviation = target_paths - np.median(target_paths)
     # Cross-pol leakage below this cannot be resolved: guard level of the cross-pol channel
-    # relative to the co-pol target peak of the same transmit polarisation
+    # relative to the co-pol target peak of the same transmit polarization
     crosspol_floor_db = (
         db20(guard_peak[:, 1, 0] / gate_peak[:, 0, 0]),
         db20(guard_peak[:, 0, 1] / gate_peak[:, 1, 1]),

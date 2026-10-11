@@ -1,6 +1,6 @@
 metadata:
   topology: polarimetric_ula
-  center_frequency_ghz: 79.0
+  centre_frequency_ghz: 79.0
   bandwidth_ghz: 4.0
   variables:
     rxSpacing: 1.9000mm

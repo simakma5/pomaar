@@ -37,6 +37,9 @@ ansys-vnc solve <project.aedt> Design:Nominal:Setup   # headless batch solve
 
 * **The project `.venv` works inside the container** because the host's uv Python is mounted
   there. `ansys-vnc exec`/`shell` put the nearest `.venv` first on `PATH` (`--no-venv` opts out).
+* **Wrappers.** `ansys-vnc link --host bistaticity_analysis ~/Repositories/pomaar` puts wrappers for
+  the console scripts into `~/.local/bin`: `hfss_array_builder`, `sbr_simulator` and `sbr_results`
+  then run in the container from any mounted directory, and `bistaticity_analysis` runs on the host.
 * **Leftover processes.** Stopping a command on the host does not stop it in the container;
   `ansys-vnc ps` lists AEDT sessions (with kind and gRPC port), solvers and Python processes, and
   `ansys-vnc kill <pid | :port>` ends them (it refuses the GUI without `--force`).
@@ -70,7 +73,8 @@ There are three stages, each a class re-exported by `pomaar.simulator`:
 
 `layouts/*.yaml` hold `metadata` and `elements`:
 
-* `metadata`: centre frequency, bandwidth, design `variables` and `board` size formulas;
+* `metadata`: centre frequency (`centre_frequency_ghz`; the builder still reads the old
+  `center_frequency_ghz`), bandwidth, design `variables` and `board` size formulas;
 * `elements`: each with role Tx/Rx, polarization h/v, numeric `position`, a parametric
   `position_expression` in design variables, and `yaw`.
 
@@ -143,6 +147,11 @@ without a layout.
   first solve; the native `ReportSetup.CreateReport` accepts it.
 
 ## Conventions
+
+* British spelling with Oxford -ize in code and docs (centre, metre, polarization). Keep AEDT,
+  PyAEDT and matplotlib names as they are (`SetPhaseCenterPerPort`, `analyze()`, the `meter`
+  unit token, `color=`). CLI flags accept American aliases, and names read from AEDT designs are
+  looked up in both spellings (`_spelling_variants`/`_find_by_spelling` in the builder).
 
 * Commit messages: `simulator: <past-tense summary>`, e.g. `simulator: fixed far-field
   definitions, ...`, or plain past tense for repo-wide changes.

@@ -34,7 +34,7 @@ def assemble_scattering_matrix(s_hh, s_hv, s_vh, s_vv):
 
 
 def channel_layout(expressions):
-    """Maps AEDT 'S(<..>Rx<p>..,<..>Tx<q>..)' expressions to (rx, tx) polarisation index pairs."""
+    """Maps AEDT 'S(<..>Rx<p>..,<..>Tx<q>..)' expressions to (rx, tx) polarization index pairs."""
     layout = []
     for expression in expressions:
         match = re.fullmatch(r"S\(\w*?Rx([HV])\w*,\w*?Tx([HV])\w*\)", str(expression))
@@ -80,13 +80,13 @@ def wrap_path(path_m, frequencies_hz):
 
 def time_gate(s_freq, frequencies_hz, centre_path_m, half_width_m, window="blackmanharris"):
     """
-    Range-gates a swept response around one two-way path (VNA-style, gate-normalised).
+    Range-gates a swept response around one two-way path (VNA-style, gate-normalized).
 
     The sweep is tapered with `window`, transformed to the path domain, multiplied by a
     rectangular gate of +-`half_width_m` centred on `centre_path_m` (wrapped into the unambiguous
     window), and transformed back. The result is then divided by the same processing applied to
     an ideal point reflector exp(-j k centre_path_m) and multiplied by that reflector again. This
-    gate normalisation removes the taper and the truncation of the target's own main lobe, so a
+    gate normalization removes the taper and the truncation of the target's own main lobe, so a
     point scatterer at `centre_path_m` comes out unbiased; only leakage of other paths into the
     gate remains. The band edges stay less reliable (see `gate_valid_band`).
     """
@@ -174,7 +174,7 @@ def copolar_ratio(scattering_matrix):
 
 def crosspolar_isolation(scattering_matrix):
     """
-    Cross-polar leakage per transmit polarisation, (S_VH / S_HH, S_HV / S_VV).
+    Cross-polar leakage per transmit polarization, (S_VH / S_HH, S_HV / S_VV).
 
     The first ratio is the power that a transmitted H wave puts into the V receiver relative to
     the H receiver, the second the same for a transmitted V wave.
@@ -193,7 +193,7 @@ def span(scattering_matrix):
     return np.sum(np.abs(scattering_matrix) ** 2, axis=(-2, -1))
 
 
-def normalised_asymmetry(scattering_matrix):
+def normalized_asymmetry(scattering_matrix):
     """|S_HV - S_VH| / ||S||_F, a reciprocity measure that stays finite when S_HV, S_VH -> 0."""
     s = scattering_matrix
     return np.abs(s[..., 0, 1] - s[..., 1, 0]) / np.sqrt(span(s))
@@ -207,7 +207,7 @@ def pauli_vector(scattering_matrix, bistatic=True):
     is the span. The fourth (antisymmetric) component vanishes for a monostatic reciprocal
     measurement. With bistatic=False it is dropped and the third becomes sqrt(2) times the mean
     cross-pol term, i.e. the monostatic k_p = [S_HH + S_VV, S_HH - S_VV, 2 S_HV] / sqrt(2) with
-    S_HV symmetrised.
+    S_HV symmetrized.
     """
     s = scattering_matrix
     s_hh, s_hv, s_vh, s_vv = s[..., 0, 0], s[..., 0, 1], s[..., 1, 0], s[..., 1, 1]
@@ -357,7 +357,7 @@ class MimoPolarimetryProcessor:
         g_VV = S_VV of the sphere measurement (per variation and frequency). The cross-polar gains
         cannot be observed on a sphere; with g_pq = r_p t_q only their product g_HV g_VH = g_HH g_VV
         is known, so both are set to sqrt(g_HH g_VV). That is exact for a monostatic reciprocal
-        system and an assumption for separate Tx/Rx antennas; a depolarising reference (e.g. a 45
+        system and an assumption for separate Tx/Rx antennas; a depolarizing reference (e.g. a 45
         deg dihedral) is needed to resolve it. Cross-polar leakage is not corrected.
         """
         g_hh = sphere.scattering_matrices[..., 0, 0]
@@ -396,7 +396,7 @@ class MimoPolarimetryProcessor:
             "xpol_txh": tx_h_leak,
             "xpol_txv": tx_v_leak,
             "reciprocity": reciprocity_ratio(s),
-            "asymmetry": normalised_asymmetry(s),
+            "asymmetry": normalized_asymmetry(s),
             "pauli_fractions": pauli_power_fractions(s),
             "infidelity": 1 - polarimetric_fidelity(s, reference),
             "alpha_deg": alpha_angle(s),

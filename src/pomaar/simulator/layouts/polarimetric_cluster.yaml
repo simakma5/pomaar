@@ -1,6 +1,6 @@
 metadata:
   topology: polarimetric_cluster
-  center_frequency_ghz: 79.0
+  centre_frequency_ghz: 79.0
   bandwidth_ghz: 4.0
   variables:
     copolarSpacing: 2.6600mm
