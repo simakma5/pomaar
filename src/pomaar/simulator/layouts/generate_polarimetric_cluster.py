@@ -6,8 +6,13 @@ with parameterized radial distance from the geometrical centre.
 
 import argparse
 import math
-from pathlib import Path
-import yaml
+
+from _layout_common import (
+    add_unit_cell_arguments,
+    layout_filename,
+    unit_cell_metadata,
+    write_layout,
+)
 
 
 def main():
@@ -38,13 +43,10 @@ def main():
         "--center-freq",
         type=float,
         default=79.0,
-        help="Centre frequency in GHz (default: 79.0)",
-    )
-    parser.add_argument(
-        "--bandwidth",
-        type=float,
-        default=4.0,
-        help="Sweep bandwidth in GHz (default: 4.0)",
+        help=(
+            "Design frequency in GHz for the default lambda-based spacings (default: 79.0); "
+            "the builder takes the simulation frequencies from the unit cell"
+        ),
     )
     parser.add_argument(
         "--pcb-margin",
@@ -52,13 +54,8 @@ def main():
         default=0.0,
         help="Additional PCB margin in mm (default: 0.0)",
     )
-    parser.add_argument(
-        "-o",
-        "--output",
-        default="polarimetric_cluster.yaml",
-        help="Output YAML filename (default: polarimetric_cluster.yaml)",
-    )
 
+    add_unit_cell_arguments(parser)
     args = parser.parse_args()
 
     # Speed of light in vacuum (mm/s) -> wavelength in mm
@@ -89,13 +86,10 @@ def main():
     #   * Co-polar VV baseline: d_co = 2*r along Y, virtual phase centre = [0, 0, 0]
     layout_data = {
         "metadata": {
-            "topology": "polarimetric_cluster",
-            "centre_frequency_ghz": args.centre_freq,
-            "bandwidth_ghz": args.bandwidth,
+            **unit_cell_metadata(parser, args),
             "variables": {
                 "copolarSpacing": f"{copol_spacing_mm:.4f}mm",
                 "clusterRadius": "copolarSpacing / 2",
-                "crosspolarSpacing": "sqrt(2) * clusterRadius",
                 "pcbMargin": f"{args.pcb_margin:.4f}mm",
             },
             "board": {
@@ -109,7 +103,7 @@ def main():
                 "role": "Tx",
                 "polarization": "h",
                 "position": [round(radius_mm, 4), 0.0, 0.0],
-                "position_expression": ["clusterRadius", "0mm", "0mm"],
+                "position_expression": ["clusterRadius", "0mm"],
                 "yaw": 90.0,
             },
             {
@@ -117,7 +111,7 @@ def main():
                 "role": "Rx",
                 "polarization": "h",
                 "position": [round(-radius_mm, 4), 0.0, 0.0],
-                "position_expression": ["-clusterRadius", "0mm", "0mm"],
+                "position_expression": ["-clusterRadius", "0mm"],
                 "yaw": 270.0,
             },
             {
@@ -125,7 +119,7 @@ def main():
                 "role": "Tx",
                 "polarization": "v",
                 "position": [0.0, round(radius_mm, 4), 0.0],
-                "position_expression": ["0mm", "clusterRadius", "0mm"],
+                "position_expression": ["0mm", "clusterRadius"],
                 "yaw": 180.0,
             },
             {
@@ -133,35 +127,28 @@ def main():
                 "role": "Rx",
                 "polarization": "v",
                 "position": [0.0, round(-radius_mm, 4), 0.0],
-                "position_expression": ["0mm", "-clusterRadius", "0mm"],
+                "position_expression": ["0mm", "-clusterRadius"],
                 "yaw": 0.0,
             },
         ],
     }
 
-    output_path = Path(args.output)
-    if not output_path.is_absolute():
-        output_path = Path(__file__).resolve().parent / output_path
-
-    with open(output_path, "w", encoding="utf-8") as f:
-        yaml.dump(layout_data, f, sort_keys=False)
+    output_path = layout_filename(args, "polarimetric_cluster")
 
     print(
         f"Generated 4-element polarimetric cluster layout at {args.centre_freq} GHz (lambda_0 = {lambda_0:.2f} mm):"
     )
-    print(f"  Radial Distance (r):        {radius_mm:.3f} mm ({radius_mm / lambda_0:.3f} * lambda_0)")
+    print(
+        f"  Radial Distance (r):        {radius_mm:.3f} mm ({radius_mm / lambda_0:.3f} * lambda_0)"
+    )
     print(
         f"  Co-Polar Baseline (d_co):   {copol_spacing_mm:.3f} mm ({copol_spacing_mm / lambda_0:.3f} * lambda_0)"
     )
     print(
         f"  Cross-Polar Baseline (d_x): {crosspol_spacing_mm:.3f} mm ({crosspol_spacing_mm / lambda_0:.3f} * lambda_0)"
     )
-    print(f"  Virtual phase centres:      r_v(HH) = r_v(VV) = [0.0, 0.0, 0.0]")
-    print(f"Layout written to: {output_path}")
-    print("\nTo synthesize in HFSS, run:")
-    print(
-        f"  hfss_array_builder <project_path> <source_design_name> {output_path} --centre-freq {args.centre_freq} --bandwidth {args.bandwidth}"
-    )
+    print("  Virtual phase centres:      r_v(HH) = r_v(VV) = [0.0, 0.0, 0.0]")
+    write_layout(layout_data, output_path, __file__)
 
 
 if __name__ == "__main__":

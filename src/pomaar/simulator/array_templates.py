@@ -102,7 +102,7 @@ class ElementPlan:
     raw_label: str
     role: str | None
     position: tuple  # (x, y, z) in mm: where the template's offset point lands
-    position_expression: tuple | None  # parametric (x, y[, z]) or None
+    position_expression: tuple | None  # parametric (x, y) or None; z is the numeric position
     yaw: float
     polarizations: tuple  # requested polarizations, e.g. ('V',) or ('H', 'V'); () = unchecked
     template: UnitCellTemplate
@@ -132,35 +132,15 @@ def parse_polarizations(value):
 
 
 def unit_cell_key(polarizations):
-    """The `--unit-cell` / `metadata.unit_cells` key of a polarization set: 'H', 'V' or 'HV'."""
+    """The `metadata.unit_cells` key of a polarization set: 'H', 'V' or 'HV'."""
     return "".join(polarizations)
-
-
-def parse_unit_cell_args(values):
-    """
-    Parses `--unit-cell` values into {key: design}: 'h=PatchH' and 'v=PatchV' serve single-pol
-    elements, 'hv=DualPatch' serves dual-polarized elements (polarization: hv).
-    """
-    mapping = {}
-    for value in values or []:
-        key, sep, design = str(value).partition("=")
-        if not sep or not design.strip():
-            raise LayoutError(
-                f"--unit-cell expects '<pol>=<Design>' (e.g. v=PatchV), got '{value}'."
-            )
-        polarizations = parse_polarizations(key.strip())
-        if not polarizations:
-            raise LayoutError(
-                f"--unit-cell needs a polarization (h, v or hv) before '=', got '{value}'."
-            )
-        _assign_unit_cell(mapping, unit_cell_key(polarizations), design.strip(), "--unit-cell")
-    return mapping
 
 
 def merge_unit_cells(cli_mapping, metadata_mapping):
     """
-    Merges the `--unit-cell` mapping with a layout's `metadata.unit_cells` ({h: ..., v: ...,
-    hv: ...}). The same key mapped to two different designs is an error.
+    Merges a {key: design} mapping with a layout's `metadata.unit_cells` ({h: ..., v: ...,
+    hv: ...}); 'h' and 'v' serve single-pol elements, 'hv' dual-polarized ones. The same key
+    mapped to two different designs is an error.
     """
     merged = dict(cli_mapping or {})
     for key, design in (metadata_mapping or {}).items():
@@ -392,13 +372,11 @@ def _mismatch_message(label, polarizations, template, yaw, built, unit_cells):
     results = ", ".join(f"{spec.sheet} -> {pol or 'neither H nor V'}" for spec, pol, _, _ in built)
     hints = []
     if any(spec.polarization is None for spec, _, _, _ in built):
-        hints.append(
-            "tag its port sheets (PortSheet_H / PortSheet_V) or declare their native "
-            "polarization (--native-polarization for the source design, --unit-cell for others)"
-        )
+        hints.append("tag its port sheets with their polarization (PortSheet_H / PortSheet_V)")
     elif len(polarizations) == 2 and len(template.native_polarizations) < 2:
         hints.append(
-            "a dual-polarized element needs a dual-port unit cell (--unit-cell hv=<Design>)"
+            "a dual-polarized element needs a dual-port unit cell (layout metadata.unit_cells: "
+            "{hv: <Design>})"
         )
     else:
         absent = [
@@ -411,7 +389,7 @@ def _mismatch_message(label, polarizations, template, yaw, built, unit_cells):
             article = "an" if absent[0] == "H" else "a"
             hints.append(
                 f"add {article} {''.join(absent)}-polarized unit cell "
-                f"(--unit-cell {''.join(absent).lower()}=<Design>) or {turn}"
+                f"(layout metadata.unit_cells: {{{''.join(absent).lower()}: <Design>}}) or {turn}"
             )
         else:
             hints.append(turn)
@@ -686,3 +664,67 @@ def attach_port_table(table, excitations):
             return None
         rows.append({**row, "excitation": excitation})
     return rows or None
+
+
+# ----------------------------------------------------------------------------------------------
+# Layout files
+# ----------------------------------------------------------------------------------------------
+
+PHASE_REFERENCE_MODES = ("per_port", "single")
+
+
+@dataclass(frozen=True)
+class LayoutSettings:
+    """What a layout's `metadata` tells the builder besides the geometry."""
+
+    primary_unit_cell: str
+    unit_cells: dict  # {'H' | 'V' | 'HV': design}
+    drop_unused_ports: bool = False
+    phase_reference_mode: str = "per_port"
+    ignored_keys: tuple = ()  # metadata of older layouts that the builder no longer uses
+
+
+def layout_settings(layout):
+    """
+    Reads and checks a layout's metadata. A layout is bound to its unit cells:
+    `primary_unit_cell` (required) is the design every element uses unless `unit_cells`
+    ({h, v, hv: design}) or the element's own `unit_cell` name another; the primary design also
+    provides the analysis setup and names the array design.
+    """
+    if not isinstance(layout, dict) or not isinstance(layout.get("elements"), list):
+        raise LayoutError("A layout needs 'metadata' and a list of 'elements'.")
+    metadata = layout.get("metadata") or {}
+    primary = metadata.get("primary_unit_cell")
+    if not primary:
+        raise LayoutError(
+            "The layout's metadata has no 'primary_unit_cell'; regenerate it with "
+            "--unit-cell <Design>."
+        )
+    mode = str(metadata.get("phase_reference_mode", "per_port")).lower().replace("-", "_")
+    if mode not in PHASE_REFERENCE_MODES:
+        raise LayoutError(
+            f"phase_reference_mode must be one of {', '.join(PHASE_REFERENCE_MODES)}, not '{mode}'."
+        )
+    # The frequency setup (centre and sweep) comes from the primary unit cell, and the topology
+    # is the file name; older layouts still carry these keys
+    obsolete = ("centre_frequency_ghz", "center_frequency_ghz", "bandwidth_ghz", "topology")
+    return LayoutSettings(
+        primary_unit_cell=str(primary),
+        unit_cells=merge_unit_cells({}, metadata.get("unit_cells")),
+        drop_unused_ports=bool(metadata.get("drop_unused_ports", False)),
+        phase_reference_mode=mode,
+        ignored_keys=tuple(key for key in obsolete if key in metadata),
+    )
+
+
+def array_design_name(primary_unit_cell, layout_path):
+    """
+    The array design of a layout: the primary unit cell plus the layout file stem in CamelCase,
+    without a leading '<primary_unit_cell>_', so that 'ApertureCoupledPatch' with
+    'ApertureCoupledPatch_polarimetric_cluster.yaml' (or 'polarimetric_cluster.yaml') gives
+    'ApertureCoupledPatchPolarimetricCluster'.
+    """
+    stem = re.sub(r"\.[^.]*$", "", re.split(r"[\\/]", str(layout_path))[-1])
+    if stem.startswith(f"{primary_unit_cell}_"):
+        stem = stem[len(primary_unit_cell) + 1 :]
+    return primary_unit_cell + "".join(w.capitalize() for w in re.split(r"[-_]", stem) if w)

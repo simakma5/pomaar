@@ -15,12 +15,13 @@ is gitignored except for its folder structure.
 * `uv sync` installs the package editable into `.venv`, including the `hfss_array_builder`,
   `sbr_simulator`, `sbr_results` and `bistaticity_analysis` console scripts. Python >= 3.12.
 * `uvx ruff check src` and `uvx ruff format src` lint and format (line length 100, isort with
-  `force-sort-within-sections`). `hfss_array_builder.py` has about 39 pre-existing E501 warnings;
+  `force-sort-within-sections`). `hfss_array_builder.py` has about 24 pre-existing E501 warnings;
   don't add new ones.
-* `uv run --with pytest python -m pytest tests` runs the pure-NumPy processor tests. Nothing that
-  talks to AEDT has tests; verify it against a running AEDT (below).
-* `python src/pomaar/simulator/layouts/generate_<topology>.py [--help]` regenerates a layout YAML
-  next to the script.
+* `uv run --with pytest python -m pytest tests` runs the pure-NumPy processor, template-planning and
+  layout-generator tests. Nothing that talks to AEDT has tests; verify it against a running AEDT (below).
+* `python src/pomaar/simulator/layouts/generate_<topology>.py --unit-cell <Design> [--help]`
+  writes `<Design>_<topology>.yaml` next to the script (`-o` elsewhere). The shipped YAMLs are
+  bound to `ApertureCoupledPatch`; the simulator README lists the exact commands.
 
 ### Running anything that talks to AEDT
 
@@ -28,10 +29,9 @@ AEDT 2025 R2 runs only inside the `ansys-vnc` Podman container (repo `~/Reposito
 launcher `ansys-vnc` on PATH). Every PyAEDT script must run **inside** that container:
 
 ```bash
-ansys-vnc exec hfss_array_builder <project.aedt> <UnitCellDesign> [layout.yaml] [flags]
+ansys-vnc exec hfss_array_builder <project.aedt> <layout.yaml> [-y | --build-only] [-f] [flags]
 ansys-vnc exec sbr_simulator <project.aedt> <ArrayDesign> [--target ...] [flags]
-ansys-vnc exec sbr_results <project> <SbrDesign> <out.npz> \
-    --setup "Setup : Sweep_Scattered" [--sweep-variable VAR]   # export for the processor
+ansys-vnc exec sbr_results <project> <SbrDesign> <out.npz> [--sweep-variable VAR]   # scattered
 ansys-vnc solve <project.aedt> Design:Nominal:Setup   # headless batch solve
 ```
 
@@ -44,12 +44,14 @@ ansys-vnc solve <project.aedt> Design:Nominal:Setup   # headless batch solve
   `ansys-vnc ps` lists AEDT sessions (with kind and gRPC port), solvers and Python processes, and
   `ansys-vnc kill <pid | :port>` ends them (it refuses the GUI without `--force`).
 * **Never connect from the host.** PyAEDT on the host cannot see the container's gRPC session and
-  silently starts a native AEDT, which crashes. The builder raises `NativeAedtRefusedError` there
-  unless `POMAAR_ALLOW_NATIVE_AEDT=1`.
-* **The builder attaches to the running GUI session.** It discovers the GUI's gRPC port (usually
-  50051) and starts a non-graphical AEDT only if none is running.
-* **Don't edit the user's open project.** Test against a copy, e.g. a sandbox `.aedt`, or a
-  separate container/session.
+  silently starts a native AEDT, which crashes. `connect_live_session` (in the builder, used by all
+  three AEDT scripts) raises `NativeAedtRefusedError` there unless `POMAAR_ALLOW_NATIVE_AEDT=1`.
+* **All AEDT scripts attach to the running GUI session only.** `connect_live_session` finds the
+  GUI's gRPC port (usually 50051); there is no `--port`, and nothing starts an AEDT
+  (`NoLiveSessionError` without a GUI).
+* **Don't edit the user's open project unasked.** Test against a copy, or, when the user agrees,
+  build sandbox designs in it from layouts with a distinct file stem (e.g. `sandbox_*.yaml` in
+  `data/interim/sandbox/`), which gives distinct array design names. The builder saves the project.
 
 ## Architecture: the simulation pipeline
 
@@ -74,23 +76,31 @@ There are three stages, each a class re-exported by `pomaar.simulator`:
 
 `layouts/*.yaml` hold `metadata` and `elements`:
 
-* `metadata`: centre frequency (`centre_frequency_ghz`; the builder still reads the old
-  `center_frequency_ghz`), bandwidth, design `variables`, `board` size formulas and optional
-  `unit_cells` (`{h: PatchH}`, `{hv: DualPatch}`), merged with `--unit-cell`;
-* `elements`: each with role Tx/Rx, polarization h/v/hv, numeric `position`, a parametric
-  `position_expression` in design variables, `yaw` and an optional `unit_cell` design.
+* `metadata`: `primary_unit_cell` (required; the layout is bound to its designs), optional
+  `unit_cells` (`{h: PatchH}`, `{hv: DualPatch}`), `drop_unused_ports`, `phase_reference_mode`,
+  design `variables` (each referenced; a test checks it) and `board` size formulas
+  (`array_templates.layout_settings` reads and checks them). No frequencies: the builder takes
+  the centre frequency and the sweep from the primary unit cell's setup. Older layouts'
+  `centre_frequency_ghz`, `bandwidth_ghz` and `topology` are reported as ignored;
+* `elements`: each with role Tx/Rx, polarization h/v/hv, numeric `position` (x y z, for the
+  builder's checks), a parametric `position_expression` [x, y] in design variables (for the
+  placement in AEDT), `yaw` and an optional `unit_cell` design.
 
-The target design is named `<UnitCell><LayoutFileStemInCamelCase>`, or `<UnitCell>MimoArray`
-without a layout.
+The layout is the builder's only description of the array (`MimoHfssBuilder(project, layout)`);
+CLI flags only answer prompts. The array design is named
+`<primary_unit_cell><LayoutFileStemInCamelCase>`, without a leading `<primary_unit_cell>_` in the
+stem (`array_design_name`). The generators share `layouts/_layout_common.py` (`--unit-cell`,
+`--extra-unit-cell`, `--drop-unused-ports`, `--phase-reference-mode`, `-o`; default file
+`<UnitCell>_<topology>.yaml`). The frequency sweep is never in a layout: the builder copies the
+primary unit cell's setup (or fails), and `sbr_simulator` copies that sweep.
 
 ### Polarization templates
 
 Polarization is a property of the unit-cell template, not of placement. `array_templates.py` (pure,
 AEDT-free, tested in `tests/test_array_templates.py`) holds the rules:
 
-* **Tags.** Port sheets are tagged `PortSheet[<n>]_<H|V>`. Untagged ones take
-  `--native-polarization` or their `--unit-cell` key. A cell has one tagged port or two
-  (dual-port).
+* **Tags.** Port sheets must be tagged `PortSheet[<n>]_<H|V>`; an untagged sheet fails the
+  polarization check. A cell has one tagged port or two (dual-port).
 * **Resolution.** An element uses its `unit_cell`, else the template mapped to all its
   polarizations, else the source design turned by its yaw.
 * **Check.** `plan_elements` checks that R(yaw)·native lies along x (H) or y (V) before Step 2,
@@ -102,7 +112,7 @@ AEDT-free, tested in `tests/test_array_templates.py`) holds the rules:
 * **Signs.** Yaw 180 flips E. The builder prints the per-port signs, warns when a role's pair
   sign s_H·s_V = −1 (cross-pol negated relative to co-pol, invisible to sphere calibration), and
   writes `<TargetDesign>_ports.json` next to the project.
-* **`--unit-cell` keys** are polarization sets: `h`/`v` serve single-pol elements, `hv` only
+* **`unit_cells` keys** are polarization sets: `h`/`v` serve single-pol elements, `hv` only
   dual-polarized (`polarization: hv`) ones.
 
 ### How the stages share port information
@@ -112,10 +122,11 @@ AEDT-free, tested in `tests/test_array_templates.py`) holds the rules:
 `polarimetric_quads` (an H/V pair per role, either sharing an element key or the role's single H
 and V ports) and `attach_port_table`.
 
-* `sbr_simulator` skips `_Load` ports, builds its VV/HH and cross-pol reports per quad, and
-  sign-corrects the VV/HH phase from the source design's `_ports.json`.
-* `sbr_results` attaches the matching `_ports.json` (found next to the project, or `--ports`) to
-  the `.npz` metadata as `ports`.
+* `sbr_simulator` skips `_Load` ports, builds its reports from the scattered solution (one
+  total-field report for reference), per quad for VV/HH and cross-pol, and sign-corrects the VV/HH
+  phase from the source design's `_ports.json`.
+* `sbr_results` exports `Setup : Sweep_Scattered` by default and attaches the matching
+  `_ports.json` (found next to the project, or `--port-table`) to the `.npz` metadata as `ports`.
 * `MimoPolarimetryProcessor.from_npz` picks the quad, removes the port signs (`correct_signs`) and
   offers `quad_positions()` for `compensate_geometry(None, focal)`. Positions are build-time
   values, so they don't follow a swept layout variable.

@@ -6,8 +6,11 @@ SBR+ result export: pulls the swept S-parameters of a solved (parametric) SBR+ d
 Run inside the AEDT container, attached to the running GUI session:
 
     ansys-vnc exec sbr_results <project> <design> <out.npz> \
-        [--setup "Setup : Sweep_Scattered"] [--sweep-variable copolarSpacingLambda] [--port 50051]
-        [--ports <ArrayDesign>_ports.json]
+        [--setup "Setup : Sweep_Scattered"] [--sweep-variable copolarSpacingLambda] \
+        [--port-table <ArrayDesign>_ports.json]
+
+The scattered (target-only) solution is the default; see the README on why it is the
+simulation's counterpart of range gating out the antenna coupling in a measurement.
 """
 
 import argparse
@@ -17,10 +20,16 @@ import os
 import sys
 
 from ansys.aedt.core import Hfss
-from ansys.aedt.core.generic.general_methods import grpc_active_sessions
 import numpy as np
 
 from pomaar.simulator.array_templates import attach_port_table, s_parameter_ports
+from pomaar.simulator.hfss_array_builder import (
+    NativeAedtRefusedError,
+    NoLiveSessionError,
+    connect_live_session,
+)
+
+SCATTERED_SOLUTION = "Setup : Sweep_Scattered"
 
 
 def find_port_table(expressions, search_dir, ports_path=None):
@@ -49,14 +58,14 @@ def find_port_table(expressions, search_dir, ports_path=None):
 
 
 def export_sbr_parametric_sweep(
-    app, output_path, setup_sweep="Setup : Sweep", sweep_variable=None, ports_path=None
+    app, output_path, setup_sweep=SCATTERED_SOLUTION, sweep_variable=None, ports_path=None
 ):
     """
     Writes every S-parameter of `setup_sweep` for all solved values of `sweep_variable`.
 
     A solved SBR+ design offers 'Setup : Sweep' (total fields), 'Setup : Sweep_Incident' (direct
-    Tx->Rx coupling only) and 'Setup : Sweep_Scattered' (target only); use the scattered one for
-    target signatures.
+    Tx->Rx coupling only) and 'Setup : Sweep_Scattered' (target only, the default); target
+    signatures need the scattered one.
 
     The .npz holds `s` (n_variations, n_expressions, n_frequencies) complex, `frequencies_hz`,
     `sweep_values`, `expressions` (AEDT names, e.g. 'S(HornCluster1_RxH,HornCluster1_TxV)', i.e.
@@ -135,13 +144,14 @@ def main():
     parser.add_argument("project", help="Project name (open in the GUI) or .aedt path")
     parser.add_argument("design", help="Solved SBR+ design")
     parser.add_argument("output", help="Output .npz path")
-    parser.add_argument("--setup", default="Setup : Sweep", help="Setup and sweep name")
+    parser.add_argument(
+        "--setup",
+        default=SCATTERED_SOLUTION,
+        help=f"Setup and sweep name (default: '{SCATTERED_SOLUTION}', the target only)",
+    )
     parser.add_argument("--sweep-variable", default=None, help="Parametric variable to export")
     parser.add_argument(
-        "--port", type=int, default=50051, help="gRPC port of the (GUI) AEDT session"
-    )
-    parser.add_argument(
-        "--ports",
+        "--port-table",
         default=None,
         help=(
             "Builder port table of the linked array (default: the matching '*_ports.json' next "
@@ -150,23 +160,17 @@ def main():
     )
     args = parser.parse_args()
 
-    # Only ever attach (to a GUI or a non-graphical session): PyAEDT would otherwise start a
-    # fresh AEDT on a free port
-    if args.port not in grpc_active_sessions() + grpc_active_sessions(non_graphical=True):
-        sys.exit(f"No AEDT listening on gRPC port {args.port}; refusing to start one.")
-    app = Hfss(
-        project=args.project,
-        design=args.design,
-        new_desktop=False,
-        port=args.port,
-        close_on_exit=False,
-    )
     try:
+        desktop = connect_live_session()
+    except (NativeAedtRefusedError, NoLiveSessionError) as e:
+        sys.exit(f"[ERROR] {e}")
+    try:
+        app = Hfss(project=args.project, design=args.design, new_desktop=False, close_on_exit=False)
         export_sbr_parametric_sweep(
-            app, args.output, args.setup, args.sweep_variable, ports_path=args.ports
+            app, args.output, args.setup, args.sweep_variable, ports_path=args.port_table
         )
     finally:
-        app.release_desktop(close_projects=False, close_desktop=False)
+        desktop.release_desktop(close_projects=False, close_on_exit=False)
 
 
 if __name__ == "__main__":

@@ -15,11 +15,11 @@ On the Fedora workstation, AEDT runs in the `ansys-vnc` container (see `~/Reposi
 ```bash
 ansys-vnc start                      # once; then open the GUI from the VNC desktop or `ansys-vnc aedt`
 cd ~/Repositories/pomaar
-ansys-vnc exec hfss_array_builder <path_to_project.aedt> <unit_cell_design_name> [layout.yaml]
+ansys-vnc exec hfss_array_builder <path_to_project.aedt> <layout.yaml>
 ```
 
 To run the scripts from any directory, link them once: `ansys-vnc link --host bistaticity_analysis ~/Repositories/pomaar` writes wrappers into `~/.local/bin`. `hfss_array_builder`, `sbr_simulator` and `sbr_results` then run in the container, and `bistaticity_analysis` runs on the host. Rerun the command after adding console scripts.
-`ansys-vnc exec` keeps the current directory, pins the process to the compute cores and puts the nearest `.venv` (here the project's) first on `PATH`, so the console scripts and `python` run by name. The builder connects to the running GUI session's gRPC port (found automatically; `--port` overrides it) and starts a non-graphical AEDT in the container if none is listening.
+`ansys-vnc exec` keeps the current directory, pins the process to the compute cores and puts the nearest `.venv` (here the project's) first on `PATH`, so the console scripts and `python` run by name. `hfss_array_builder`, `sbr_simulator` and `sbr_results` all attach to the running AEDT GUI session (its gRPC port is found automatically) and never start an AEDT of their own: start the GUI first (`ansys-vnc aedt`) and open the project. The builder and `sbr_simulator` work in that session in plain view and save the project.
 
 ### Option B: Running natively (Windows / supported Linux)
 
@@ -27,7 +27,7 @@ Ensure that:
 
 1. `ANSYSEM_ROOT252` (or your corresponding AEDT installation path) is set in your environment variables.
 2. The `pomaar` package dependencies are installed (`uv sync`).
-3. On Linux outside a container, set `POMAAR_ALLOW_NATIVE_AEDT=1` to let the builder start or connect to AEDT.
+3. On Linux outside a container, set `POMAAR_ALLOW_NATIVE_AEDT=1` to let the scripts connect to the running AEDT GUI session.
 
 ---
 
@@ -40,31 +40,77 @@ This script automates the creation of a planar MIMO array on a single contiguous
 To run (prefix with `ansys-vnc exec` in the container setup):
 
 ```bash
-hfss_array_builder <path_to_project.aedt> <unit_cell_design_name> [layout.yaml] [--unit-cell POL=DESIGN ...]
+hfss_array_builder <path_to_project.aedt> <layout.yaml> [-y | --build-only] [-f] [--use-existing-cs] [--results-only | --simulate-only]
 ```
 
 * **Example:**
 
   ```bash
-  hfss_array_builder ~/Projects/AEDT/mimo-polarimetry/mimo_polarimetry.aedt "ApertureCoupledPatch"
+  hfss_array_builder ~/Projects/AEDT/mimo-polarimetry/mimo_polarimetry.aedt layouts/ApertureCoupledPatch_polarimetric_cluster.yaml
   ```
 
-* **Polarization:** an element's polarization comes from its unit-cell template, not from its placement. Port sheets carry their native polarization in the name (`PortSheet_H`, `PortSheet_V`); a unit cell has one such port (single-pol) or two (dual-port). Further unit cells are given per polarization set, `--unit-cell h=PatchH`, `--unit-cell v=PatchV` for single-pol elements and `--unit-cell hv=DualPatch` for dual-polarized ones (`polarization: hv`), repeatable, or `metadata.unit_cells: {h: PatchH, hv: DualPatch}` in the layout, and a layout element may name its own with `unit_cell:`. Elements without one use the source design, turned by their `yaw`. Either way the builder checks that R(yaw) applied to each port's native E-field lies along x for `polarization: h` and y for `v` (`hv` needs a dual-port cell) and aborts otherwise, before it touches any design. Untagged legacy sheets (`PortSheet`) take `--native-polarization h|v` (source design) or their `--unit-cell` key.
-* **Unused ports:** an element that uses only one port of a dual-port cell keeps the other feed, terminated in a matched wave port `Port_<label>_<P>_Load`, so that it does not become an open stub; `--drop-unused-ports` removes it instead. `sbr_simulator` skips `_Load` ports.
-* **Field signs:** turning an element by 180° flips its E-field. After building, the builder prints every port's polarization and sign (+1 along +x for H, +y for V) and writes them, with the phase centres, to `<TargetDesign>_ports.json` next to the project. The measured matrix is diag(s_RxH, s_RxV) S diag(s_TxH, s_TxV), so a role whose H and V ports have opposite signs (pair sign −1) negates the cross-pol channels against the co-pol ones; a sphere calibration cannot reveal this, and the builder warns about it.
-* **What it does:** Creates/updates a target design named `ApertureCoupledPatchMimoArray`, syncs design variables, sizes the PCB board to perfectly fit feedlines, duplicates Tx and Rx elements according to grid positions, pre-enables post-processing, assigns wave ports (lumped-port fallback), excites the first Tx port for far-field reports, draws a $\lambda_0/4$ vacuum radiation Airbox, and sets up Theta-Phi far-field spheres in `PhaseCentreCS` with realized-gain pattern and directivity-based XPD reports. The far-field phase reference is set per port to each element's CS (`--phase-reference-mode per-port`, the default), so that a linked SBR+ antenna launches every port's rays from its own element phase centre; `single` references all ports to the array centroid `PhaseCentreCS` instead, which is only valid for targets in the far field of the whole array.
+* **Inputs:** the project and a layout file; nothing else describes the array. A layout is bound to the unit-cell designs it is built from (the generators write them, see Layouts below). It holds:
+
+  | Key | Meaning |
+  | --- | --- |
+  | `metadata.primary_unit_cell` (required) | The design every element uses unless told otherwise. It provides the analysis setup and names the array design `<primary_unit_cell><LayoutFileStem>`, where a file stem starting with `<primary_unit_cell>_` drops that prefix (`ApertureCoupledPatch_polarimetric_cluster.yaml` → `ApertureCoupledPatchPolarimetricCluster`). |
+  | `metadata.unit_cells` | Further unit cells per polarization set: `h`/`v` for single-pol elements, `hv` for dual-polarized ones. |
+  | element `unit_cell` | One element's own unit cell. |
+  | `metadata.drop_unused_ports` | `true` removes the unused ports of dual-port cells (see below). |
+  | `metadata.phase_reference_mode` | `per_port` (default) or `single`; see "What it does". |
+  | `metadata.variables`, `metadata.board` | Design variables of the layout (spacings, `pcbMargin`, …) and the board size formulas in them; the builder adds `unitCellExtentX/Y`, `unitCellExtent` (the unit cells' reach from their phase centre) and `airboxClearance`. |
+  | element `position`, `position_expression` | The numeric position (mm, x y z) drives the builder's checks; the parametric `[x, y]` expression places the element in AEDT. |
+
+  Older layouts' `centre_frequency_ghz`, `bandwidth_ghz` and `topology` are ignored (with a note).
+
+* **Flags** only answer the interactive prompts: `-y` accepts everything (reuse `PhaseCentreCS`, overwrite, set up results, solve), `--build-only` builds without results setup or solve, `-f` overwrites an existing array design, `--use-existing-cs` reuses the unit cells' `PhaseCentreCS`. `--results-only` and `--simulate-only` act on the already-built array design of the layout.
+* **Frequencies** are never part of a layout. The builder takes the centre frequency from the primary unit cell's setup (for the far-field reports, the λ/4 Airbox clearance and a phase-centre fit) and copies that setup with all its sweeps (`ArraySetup`; a native copy-paste, else a recreation from its properties, else the build fails), and `sbr_simulator` copies that sweep into the SBR+ setup. `ApertureCoupledPatch` sweeps 77–81 GHz in 81 points (interpolating), i.e. Δf = 50 MHz: the unambiguous two-way path is c/Δf = 6.0 m, a maximum unambiguous range of c/(2Δf) = 3.0 m, and the range resolution is c/(2B) = 3.7 cm. A target beyond 3 m (e.g. `sbr_simulator`'s default 4 m) folds back in range; that does not matter for the scattered solution, which needs no gating, but it does for any range gating of total fields (§4.3–4.4). Change the sampling in the unit cell (e.g. 161 points for 6 m).
+* **Polarization:** an element's polarization comes from its unit-cell template, not from its placement. Port sheets carry their native polarization in the name (`PortSheet_H`, `PortSheet_V`); a unit cell has one such port (single-pol) or two (dual-port). Elements without a unit cell of their own polarization set use the primary design, turned by their `yaw`. Either way the builder checks that R(yaw) applied to each port's native E-field lies along x for `polarization: h` and y for `v` (`hv` needs a dual-port cell) and aborts otherwise, before it touches any design.
+* **Unused ports:** an element that uses only one port of a dual-port cell keeps the other feed, terminated in a matched wave port `Port_<label>_<P>_Load`, so that it does not become an open stub; `metadata.drop_unused_ports: true` removes it instead. `sbr_simulator` skips `_Load` ports.
+* **Field signs:** turning an element by 180° flips its E-field. After building, the builder prints every port's polarization and sign (+1 along +x for H, +y for V) and writes them, with the phase centres, to `<ArrayDesign>_ports.json` next to the project. The measured matrix is diag(s_RxH, s_RxV) S diag(s_TxH, s_TxV), so a role whose H and V ports have opposite signs (pair sign −1) negates the cross-pol channels against the co-pol ones; a sphere calibration cannot reveal this, and the builder warns about it.
+* **What it does:** creates or updates the array design, syncs design variables, sizes the PCB board to fit the feedlines, replicates the elements, assigns wave ports (lumped-port fallback), excites the first Tx port for far-field reports, draws a $\lambda_0/4$ vacuum radiation Airbox, checks every element's placement and that every wave port lies on the Airbox, and (unless `--build-only`) sets up Theta-Phi far-field spheres in `PhaseCentreCS` with realized-gain pattern and directivity-based XPD reports. The far-field phase reference is set per port to its own CS (`phase_reference_mode: per_port`), so that a linked SBR+ antenna launches every port's rays from its own phase centre; `single` references all ports to the array centroid `PhaseCentreCS` instead, which is only valid for targets in the far field of the whole array.
 
 #### Layouts (`layouts/`)
 
-Each YAML is regenerated by the `generate_<topology>.py` next to it (`--help` lists the options). All
-assume a V-polarized source design whose feed points to −y at yaw 0.
+Each YAML is written by the `generate_<topology>.py` next to it (`--help` lists the options) and
+named after its primary unit cell, `<UnitCell>_<topology>.yaml`. Every generator takes:
 
-| Layout | Elements | Status |
+| Option | Layout metadata |
+| --- | --- |
+| `--unit-cell <Design>` (required) | `primary_unit_cell` |
+| `--extra-unit-cell h\|v\|hv=<Design>` (repeatable) | `unit_cells` |
+| `--drop-unused-ports` | `drop_unused_ports: true` |
+| `--phase-reference-mode per_port\|single` | `phase_reference_mode` |
+| `--centre-freq <GHz>` | none: only the design frequency of the λ-based default spacings |
+| `-o <file>` | another output file; its stem then names the array design |
+
+So the same topology for several unit cells is one generator run per cell, each followed by the
+builder on the file it names:
+
+```bash
+for cell in ApertureCoupledPatch SeriesFedPatch; do
+    python layouts/generate_polarimetric_cluster.py --unit-cell $cell
+    ansys-vnc exec hfss_array_builder <project.aedt> layouts/${cell}_polarimetric_cluster.yaml --build-only
+done
+```
+
+The shipped YAMLs are bound to `ApertureCoupledPatch`, a V-polarized cell whose feed points to −y
+at yaw 0, and regenerate exactly with:
+
+```bash
+python layouts/generate_contiguous_ula.py --unit-cell ApertureCoupledPatch --tx-offset-y 10               # _contiguous_ula_4x4
+python layouts/generate_contiguous_ula.py --unit-cell ApertureCoupledPatch --tx-count 3 --tx-offset-y 10  # _contiguous_ula_3x4
+python layouts/generate_spatial_diversity_2d.py --unit-cell ApertureCoupledPatch
+python layouts/generate_polarimetric_cluster.py --unit-cell ApertureCoupledPatch
+python layouts/generate_polarimetric_ula.py --unit-cell ApertureCoupledPatch [--extra-unit-cell hv=<DualCell>]
+```
+
+| Layout | Elements | Status (with `ApertureCoupledPatch`) |
 | --- | --- | --- |
-| `contiguous_ula_3x4`, `contiguous_ula_4x4` | V-only Rx and Tx ULAs | Usable; single-pol, so no polarimetric quad |
-| `spatial_diversity_2d` | V-only L-shaped Rx and Tx row | Usable; single-pol, so no polarimetric quad |
-| `polarimetric_cluster` | Tx/Rx × H/V, H by turning the V cell (feeds pointing outwards) | Usable; pair signs +1, one quad `Rx/Tx` |
-| `polarimetric_ula` | Dual-polarized `hv` Rx elements, alternating V/H Tx | Needs a dual-port cell, `--unit-cell hv=<Design>` (or `generate_polarimetric_ula.py --dual-pol-cell <Design>`); two Tx per polarization, so the processor needs the four ports of a quad explicitly |
+| `…_contiguous_ula_3x4`, `…_contiguous_ula_4x4` | V-only Rx and Tx ULAs | Builds; single-pol, so no polarimetric quad |
+| `…_polarimetric_cluster` | Tx/Rx × H/V, H by turning the V cell (feeds pointing outwards) | Builds; pair signs +1, one quad `Rx/Tx` |
+| `…_spatial_diversity_2d` | V-only L-shaped Rx and triangular Tx | Does not build: the elevation Rx and the outer Tx sit behind other elements, so their feeds end inside the board, where a wave port cannot be (the placement check aborts) |
+| `…_polarimetric_ula` | Dual-polarized `hv` Rx elements, alternating V/H Tx | Needs a dual-port cell (`--extra-unit-cell hv=<Design>`); two Tx per polarization, so the processor needs the four ports of a quad explicitly |
 
 The earlier `polarimetric_ula` placed a V and an H copy of the single-pol cell at every Rx position. That geometry overlaps and gave both roles a pair sign of −1, so it is no longer generated.
 
@@ -97,10 +143,12 @@ sbr_simulator <path_to_project.aedt> <hfss_design_name> [--target dihedral] [--s
   4. Links the HFSS design (solution `--source-solution`, default its first frequency sweep) with *Simulate source design as needed*, *Model Visualization* of all its objects except the radiation boundary objects (`RadiatingSurface`, the builder's `Airbox`), and far-field (standard) or near-field (bumper/radome integration) results, asked interactively unless `--field-type` is given. `--map-variables` maps independent HFSS design variables to SBR+ design variables of the same name, which are created from the HFSS value when missing, so they can be swept in the SBR+ design.
   5. Selects Tx/Rx: ports whose names contain `Tx`/`Rx` and end in `H`/`V` (e.g. `TxH`, `Port_Tx_1_V`); every Tx transmits to every Rx. The builder's matched `_Load` ports are skipped.
   6. Creates `Setup` (4 rays per wavelength, 5 bounces, PTD + UTD, creeping waves) whose sweep `Sweep` copies the linked HFSS sweep.
-  7. Creates quick-look reports. SBR+ splits the solution `Setup : Sweep` (total) into `Setup : Sweep_Incident`, the direct Tx→Rx coupling between the proxy ports, and `Setup : Sweep_Scattered`, the target return (total = incident + scattered). The coupling dominates the total at short Tx/Rx spacings, so target signatures must be read from `Setup : Sweep_Scattered`. Reports: `S-parameters dB` (total) and `S-parameters dB (scattered)` for all Tx/Rx pairs, and, per polarimetric quad from the scattered solution, `Co-pol VV/HH` (`S_VV/S_HH` in dB and degrees; ideally 0 dB for both, with the dihedral's phase 180° away from the sphere's) and `Cross-pol isolation` (`S_VH/S_HH` for Tx H, `S_HV/S_VV` for Tx V, in dB). A quad pairs a dual-polarized Rx with a dual-polarized Tx: an element with an H and a V port of the same name prefix (`Port_Rx_1_H`/`_V`), or a role's single H and V ports when it has exactly one of each (the polarimetric cluster). When the HFSS design comes with the builder's port table (`<design>_ports.json` next to the project), the VV/HH phase is corrected for the port field signs.
+  7. Creates quick-look reports from the scattered solution (see below): `S-parameters dB` for all Tx/Rx pairs and, per polarimetric quad, `Co-pol VV/HH` (`S_VV/S_HH` in dB and degrees; ideally 0 dB for both, with the dihedral's phase 180° away from the sphere's) and `Cross-pol isolation` (`S_VH/S_HH` for Tx H, `S_HV/S_VV` for Tx V, in dB). `S-parameters dB (total)` shows the total solution for reference. A quad pairs a dual-polarized Rx with a dual-polarized Tx: an element with an H and a V port of the same name prefix (`Port_Rx_1_H`/`_V`), or a role's single H and V ports when it has exactly one of each (the polarimetric cluster). When the HFSS design comes with the builder's port table (`<design>_ports.json` next to the project), the VV/HH phase is corrected for the port field signs.
   8. Asks whether to solve (`--simulate` / `--no-simulate` decide silently). Solving also solves the HFSS design where its linked solution is missing.
 
   `SbrSimulationManager.export_results(path, sweep_variable)` writes the solved scattered solution to an `.npz` for Module 3 (via `sbr_results.py`, which is also a standalone CLI; see §4.2).
+
+* **The scattered field is the default, everywhere.** SBR+ splits its total solution `Setup : Sweep` into `Setup : Sweep_Incident`, the direct Tx→Rx coupling between the linked antenna's ports (the line-of-sight path that never touches the target), and `Setup : Sweep_Scattered`, everything that reached the receiver via the target (total = incident + scattered). The reports above, `export_results` and `sbr_results` all use the scattered part. This is the simulation's counterpart of what every practical radar measurement does to the antenna coupling: the direct Tx→Rx leakage arrives at (almost) zero range, well ahead of any target, and is removed by range gating, i.e. by keeping only the target's cells of the range (delay) profile, or equivalently by subtracting an empty-scene background measurement. SBR+ makes the same separation exactly, by bookkeeping of the rays instead of by delay, so it needs no window, loses no bandwidth or resolution, and still works when the frequency step folds the target's delay next to the coupling (§4.3). Because the coupling is 30–60 dB above the target at short Tx/Rx spacings, reading the total field means reading the coupling. The total field stays available (`S-parameters dB (total)`, `sbr_results --setup "Setup : Sweep"`) to cross-check the gating chain of §4.4.
 
 ### Module 3: Offline polarimetric post-processing (`polarimetry_processor.py`, `bistaticity_analysis.py`)
 
@@ -108,7 +156,7 @@ Pure NumPy, no AEDT: `MimoPolarimetryProcessor` loads an exported sweep and comp
 
 ### Spelling
 
-The code uses British spelling with Oxford -ize (centre, metre, polarization). Command-line flags also accept the American spelling (`--center-freq`, `--use-existing-phase-center`), layouts may use `centre_frequency_ghz` or the older `center_frequency_ghz`, and names read from AEDT designs are looked up in both spellings (e.g. a unit cell's `PhaseCentreCS` or `PhaseCenterCS`, `--map-variables centreWavelength` for an HFSS `centerWavelength`). Lengths read from AEDT accept `meter(s)` and `metre(s)`.
+The code uses British spelling with Oxford -ize (centre, metre, polarization). Command-line flags also accept the American spelling (`--use-existing-phase-center`, `--center-freq`), and names read from AEDT designs are looked up in both spellings (e.g. a unit cell's `PhaseCentreCS` or `PhaseCenterCS`, `--map-variables centreWavelength` for an HFSS `centerWavelength`). Lengths read from AEDT accept `meter(s)` and `metre(s)`.
 
 ---
 
@@ -133,7 +181,7 @@ To ensure the automated builder script runs successfully without manual alignmen
 >    * The unit cell should contain a relative coordinate system named exactly **`PhaseCentreCS`** at the radiation phase centre of the unit cell.
 >    * The script automatically retrieves `PhaseCentreCS` offsets to rotate/shift elements during replication. If it is missing (or you decline to reuse it), the builder fits it by weighted least squares to the co-polar far-field phase of the solved unit cell (solving the unit-cell setup first if needed); declining the fit falls back to a `[0,0,0]` offset.
 >    * A dual-port cell may add `PhaseCentreCS_H` / `PhaseCentreCS_V` for its two ports (each port's far-field phase reference); it is never fitted.
-> 5. **Several unit cells in one array:** all of them must have the same board stack (layer names, materials and z extents) and must not define a design variable differently (rename such variables per unit cell). The analysis setup comes from the source design, and the board stack is placed at the source design's phase-centre height.
+> 5. **Several unit cells in one array:** all of them must have the same board stack (layer names, materials and z extents) and must not define a design variable differently (rename such variables per unit cell). The analysis setup comes from the primary unit cell, and the board stack is placed at its phase-centre height.
 
 ---
 
@@ -175,11 +223,11 @@ and covered by `tests/test_polarimetry_processor.py`.
 ### 4.2 Running it
 
 ```bash
-# 1. Export the scattered-field solution (in the container via the `ansys-vnc link` wrapper,
-#    attached to the GUI session; refuses to start an AEDT)
+# 1. Export the scattered-field solution, the default (in the container via the `ansys-vnc link`
+#    wrapper, attached to the GUI session; refuses to start an AEDT)
 sbr_results mimo_polarimetry \
     LinkedDualPolHornCluster data/interim/bistatic_sweep/sphere_boresight_3m_scattered.npz \
-    --setup "Setup : Sweep_Scattered" --sweep-variable copolarSpacingLambda
+    --sweep-variable copolarSpacingLambda
 # 2. Analyse (host or container); figures + CSVs go to --out
 bistaticity_analysis \
     data/interim/bistatic_sweep/sphere_boresight_3m_scattered.npz \
@@ -195,7 +243,8 @@ A solved SBR+ design holds three solutions under the same setup and sweep:
 | `Setup : Sweep_Scattered` | Scattered only: the target |
 
 Total = Incident + Scattered holds to 3·10⁻¹⁰ in the horn-cluster sweep. **Use
-`Sweep_Scattered`.** The total solution also works in two ways:
+`Sweep_Scattered`**, the default of `sbr_results` (Module 2 explains why it equals range gating in a
+measurement). The total solution (`--setup "Setup : Sweep"`) also works in two ways:
 
 * with `--background <Sweep_Incident or no-target run>.npz` for coherent subtraction, which
   reproduces the scattered-solution signatures to 5·10⁻⁹;
@@ -252,9 +301,10 @@ Tests (pure NumPy, no AEDT): `uv run --with pytest python -m pytest tests`.
 * for an array built by `hfss_array_builder`, its port table (`metadata["ports"]`): per excitation
   the builder port, role, polarization, field sign and phase centre (mm). `sbr_results` finds the
   `<ArrayDesign>_ports.json` that matches the excitations next to the project, or takes
-  `--ports <file>`.
+  `--port-table <file>`.
 
-`sbr_results --port` attaches to a GUI or non-graphical AEDT session, but never starts one.
+Like the other AEDT scripts, `sbr_results` attaches to the running GUI session and never starts an
+AEDT.
 
 > [!NOTE]
 > If `get_solution_data` returns *"No Data Available"*, the SBR+ results were invalidated (e.g.
@@ -486,7 +536,8 @@ From `Setup : Sweep_Scattered`, processed ungated (default), i.e.
 ### 4.8 Next steps
 
 * **Finer frequency steps.** Halving Δf, which the SBR+ sweep inherits from the HFSS
-  interpolating sweep, doubles the unambiguous path. It is only needed when gating total fields.
+  interpolating sweep and that in turn from the unit cell, doubles the unambiguous path. It is
+  only needed when gating total fields.
 * **Cross-pol cross-check.** Check the cross-pol level against the HFSS embedded patterns:
   M_VH ≈ e_rx,V · S_ideal · e_tx,H at θ ≈ β/2 for every element.
 * **Off-boresight targets.** Put the target off boresight (θ_y scan) to observe the linear term in
@@ -496,6 +547,9 @@ From `Setup : Sweep_Scattered`, processed ungated (default), i.e.
   (reciprocity), and a range R ≈ 1 m so that d·L/(λR) reaches order 1.
 * **Generalize `bistaticity_analysis`.** It is still specific to this study: the sphere reference
   (`REFERENCE_SPHERE`), a boresight focal point at the sphere's front, and the `DualPolHornCluster`
-  geometry (`cluster_positions`, 20 mm feeds). Dihedral, trihedral and off-boresight runs need the
-  reference matrix, the target position and the element positions as inputs (e.g. read from the
-  SBR+ design variables and the layout).
+  geometry (`cluster_positions`, 20 mm feeds). On an export of a builder array it has no `--quad`
+  for several quads and would use the horn positions. Dihedral, trihedral and off-boresight runs
+  need the reference matrix, the target position and the element positions as inputs: the quad
+  (`--quad`), the target range and size and the centre wavelength from the export's metadata
+  (`targetDistance`, `targetSize`, frequencies), and the positions from its port table (build-time
+  values, so a spacing sweep still needs them per variation).

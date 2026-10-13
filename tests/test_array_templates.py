@@ -9,17 +9,18 @@ from pomaar.simulator.array_templates import (
     PolarizationMismatchError,
     PortSpec,
     UnitCellTemplate,
+    array_design_name,
     attach_port_table,
     built_polarization,
     cs_name_for_port,
     element_label,
+    layout_settings,
     map_duplicates,
     merge_unit_cells,
     offset_expression,
     pair_signs,
     parse_polarizations,
     parse_port,
-    parse_unit_cell_args,
     place,
     place_xy,
     plan_elements,
@@ -84,18 +85,48 @@ def test_parse_polarizations():
 
 
 def test_unit_cell_mappings():
-    assert parse_unit_cell_args(["v=PatchV", "h=PatchH"]) == {"V": "PatchV", "H": "PatchH"}
-    assert parse_unit_cell_args(["hv=Dual"]) == {"HV": "Dual"}
-    with pytest.raises(LayoutError):
-        parse_unit_cell_args(["PatchV"])
-    with pytest.raises(LayoutError):
-        parse_unit_cell_args(["=PatchV"])
-    with pytest.raises(LayoutError):
-        parse_unit_cell_args(["v=A", "v=B"])
-    assert merge_unit_cells({"V": "A"}, {"h": "B", "v": "A"}) == {"V": "A", "H": "B"}
+    assert merge_unit_cells({}, {"h": "B", "v": "A"}) == {"V": "A", "H": "B"}
     assert merge_unit_cells({"V": "A"}, {"hv": "B"}) == {"V": "A", "HV": "B"}
     with pytest.raises(LayoutError):
         merge_unit_cells({"HV": "A"}, {"vh": "B"})
+    with pytest.raises(LayoutError):
+        merge_unit_cells({}, {"x": "B"})
+
+
+def test_layout_settings():
+    layout = {
+        "metadata": {
+            "primary_unit_cell": "Patch",
+            "unit_cells": {"hv": "Dual"},
+            "centre_frequency_ghz": 79,
+            "topology": "cluster",
+            "phase_reference_mode": "per-port",
+        },
+        "elements": [],
+    }
+    settings = layout_settings(layout)
+    assert settings.primary_unit_cell == "Patch"
+    assert settings.unit_cells == {"HV": "Dual"}
+    assert settings.phase_reference_mode == "per_port"
+    # The frequency setup comes from the unit cell; older layouts' keys are reported as ignored
+    assert settings.ignored_keys == ("centre_frequency_ghz", "topology")
+    assert not settings.drop_unused_ports
+    with pytest.raises(LayoutError, match="primary_unit_cell"):
+        layout_settings({"metadata": {}, "elements": []})
+    with pytest.raises(LayoutError, match="phase_reference_mode"):
+        layout_settings(
+            {"metadata": {"primary_unit_cell": "P", "phase_reference_mode": "x"}, "elements": []}
+        )
+    assert array_design_name("Patch", "layouts/polarimetric_cluster.yaml") == (
+        "PatchPolarimetricCluster"
+    )
+    assert array_design_name("Patch", "sandbox-contiguous_ula_4x4.yaml") == (
+        "PatchSandboxContiguousUla4x4"
+    )
+    # A layout file named after its unit cell does not repeat it in the design name
+    assert array_design_name("Patch", "layouts/Patch_polarimetric_cluster.yaml") == (
+        "PatchPolarimetricCluster"
+    )
 
 
 def test_hv_unit_cell_serves_only_dual_polarized_elements():
@@ -199,7 +230,7 @@ def test_mixed_signs_within_a_polarization_warn():
 
 def test_wrong_polarization_aborts():
     templates = {"PatchV": single_pol("PatchV", "V")}
-    with pytest.raises(PolarizationMismatchError, match="--unit-cell h="):
+    with pytest.raises(PolarizationMismatchError, match="unit_cells"):
         plan_elements([element("Rx_1", "Rx", "h", 0.0)], templates, "PatchV", {})
     with pytest.raises(PolarizationMismatchError):
         plan_elements([element("Rx_1", "Rx", "v", 45.0)], templates, "PatchV", {})

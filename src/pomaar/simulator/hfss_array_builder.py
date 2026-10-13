@@ -21,11 +21,11 @@ from pomaar.simulator.array_templates import (
     LayoutError,
     PortSpec,
     UnitCellTemplate,
+    array_design_name,
     is_load_port,
+    layout_settings,
     map_duplicates,
-    merge_unit_cells,
     offset_expression,
-    parse_unit_cell_args,
     place,
     place_xy,
     plan_elements,
@@ -68,6 +68,40 @@ class BuildAbortedError(Exception):
 
 class NativeAedtRefusedError(RuntimeError):
     """Raised when connecting from a Linux host outside the AEDT container."""
+
+
+class NoLiveSessionError(RuntimeError):
+    """Raised when no AEDT GUI session is running to attach to."""
+
+
+def connect_live_session():
+    """
+    Attaches to the running AEDT GUI session, the pipeline's only mode of operation, and returns
+    its Desktop. Nothing here ever starts an AEDT.
+
+    On a Linux host PyAEDT cannot see a containerized AEDT's gRPC socket (separate network
+    namespace) and would silently launch a native AEDT instead, which crashes there: run the
+    scripts inside the container (`ansys-vnc exec ...`), or set POMAAR_ALLOW_NATIVE_AEDT=1 on a
+    native installation.
+    """
+    if (
+        sys.platform.startswith("linux")
+        and not os.path.exists("/run/.containerenv")
+        and os.environ.get("POMAAR_ALLOW_NATIVE_AEDT") != "1"
+    ):
+        raise NativeAedtRefusedError(
+            "Refusing to connect from outside the AEDT container: run this via "
+            "`ansys-vnc exec`, or set POMAAR_ALLOW_NATIVE_AEDT=1 for a native AEDT install."
+        )
+    ports = grpc_active_sessions(non_graphical=False)
+    if not ports:
+        raise NoLiveSessionError(
+            "No AEDT GUI session is running; start one (`ansys-vnc aedt`) and open the project."
+        )
+    if len(ports) > 1:
+        print(f"Several AEDT GUI sessions are running (gRPC ports {ports}); using {ports[0]}.")
+    print(f"Attaching to the AEDT GUI session on gRPC port {ports[0]}...")
+    return Desktop(port=ports[0], new_desktop=False, non_graphical=True, close_on_exit=False)
 
 
 def _confirm(question, preset=None, default=True):
@@ -218,145 +252,44 @@ class MimoHfssBuilder:
     conventions and boolean operations on replicated dummy solids.
     """
 
-    def __init__(
-        self,
-        project_path,
-        source_design_name,
-        target_design_name=None,
-        pcb_margin_mm=0.0,
-        grpc_port=None,
-        non_graphical=True,
-        centre_frequency_ghz=None,
-        bandwidth_ghz=4.0,
-        phase_reference_mode="per_port",
-        unit_cells=None,
-        native_polarization=None,
-        drop_unused_ports=False,
-    ):
+    def __init__(self, project_path, layout, target_design_name=None):
         """
-        `unit_cells` maps polarizations to further unit-cell designs ({'V': 'PatchV'}, or
-        `--unit-cell` strings such as ['v=PatchV', 'hv=DualPatch']); the source design is the
-        primary template. `native_polarization` ('h'/'v') is the polarization of the source
-        design's untagged port sheets. `drop_unused_ports` removes the unused ports of a
-        dual-port cell instead of terminating them in matched loads.
+        `layout` is the path of a layout YAML/JSON file or its loaded dict. The layout is bound to
+        its unit cells (see `array_templates.layout_settings`): its `primary_unit_cell` is the
+        source design, which also provides the analysis setup, and the array design is named
+        `<primary_unit_cell><LayoutFileStem>` (`<primary_unit_cell>MimoArray` for a dict).
         """
+        layout_path = None
+        if not isinstance(layout, dict):
+            layout_path = os.path.abspath(layout)
+            layout = load_layout_file(layout_path)
+        self.layout = layout
+        self.layout_path = layout_path
+        settings = layout_settings(layout)
         self.project_path = os.path.abspath(project_path)
-        self.source_design_name = source_design_name
-        self.target_design_name = (
-            target_design_name if target_design_name else f"{source_design_name}MimoArray"
-        )
-        self.pcb_margin_mm = pcb_margin_mm
-        self.grpc_port = grpc_port
-        self.non_graphical = non_graphical
-        self.centre_frequency_ghz = centre_frequency_ghz
-        self.bandwidth_ghz = bandwidth_ghz
-        self.phase_reference_mode = phase_reference_mode
-        if isinstance(unit_cells, dict):
-            unit_cells = [f"{pol}={design}" for pol, design in unit_cells.items()]
-        self.unit_cells = parse_unit_cell_args(unit_cells)
-        self.native_polarization = native_polarization.upper() if native_polarization else None
-        self.drop_unused_ports = drop_unused_ports
+        self.source_design_name = settings.primary_unit_cell
+        if target_design_name:
+            self.target_design_name = target_design_name
+        elif layout_path:
+            self.target_design_name = array_design_name(settings.primary_unit_cell, layout_path)
+        else:
+            self.target_design_name = f"{settings.primary_unit_cell}MimoArray"
+        # Taken from the primary unit cell's setup once it is open, like the frequency sweep
+        self.centre_frequency_ghz = None
+        self.phase_reference_mode = settings.phase_reference_mode
+        self.unit_cells = settings.unit_cells
+        self.drop_unused_ports = settings.drop_unused_ports
         self.port_to_cs_mapping = {}
         self.element_phase_centres = []
 
         self.desktop_session = None
         self.source_design_app = None
         self.target_design_app = None
-        self.is_new_desktop = False
         self.is_new_design = True
 
     def connect_desktop(self):
-        """Starts or connects to an existing AEDT session via gRPC."""
-        # On a Linux host, PyAEDT cannot see a containerized AEDT's gRPC socket (separate network
-        # namespace) and silently launches a native AEDT instead, which crashes there. Run the
-        # builder inside the container (`ansys-vnc exec ...`) or set POMAAR_ALLOW_NATIVE_AEDT=1.
-        if (
-            sys.platform.startswith("linux")
-            and not os.path.exists("/run/.containerenv")
-            and os.environ.get("POMAAR_ALLOW_NATIVE_AEDT") != "1"
-        ):
-            raise NativeAedtRefusedError(
-                "Refusing to connect from outside the AEDT container: run this via "
-                "`ansys-vnc exec`, or set POMAAR_ALLOW_NATIVE_AEDT=1 for a native AEDT install."
-            )
-        if self.grpc_port is None:
-            # Attach to the open GUI session, whose gRPC port is the first free one from 50051
-            graphical_ports = grpc_active_sessions(non_graphical=False)
-            self.grpc_port = graphical_ports[0] if graphical_ports else 50051
-        print(f"Connecting to or starting AEDT on port {self.grpc_port}...")
-        try:
-            self.desktop_session = Desktop(
-                port=self.grpc_port,
-                new_desktop=False,
-                non_graphical=self.non_graphical,
-                close_on_exit=False,
-            )
-            print("Connected to existing active AEDT session.")
-            self.is_new_desktop = False
-        except Exception as err:
-            print(f"Failed to connect to active session ({err}). Starting new session...")
-            self.desktop_session = Desktop(
-                port=self.grpc_port,
-                new_desktop=True,
-                non_graphical=self.non_graphical,
-                close_on_exit=True,
-            )
-            self.is_new_desktop = True
-
-    def calculate_default_coplanar_layout(
-        self,
-        transmitter_count=16,
-        receiver_count=16,
-        operating_frequency_ghz=79.0,
-        subarray_spacing_mm=10.0,
-    ):
-        """
-        Calculates coordinates for a coplanar MIMO array on the z=0 plane.
-
-        The Rx array is a dense ULA along the X-axis (centred at y=0, z=0) with 0.5 lambda spacing.
-        The Tx array is a sparse ULA along the X-axis (centred at y=subarray_spacing, z=0)
-        with spacing = receiver_count * receiver_spacing.
-        """
-        # Speed of light in vacuum (mm/s)
-        speed_of_light_mm_s = 2.99792458e11
-        wavelength_mm = speed_of_light_mm_s / (operating_frequency_ghz * 1e9)
-        receiver_spacing_mm = 0.5 * wavelength_mm
-        transmitter_spacing_mm = receiver_count * receiver_spacing_mm
-
-        elements = []
-
-        # Rx elements along X-axis at y=0
-        rx_offset_x = (receiver_count - 1) * receiver_spacing_mm / 2.0
-        for rx_idx in range(receiver_count):
-            x_pos = rx_idx * receiver_spacing_mm - rx_offset_x
-            elements.append(
-                {
-                    "label": f"Rx_{rx_idx + 1}",
-                    "pos": [x_pos, 0.0, 0.0],
-                    "role": "Rx",
-                    "polarization": "v",
-                    "yaw": 0.0,
-                }
-            )
-
-        # Tx elements along X-axis at y=subarray_spacing
-        tx_offset_x = (transmitter_count - 1) * transmitter_spacing_mm / 2.0
-        for tx_idx in range(transmitter_count):
-            x_pos = tx_idx * transmitter_spacing_mm - tx_offset_x
-            elements.append(
-                {
-                    "label": f"Tx_{tx_idx + 1}",
-                    "pos": [x_pos, subarray_spacing_mm, 0.0],
-                    "role": "Tx",
-                    "polarization": "v",
-                    "yaw": 180.0,
-                }
-            )
-
-        print(f"Generated coplanar layout at {operating_frequency_ghz} GHz:")
-        print(f"  Rx Elements: {receiver_count} (spacing={receiver_spacing_mm:.2f} mm)")
-        print(f"  Tx Elements: {transmitter_count} (spacing={transmitter_spacing_mm:.2f} mm)")
-        return elements
+        """Attaches to the running AEDT GUI session (`connect_live_session`)."""
+        self.desktop_session = connect_live_session()
 
     def _open_design(self, design_name, project=None):
         """Opens (and activates) a design of the project as its own Hfss app."""
@@ -367,11 +300,11 @@ class MimoHfssBuilder:
             close_on_exit=False,
         )
 
-    def _classify_template(self, app, design_name, native_polarization=None):
+    def _classify_template(self, app, design_name):
         """
         STEP 1 for one unit cell: classifies its objects by name convention into global layers,
-        port sheets, active copper and boolean dummy solids. Untagged port sheets take
-        `native_polarization`.
+        port sheets (tagged with their polarization, e.g. 'PortSheet_V'), active copper and
+        boolean dummy solids.
         """
         template = UnitCellTemplate(design=design_name, app=app)
         print(f"\nScanning and classifying objects in unit cell '{design_name}':")
@@ -414,10 +347,8 @@ class MimoHfssBuilder:
 
             elif "PortSheet" in name or name.startswith("Port_"):
                 template.port_sheets.append(name)
-                tagged = port_sheet_polarization(name)
-                pol = tagged or native_polarization
-                source = "tag" if tagged else ("declared" if pol else "unknown")
-                print(f"  [Port Sheet]       {name} (polarization {pol or '?'}, {source})")
+                pol = port_sheet_polarization(name)
+                print(f"  [Port Sheet]       {name} (polarization {pol or 'untagged'})")
 
             else:
                 template.active.append(name)
@@ -425,7 +356,7 @@ class MimoHfssBuilder:
 
         # Port specs get their phase centres in `_template_phase_centres`
         template.ports = tuple(
-            PortSpec(sheet, port_sheet_polarization(sheet) or native_polarization, (0.0, 0.0, 0.0))
+            PortSpec(sheet, port_sheet_polarization(sheet), (0.0, 0.0, 0.0))
             for sheet in template.port_sheets
         )
         return template
@@ -524,18 +455,12 @@ class MimoHfssBuilder:
 
         templates = {}
         for design in designs:
-            # Untagged port sheets take the declared polarization: '--unit-cell v=Design', or
-            # '--native-polarization' for the primary unit cell
-            declared = [key for key, d in unit_cells.items() if d == design and len(key) == 1]
-            native = declared[0] if len(declared) == 1 else None
-            if design == self.source_design_name and self.native_polarization:
-                native = self.native_polarization
             app = (
                 self.source_design_app
                 if design == self.source_design_name
                 else self._open_design(design, self.source_design_app.project_name)
             )
-            template = self._classify_template(app, design, native)
+            template = self._classify_template(app, design)
             self._template_phase_centres(template, use_existing_cs)
             templates[design] = template
         return templates
@@ -586,15 +511,13 @@ class MimoHfssBuilder:
 
     def synthesize_array_in_hfss(
         self,
-        elements,
-        operating_frequency_ghz=None,
         setup_results=None,
         run_simulation=None,
         use_existing_cs=None,
         overwrite=None,
     ):
         """
-        Synthesizes the MIMO array in HFSS using a naming-convention boolean assembly:
+        Synthesizes the builder's layout in HFSS using a naming-convention boolean assembly:
         1. Classifies the objects of every unit-cell template and plans the elements (template,
            ports, polarization check) before the target design is touched.
         2. Creates or clears the target design.
@@ -613,46 +536,40 @@ class MimoHfssBuilder:
         LayoutError
             If the layout and the unit cells are inconsistent (raised before any change).
         """
-        if isinstance(elements, dict):
-            layout_metadata = elements.get("metadata", {})
-            elements_list = elements.get("elements", [])
-        else:
-            layout_metadata = {}
-            elements_list = elements
-
-        if "bandwidth_ghz" in layout_metadata:
-            self.bandwidth_ghz = float(layout_metadata["bandwidth_ghz"])
+        layout_metadata = self.layout.get("metadata") or {}
+        elements_list = self.layout["elements"]
 
         if not self.desktop_session:
             self.connect_desktop()
 
+        for key in layout_settings(self.layout).ignored_keys:
+            print(f"Note: layout metadata '{key}' is no longer used and is ignored.")
+
         print(f"Loading project: {self.project_path}")
         self.source_design_app = self._open_design(self.source_design_name)
 
-        # Centre frequency precedence: explicit argument > constructor > layout metadata >
-        # unit-cell analysis setup > default.
-        if operating_frequency_ghz is not None:
-            self.centre_frequency_ghz = float(operating_frequency_ghz)
-        elif self.centre_frequency_ghz is None:
-            # Layouts written before the British-spelling rename use "center_frequency_ghz"
-            layout_frequency = layout_metadata.get(
-                "centre_frequency_ghz", layout_metadata.get("center_frequency_ghz")
-            )
-            if layout_frequency is not None:
-                self.centre_frequency_ghz = float(layout_frequency)
-            else:
-                self.centre_frequency_ghz = (
-                    _setup_frequency_ghz(self.source_design_app) or DEFAULT_CENTRE_FREQUENCY_GHZ
-                )
+        # Centre frequency of the primary unit cell's setup (the array copies that setup): it
+        # sets the Airbox clearance, the far-field report frequency and a phase-centre fit
+        self.centre_frequency_ghz = (
+            _setup_frequency_ghz(self.source_design_app) or DEFAULT_CENTRE_FREQUENCY_GHZ
+        )
         operating_frequency_ghz = self.centre_frequency_ghz
-        print(f"Centre frequency: {operating_frequency_ghz:.3f} GHz")
+        print(
+            f"Centre frequency: {operating_frequency_ghz:.3f} GHz "
+            f"(setup of '{self.source_design_name}')"
+        )
 
         # --- STEP 1: Classify the unit-cell templates and plan the elements ---
         # Everything that can reject the layout runs here, before Step 2 clears a design.
-        unit_cells = merge_unit_cells(self.unit_cells, layout_metadata.get("unit_cells"))
+        unit_cells = self.unit_cells
         explicit_designs = [str(e["unit_cell"]) for e in elements_list if e.get("unit_cell")]
         templates = self._load_templates(unit_cells, explicit_designs, use_existing_cs)
         primary = templates[self.source_design_name]
+        if not list(primary.app.setup_names):
+            raise LayoutError(
+                f"Unit cell '{self.source_design_name}' has no analysis setup; the array copies "
+                "its meshing and frequency sweep from it."
+            )
         self._check_shared_stack(templates)
         design_variables = self._merged_design_variables(templates)
         # All templates share the board stack, which is shifted by the primary unit cell's
@@ -791,10 +708,7 @@ class MimoHfssBuilder:
         self.target_design_app["unitCellExtentX"] = f"{unit_cell_extent_x:.4f}mm"
         self.target_design_app["unitCellExtentY"] = f"{unit_cell_extent_y:.4f}mm"
         self.target_design_app["unitCellExtent"] = f"{unit_cell_extent_max:.4f}mm"
-        self.target_design_app["unitCellHalfWidth"] = f"{unit_cell_extent_x:.4f}mm"
-        self.target_design_app["unitCellHalfLength"] = f"{unit_cell_extent_y:.4f}mm"
         self.target_design_app["airboxClearance"] = f"{airbox_clearance_mm:.4f}mm"
-        self.target_design_app["pcbMargin"] = f"{self.pcb_margin_mm:.4f}mm"
 
         # Inject layout variables from layout metadata
         layout_vars = layout_metadata.get("variables", {})
@@ -819,14 +733,15 @@ class MimoHfssBuilder:
         # Determine arrayBoardWidth and arrayBoardLength formulas or values
         # We use arrayBoardWidth / arrayBoardLength for the synthesized board layers so that
         # any internal unit-cell variables (like boardWidth / boardLength / sub_L) retain their
-        # single-element values without double-expanding the feedlines.
+        # single-element values without double-expanding the feedlines. The layout's formulas
+        # (with its own margin variable, e.g. pcbMargin) win; the tight footprint is a fallback.
         board_config = layout_metadata.get("board", {})
         width_formula = board_config.get("width_formula")
         length_formula = board_config.get("length_formula")
 
         if all_x_glob:
-            board_width_calc = max(all_x_glob) - min(all_x_glob) + 2 * self.pcb_margin_mm
-            board_height_calc = max(all_y_glob) - min(all_y_glob) + 2 * self.pcb_margin_mm
+            board_width_calc = max(all_x_glob) - min(all_x_glob)
+            board_height_calc = max(all_y_glob) - min(all_y_glob)
         else:
             board_width_calc = board_height_calc = 10.0
 
@@ -1424,15 +1339,11 @@ class MimoHfssBuilder:
 
     def configure_simulation_setup(self):
         """
-        Configures the adaptive mesh setup and frequency sweep in the target design,
-        inheriting the configuration (single/multi-frequency/broadband meshing,
-        frequency specifications, lambda refinement, passes, and all frequency sweeps)
-        from the single-element design.
-
-        First attempts to natively copy-paste the setup from the source design module.
-        If native copy-paste is unavailable, recreates the setup and sweeps manually
-        from the source design's properties. If no setup exists in the source design,
-        creates a default broadband setup.
+        Copies the primary unit cell's analysis setup with all its frequency sweeps into the
+        array design as 'ArraySetup': adaptive meshing (single/multi-frequency/broadband),
+        convergence settings and, above all, the frequency sampling, which the linked SBR+
+        design copies in turn. Nothing is invented: the setup is copy-pasted natively, else
+        recreated from the unit cell's properties, else the build fails.
         """
         if not self.target_design_app:
             raise RuntimeError("Array design not synthesized yet.")
@@ -1484,6 +1395,11 @@ class MimoHfssBuilder:
         target_setup_name = "ArraySetup"
         source_setups = list(self.source_design_app.setup_names) if self.source_design_app else []
         copied_successfully = False
+        if not source_setups:
+            raise RuntimeError(
+                f"Unit cell '{self.source_design_name}' has no analysis setup to copy; the array "
+                "takes its meshing and frequency sweep from it."
+            )
 
         if source_setups:
             src_setup_name = getattr(self.source_design_app, "active_setup", None) or source_setups[0]
@@ -1519,8 +1435,7 @@ class MimoHfssBuilder:
 
                     if solve_type == "broadband":
                         adaptive_freqs = src_setup.props.get("MultipleAdaptiveFreqsSetup", {})
-                        low_f = adaptive_freqs.get("Low", f"{self.centre_frequency_ghz - self.bandwidth_ghz / 2.0}GHz")
-                        high_f = adaptive_freqs.get("High", f"{self.centre_frequency_ghz + self.bandwidth_ghz / 2.0}GHz")
+                        low_f, high_f = adaptive_freqs["Low"], adaptive_freqs["High"]
                         setup.enable_adaptive_setup_broadband(
                             low_frequency=low_f,
                             high_frequency=high_f,
@@ -1569,12 +1484,11 @@ class MimoHfssBuilder:
                             sw_props = sw_src.props
                             range_type = sw_props.get("RangeType", "LinearCount")
                             sw_type = sw_props.get("Type", "Interpolating")
-                            start_f = sw_props.get("RangeStart", f"{self.centre_frequency_ghz - self.bandwidth_ghz / 2.0}GHz")
-                            end_f = sw_props.get("RangeEnd", f"{self.centre_frequency_ghz + self.bandwidth_ghz / 2.0}GHz")
+                            start_f, end_f = sw_props["RangeStart"], sw_props["RangeEnd"]
                             save_fields = sw_props.get("SaveFields", True)
 
                             if range_type == "LinearCount":
-                                count = sw_props.get("RangeCount", 401)
+                                count = sw_props["RangeCount"]
                                 self.target_design_app.create_linear_count_sweep(
                                     setup=target_setup_name,
                                     unit="GHz" if ("GHz" in str(start_f) or "GHz" in str(end_f)) else "",
@@ -1587,7 +1501,7 @@ class MimoHfssBuilder:
                                 )
                                 print(f"  Created {sw_type} sweep '{sw_name}': {start_f} to {end_f} ({count} points, SaveFields={save_fields})")
                             elif range_type == "LinearStep":
-                                step = sw_props.get("RangeStep", "10MHz")
+                                step = sw_props["RangeStep"]
                                 self.target_design_app.create_linear_step_sweep(
                                     setup=target_setup_name,
                                     unit="GHz" if ("GHz" in str(start_f) or "GHz" in str(end_f)) else "",
@@ -1601,36 +1515,10 @@ class MimoHfssBuilder:
                                 print(f"  Created {sw_type} sweep '{sw_name}': {start_f} to {end_f} (step {step}, SaveFields={save_fields})")
                     copied_successfully = True
                 except Exception as err2:
-                    print(f"  Warning: Manual recreation failed ({err2}). Falling back to default setup...")
-
-        # Fallback if source design has no setups or if recreation failed
-        if not copied_successfully:
-            start_freq = self.centre_frequency_ghz - self.bandwidth_ghz / 2.0
-            end_freq = self.centre_frequency_ghz + self.bandwidth_ghz / 2.0
-            print(
-                f"\nConfiguring default broadband adaptive mesh setup '{target_setup_name}' ({start_freq:.2f} GHz - {end_freq:.2f} GHz)..."
-            )
-            setup = self.target_design_app.create_setup(name=target_setup_name)
-            setup.enable_adaptive_setup_broadband(
-                low_frequency=f"{start_freq:.4f}GHz",
-                high_frequency=f"{end_freq:.4f}GHz",
-                max_passes=21,
-                max_delta_s=0.02,
-            )
-            sweep_name = "Sweep"
-            print(
-                f"Configuring interpolating frequency sweep '{sweep_name}' ({start_freq:.2f} GHz - {end_freq:.2f} GHz, 401 points)..."
-            )
-            self.target_design_app.create_linear_count_sweep(
-                setup=target_setup_name,
-                unit="GHz",
-                start_frequency=start_freq,
-                stop_frequency=end_freq,
-                num_of_freq_points=401,
-                name=sweep_name,
-                save_fields=True,
-                sweep_type="Interpolating",
-            )
+                    raise RuntimeError(
+                        f"Could not copy the analysis setup '{src_setup_name}' of unit cell "
+                        f"'{self.source_design_name}' ({err2})."
+                    ) from err2
 
     def create_post_processing_reports(self):
         """
@@ -2164,75 +2052,44 @@ class MimoHfssBuilder:
         raise RuntimeError("Could not obtain unit-cell far-field data for the phase-centre fit.")
 
     def close(self):
-        """Safely releases the AEDT connection."""
+        """Releases the connection to the live AEDT session, which keeps running."""
         if self.desktop_session:
-            if self.is_new_desktop:
-                self.desktop_session.close_desktop()
-                print("AEDT desktop session closed.")
-            else:
-                self.desktop_session.release_desktop(close_projects=False, close_on_exit=False)
-                print("AEDT desktop session connection released.")
+            self.desktop_session.release_desktop(close_projects=False, close_on_exit=False)
+            print("AEDT desktop session connection released.")
             self.desktop_session = None
 
 
 def load_layout_file(layout_path):
-    """
-    Loads an antenna array layout definition from a YAML (.yaml, .yml) or JSON (.json) file.
-
-    Parameters
-    ----------
-    layout_path : str
-        Path to the layout YAML or JSON file.
-
-    Returns
-    -------
-    dict or list of dict
-        Layout dictionary containing 'metadata' and 'elements', or list of element dictionaries.
-    """
+    """Loads a layout ('metadata' and 'elements') from a YAML (.yaml, .yml) or JSON file."""
     layout_path = os.path.abspath(layout_path)
-    ext = os.path.splitext(layout_path)[1].lower()
-
     with open(layout_path, "r", encoding="utf-8") as f:
-        if ext in [".yaml", ".yml"]:
-            import yaml
-
-            return yaml.safe_load(f)
-        elif ext == ".json":
-            import json
-
+        if os.path.splitext(layout_path)[1].lower() == ".json":
             return json.load(f)
-        else:
-            try:
-                import yaml
+        import yaml
 
-                return yaml.safe_load(f)
-            except Exception:
-                f.seek(0)
-                import json
-
-                return json.load(f)
+        return yaml.safe_load(f)
 
 
 def main(argv=None):
     """Command-line entry point (installed as `hfss_array_builder`)."""
     import argparse
 
-    parser = argparse.ArgumentParser(description="HFSS Full-Wave Array Synthesis CLI.")
-    parser.add_argument("project_path", help="Path to the AEDT project file (.aedt)")
-    parser.add_argument("source_design_name", help="Name of the unit-cell source design")
-    parser.add_argument(
-        "layout_path",
-        nargs="?",
-        default=None,
-        help="Optional path to custom elements layout YAML or JSON file",
+    parser = argparse.ArgumentParser(
+        description=(
+            "Builds the MIMO array of a layout file in HFSS, attached to the running AEDT GUI "
+            "session. The layout names its unit cells (metadata.primary_unit_cell, unit_cells) "
+            "and modelling options; the array design is <primary_unit_cell><LayoutFileStem>."
+        )
     )
+    parser.add_argument("project_path", help="AEDT project (.aedt) holding the unit cells")
+    parser.add_argument("layout_path", help="Layout YAML or JSON file (layouts/generate_*.py)")
     parser.add_argument(
         "-f",
         "--overwrite",
         "--overwrite-design",
         action="store_true",
         default=False,
-        help="Automatically overwrite/clear target HFSS design if it already exists",
+        help="Clear and rebuild the array design if it already exists",
     )
     parser.add_argument(
         "-y",
@@ -2240,25 +2097,28 @@ def main(argv=None):
         "--accept-all",
         action="store_true",
         default=False,
-        help="Accept all affirmative defaults (use existing CS, overwrite existing design, setup results, and run simulation)",
+        help=(
+            "Accept all affirmative defaults (use existing PhaseCentreCS, overwrite, set up "
+            "results, run the simulation)"
+        ),
     )
     parser.add_argument(
         "--build-only",
         action="store_true",
         default=False,
-        help="Build model only: automatically decline results creation and decline simulation run without prompting",
+        help="Build the model only: no results setup and no simulation, without prompting",
     )
     parser.add_argument(
         "--results-only",
         action="store_true",
         default=False,
-        help="Skip building; only set up post-processing results on an existing design",
+        help="Skip building; only set up post-processing results on the existing array design",
     )
     parser.add_argument(
         "--simulate-only",
         action="store_true",
         default=False,
-        help="Skip building; only launch simulation ('Analyze All') on an existing design",
+        help="Skip building; only launch 'Analyze All' on the existing array design",
     )
     parser.add_argument(
         "--use-existing-cs",
@@ -2266,107 +2126,22 @@ def main(argv=None):
         "--use-existing-phase-center",
         action="store_true",
         default=False,
-        help="Use existing PhaseCentreCS in the unit cell without prompting or re-fitting it",
+        help="Use the unit cells' existing PhaseCentreCS without prompting or re-fitting it",
     )
-    parser.add_argument(
-        "--centre-freq",
-        "--center-freq",
-        type=float,
-        default=None,
-        help=(
-            "Centre frequency in GHz (default: layout metadata, else the unit-cell/array setup, "
-            f"else {DEFAULT_CENTRE_FREQUENCY_GHZ})"
-        ),
-    )
-    parser.add_argument(
-        "--bandwidth", type=float, default=4.0, help="Sweep bandwidth in GHz (default: 4.0)"
-    )
-    parser.add_argument(
-        "--phase-reference-mode",
-        "--phase-ref-mode",
-        choices=["single", "per-port"],
-        default="per-port",
-        help=(
-            "Far-field phase reference for SBR+ antenna linking: 'per-port' (each port at its "
-            "element CS, default) or 'single' (array centroid PhaseCentreCS)"
-        ),
-    )
-    parser.add_argument(
-        "--unit-cell",
-        action="append",
-        default=[],
-        metavar="POL=DESIGN",
-        help=(
-            "Further unit-cell design for a polarization, e.g. 'v=PatchV', 'h=PatchH' or "
-            "'hv=DualPatch' (repeatable; also read from the layout's metadata.unit_cells). "
-            "Elements without one use the source design, turned by their yaw"
-        ),
-    )
-    parser.add_argument(
-        "--native-polarization",
-        type=str.lower,
-        choices=["h", "v"],
-        default=None,
-        help="Polarization of the source design's untagged port sheets (e.g. 'PortSheet')",
-    )
-    parser.add_argument(
-        "--drop-unused-ports",
-        action="store_true",
-        default=False,
-        help=(
-            "Remove the unused ports of dual-port unit cells instead of terminating them in "
-            "matched '_Load' wave ports"
-        ),
-    )
-
-    parser.add_argument(
-        "--port",
-        type=int,
-        default=None,
-        help=(
-            "gRPC port of the AEDT session to connect to; a new session is started on it if "
-            "none answers (default: the running AEDT GUI's port, else 50051)"
-        ),
-    )
-
     args = parser.parse_args(argv)
 
-    # Determine target design name from layout file if provided
-    target_design_name = None
-    if args.layout_path:
-        base_name = os.path.splitext(os.path.basename(args.layout_path))[0]
-        words = base_name.replace("-", "_").split("_")
-        layout_suffix = "".join(w.capitalize() for w in words if w)
-        target_design_name = f"{args.source_design_name}{layout_suffix}"
-
-    builder = MimoHfssBuilder(
-        project_path=args.project_path,
-        source_design_name=args.source_design_name,
-        target_design_name=target_design_name,
-        centre_frequency_ghz=args.centre_freq,
-        bandwidth_ghz=args.bandwidth,
-        phase_reference_mode=args.phase_reference_mode,
-        grpc_port=args.port,
-        non_graphical=True,
-        unit_cells=args.unit_cell,
-        native_polarization=args.native_polarization,
-        drop_unused_ports=args.drop_unused_ports,
-    )
-
     try:
+        builder = MimoHfssBuilder(args.project_path, args.layout_path)
+        print(
+            f"Layout {args.layout_path}: primary unit cell '{builder.source_design_name}', "
+            f"array design '{builder.target_design_name}'"
+        )
         builder.connect_desktop()
 
         if args.results_only or args.simulate_only:
             target_design = builder.target_design_name
-            print(
-                f"\n[INFO] Connecting directly to target design '{target_design}' in '{args.project_path}'..."
-            )
-            builder.target_design_app = Hfss(
-                project=args.project_path,
-                design=target_design,
-                new_desktop=False,
-                close_on_exit=False,
-            )
+            print(f"\n[INFO] Opening the array design '{target_design}'...")
+            builder.target_design_app = builder._open_design(target_design)
 
             if args.results_only:
                 builder.create_post_processing_reports()
@@ -2383,21 +2158,6 @@ def main(argv=None):
                 builder.target_design_app.analyze()
                 builder.target_design_app.save_project()
         else:
-            if args.layout_path:
-                print(f"Loading custom layout from: {args.layout_path}")
-                elements_list = load_layout_file(args.layout_path)
-            else:
-                layout_freq = args.centre_freq or DEFAULT_CENTRE_FREQUENCY_GHZ
-                print(
-                    f"No custom layout provided. Using default coplanar layout at {layout_freq} GHz..."
-                )
-                elements_list = builder.calculate_default_coplanar_layout(
-                    transmitter_count=4,
-                    receiver_count=4,
-                    operating_frequency_ghz=layout_freq,
-                    subarray_spacing_mm=10.0,
-                )
-
             if args.build_only:
                 setup_results = False
                 run_simulation = False
@@ -2409,7 +2169,6 @@ def main(argv=None):
                 run_simulation = None
 
             builder.synthesize_array_in_hfss(
-                elements_list,
                 use_existing_cs=True if (args.use_existing_cs or args.yes) else None,
                 overwrite=True if (args.overwrite or args.yes) else None,
                 setup_results=setup_results,
@@ -2421,11 +2180,12 @@ def main(argv=None):
     except LayoutError as e:
         print(f"[ERROR] {e}")
         return 1
-    except NativeAedtRefusedError as e:
+    except (NativeAedtRefusedError, NoLiveSessionError) as e:
         print(f"[ERROR] {e}")
         return 2
     finally:
-        builder.close()
+        if "builder" in locals():
+            builder.close()
     return 0
 
 

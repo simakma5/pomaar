@@ -1,11 +1,8 @@
 metadata:
-  topology: polarimetric_cluster
-  centre_frequency_ghz: 79.0
-  bandwidth_ghz: 4.0
+  primary_unit_cell: ApertureCoupledPatch
   variables:
     copolarSpacing: 2.6600mm
     clusterRadius: copolarSpacing / 2
-    crosspolarSpacing: sqrt(2) * clusterRadius
     pcbMargin: 0.0000mm
   board:
     width_formula: 2 * (clusterRadius + unitCellExtent + pcbMargin)
@@ -21,7 +18,6 @@ elements:
   position_expression:
   - clusterRadius
   - 0mm
-  - 0mm
   yaw: 90.0
 - label: Rx
   role: Rx
@@ -32,7 +28,6 @@ elements:
   - 0.0
   position_expression:
   - -clusterRadius
-  - 0mm
   - 0mm
   yaw: 270.0
 - label: Tx
@@ -45,7 +40,6 @@ elements:
   position_expression:
   - 0mm
   - clusterRadius
-  - 0mm
   yaw: 180.0
 - label: Rx
   role: Rx
@@ -57,5 +51,4 @@ elements:
   position_expression:
   - 0mm
   - -clusterRadius
-  - 0mm
   yaw: 0.0

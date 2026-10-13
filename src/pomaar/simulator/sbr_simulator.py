@@ -13,9 +13,8 @@ import os
 import re
 import sys
 
-from ansys.aedt.core import Desktop, Hfss
+from ansys.aedt.core import Hfss
 from ansys.aedt.core.generic.constants import Plane
-from ansys.aedt.core.generic.general_methods import grpc_active_sessions
 
 from pomaar.simulator.array_templates import (
     attach_port_table,
@@ -28,10 +27,12 @@ from pomaar.simulator.hfss_array_builder import (
     SPEED_OF_LIGHT_MM_S,
     BuildAbortedError,
     NativeAedtRefusedError,
+    NoLiveSessionError,
     _confirm,
     _find_by_spelling,
     _length_mm,
     _parse_frequency_ghz,
+    connect_live_session,
 )
 
 # 'none' builds the same scene without a target; its solve is the background (direct Tx -> Rx
@@ -59,8 +60,10 @@ RADIATION_OBJECT_NAMES = ("Airbox",)
 # the proxy ports) and '_Scattered' (the target return); target signatures use the latter
 SCATTERED_SWEEP_NAME = f"{SWEEP_NAME}_Scattered"
 
+# The scattered (target-only) solution is the default everywhere; the total one is kept for
+# reference only (see the README on why this equals range gating in a measurement)
 REPORT_S_DB = "S-parameters dB"
-REPORT_S_DB_SCATTERED = "S-parameters dB (scattered)"
+REPORT_S_DB_TOTAL = "S-parameters dB (total)"
 REPORT_COPOL_IMBALANCE = "Co-pol VV/HH"
 REPORT_CROSSPOL_ISOLATION = "Cross-pol isolation"
 
@@ -104,24 +107,14 @@ class SbrSimulationManager:
       length targetSize) of the sheet targets sit at TargetCS.
     """
 
-    def __init__(
-        self,
-        project_path,
-        source_design_name,
-        sbr_design_name=None,
-        grpc_port=None,
-        non_graphical=True,
-    ):
+    def __init__(self, project_path, source_design_name, sbr_design_name=None):
         self.project_path = os.path.abspath(project_path)
         self.source_design_name = source_design_name
         self.sbr_design_name = sbr_design_name if sbr_design_name else f"Linked{source_design_name}"
-        self.grpc_port = grpc_port
-        self.non_graphical = non_graphical
 
         self.desktop_session = None
         self.source_app = None
         self.sbr_app = None
-        self.is_new_desktop = False
 
         self.antenna_instance_name = None
         self.source_solution = None
@@ -130,38 +123,8 @@ class SbrSimulationManager:
         self.target_object_names = []
 
     def connect_desktop(self):
-        """Starts or connects to an existing AEDT session via gRPC (see MimoHfssBuilder)."""
-        if (
-            sys.platform.startswith("linux")
-            and not os.path.exists("/run/.containerenv")
-            and os.environ.get("POMAAR_ALLOW_NATIVE_AEDT") != "1"
-        ):
-            raise NativeAedtRefusedError(
-                "Refusing to connect from outside the AEDT container: run this via "
-                "`ansys-vnc exec`, or set POMAAR_ALLOW_NATIVE_AEDT=1 for a native AEDT install."
-            )
-        if self.grpc_port is None:
-            graphical_ports = grpc_active_sessions(non_graphical=False)
-            self.grpc_port = graphical_ports[0] if graphical_ports else 50051
-        print(f"Connecting to or starting AEDT on port {self.grpc_port}...")
-        try:
-            self.desktop_session = Desktop(
-                port=self.grpc_port,
-                new_desktop=False,
-                non_graphical=self.non_graphical,
-                close_on_exit=False,
-            )
-            print("Connected to existing active AEDT session.")
-            self.is_new_desktop = False
-        except Exception as err:
-            print(f"Failed to connect ({err}). Starting new session...")
-            self.desktop_session = Desktop(
-                port=self.grpc_port,
-                new_desktop=True,
-                non_graphical=self.non_graphical,
-                close_on_exit=True,
-            )
-            self.is_new_desktop = True
+        """Attaches to the running AEDT GUI session (see `connect_live_session`)."""
+        self.desktop_session = connect_live_session()
 
     # ------------------------------------------------------------------------------------------
     # Full flow
@@ -579,18 +542,18 @@ class SbrSimulationManager:
 
     def create_reports(self):
         """
-        (g) Quick-look reports: |S| in dB for every Tx/Rx pair (total and scattered), and per
-        polarimetric quad (dual-polarized Rx and Tx, `polarimetric_quads`) the co-pol ratio
-        S_VV/S_HH (dB and phase) and the cross-pol leakage S_VH/S_HH (Tx H) and S_HV/S_VV (Tx V)
-        of the scattered (target-only) solution. With the builder's port table, the VV/HH phase
-        is corrected for the port field signs.
+        (g) Quick-look reports, all from the scattered (target-only) solution: |S| in dB for every
+        Tx/Rx pair, and per polarimetric quad (dual-polarized Rx and Tx, `polarimetric_quads`)
+        the co-pol ratio S_VV/S_HH (dB and phase) and the cross-pol leakage S_VH/S_HH (Tx H) and
+        S_HV/S_VV (Tx V). With the builder's port table, the VV/HH phase is corrected for the
+        port field signs. One reference report shows |S| of the total solution.
         """
         total = f"{SETUP_NAME} : {SWEEP_NAME}"
         scattered = f"{SETUP_NAME} : {SCATTERED_SWEEP_NAME}"
         pairs = [f"S({rx},{tx})" for tx in self.tx_ports for rx in self.rx_ports]
         reports = {
-            REPORT_S_DB: (total, [f"dB({s})" for s in pairs]),
-            REPORT_S_DB_SCATTERED: (scattered, [f"dB({s})" for s in pairs]),
+            REPORT_S_DB: (scattered, [f"dB({s})" for s in pairs]),
+            REPORT_S_DB_TOTAL: (total, [f"dB({s})" for s in pairs]),
         }
 
         signs = self._port_signs()
@@ -737,14 +700,10 @@ class SbrSimulationManager:
         )
 
     def close(self):
-        """Releases AEDT desktop session connection."""
+        """Releases the connection to the live AEDT session, which keeps running."""
         if self.desktop_session:
-            if self.is_new_desktop:
-                self.desktop_session.close_desktop()
-                print("AEDT desktop session closed.")
-            else:
-                self.desktop_session.release_desktop(close_projects=False, close_on_exit=False)
-                print("AEDT desktop session connection released.")
+            self.desktop_session.release_desktop(close_projects=False, close_on_exit=False)
+            print("AEDT desktop session connection released.")
             self.desktop_session = None
 
 
@@ -786,7 +745,10 @@ def _euler_zyz_cs_args(origin, angles):
 
 def main(argv=None):
     parser = argparse.ArgumentParser(
-        description="Builds an SBR+ design linking an HFSS antenna design to a canonical target."
+        description=(
+            "Builds an SBR+ design linking an HFSS antenna design to a canonical target, "
+            "attached to the running AEDT GUI session."
+        )
     )
     parser.add_argument("project_path", help="Path to the AEDT project (.aedt)")
     parser.add_argument("source_design_name", help="Solved HFSS antenna design in that project")
@@ -865,19 +827,12 @@ def main(argv=None):
     simulate.add_argument(
         "--no-simulate", dest="simulate", action="store_false", help="Do not solve, do not ask"
     )
-    parser.add_argument(
-        "--port",
-        type=int,
-        default=None,
-        help="gRPC port of the AEDT session (default: the running AEDT GUI's port, else 50051)",
-    )
     args = parser.parse_args(argv)
 
     manager = SbrSimulationManager(
         project_path=args.project_path,
         source_design_name=args.source_design_name,
         sbr_design_name=args.design,
-        grpc_port=args.port,
     )
     try:
         manager.connect_desktop()
@@ -901,7 +856,7 @@ def main(argv=None):
     except BuildAbortedError as e:
         print(f"[INFO] {e}")
         return 0
-    except NativeAedtRefusedError as e:
+    except (NativeAedtRefusedError, NoLiveSessionError) as e:
         print(f"[ERROR] {e}")
         return 2
     finally:

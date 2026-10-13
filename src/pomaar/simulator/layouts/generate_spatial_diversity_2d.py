@@ -1,26 +1,37 @@
 #!/usr/bin/env python3
 import argparse
-from pathlib import Path
-import yaml
+
+from _layout_common import (
+    add_unit_cell_arguments,
+    layout_filename,
+    unit_cell_metadata,
+    write_layout,
+)
 
 
 def main():
-    parser = argparse.ArgumentParser(description="Generate a 2D Spatial Diversity MIMO Layout YAML.")
+    parser = argparse.ArgumentParser(
+        description="Generate a 2D Spatial Diversity MIMO Layout YAML."
+    )
     parser.add_argument(
         "--rx-count",
         type=int,
         default=3,
         help="Number of Rx elements per dimension in the L-shape (default: 3)",
     )
-    parser.add_argument("--tx-count", type=int, default=3, help="Number of Tx elements (default: 3)")
+    parser.add_argument(
+        "--tx-count", type=int, default=3, help="Number of Tx elements (default: 3)"
+    )
     parser.add_argument(
         "--centre-freq",
         "--center-freq",
         type=float,
         default=79.0,
-        help="Centre frequency in GHz (default: 79.0)",
+        help=(
+            "Design frequency in GHz for the default lambda-based spacings (default: 79.0); "
+            "the builder takes the simulation frequencies from the unit cell"
+        ),
     )
-    parser.add_argument("--bandwidth", type=float, default=4.0, help="Sweep bandwidth in GHz (default: 4.0)")
     parser.add_argument(
         "--rx-spacing-x",
         type=float,
@@ -57,13 +68,8 @@ def main():
         default=0.0,
         help="Additional PCB margin in mm (default: 0.0)",
     )
-    parser.add_argument(
-        "-o",
-        "--output",
-        default="spatial_diversity_2d.yaml",
-        help="Output YAML filename (default: spatial_diversity_2d.yaml)",
-    )
 
+    add_unit_cell_arguments(parser)
     args = parser.parse_args()
 
     # Dynamically calculate spacing based on the centre frequency if not specified
@@ -90,10 +96,10 @@ def main():
         rx_idx_offset = f"({i} - ({args.rx_count} - 1) / 2.0)" if args.rx_count > 1 else "0"
         elements.append(
             {
-                "label": f"Rx_Az_{i+1}",
+                "label": f"Rx_Az_{i + 1}",
                 "role": "Rx",
                 "position": [round(x_pos, 4), round(-y_centre, 4), 0.0],
-                "position_expression": [f"{rx_idx_offset} * rxSpacingX", "-arrayCentreY", "0mm"],
+                "position_expression": [f"{rx_idx_offset} * rxSpacingX", "-arrayCentreY"],
                 "polarization": "v",
                 "yaw": 0.0,
             }
@@ -106,7 +112,7 @@ def main():
                 "label": f"Rx_El_{j}",
                 "role": "Rx",
                 "position": [0.0, round(j * args.rx_spacing_y - y_centre, 4), 0.0],
-                "position_expression": ["0mm", f"{j} * rxSpacingY - arrayCentreY", "0mm"],
+                "position_expression": ["0mm", f"{j} * rxSpacingY - arrayCentreY"],
                 "polarization": "v",
                 "yaw": 0.0,
             }
@@ -126,10 +132,10 @@ def main():
 
         elements.append(
             {
-                "label": f"Tx_{i+1}",
+                "label": f"Tx_{i + 1}",
                 "role": "Tx",
                 "position": [round(x_pos, 4), round(y_pos, 4), 0.0],
-                "position_expression": [f"{tx_idx_offset} * txSpacingX", tx_y_expr, "0mm"],
+                "position_expression": [f"{tx_idx_offset} * txSpacingX", tx_y_expr],
                 "polarization": "v",
                 "yaw": 180.0,
             }
@@ -153,9 +159,7 @@ def main():
 
     layout_data = {
         "metadata": {
-            "topology": "spatial_diversity_2d",
-            "centre_frequency_ghz": args.centre_freq,
-            "bandwidth_ghz": args.bandwidth,
+            **unit_cell_metadata(parser, args),
             "variables": variables,
             "board": {
                 "width_formula": f"max(({args.rx_count} - 1) * rxSpacingX, ({args.tx_count} - 1) * txSpacingX) + 2 * (unitCellExtentX + pcbMargin)",
@@ -165,12 +169,7 @@ def main():
         "elements": elements,
     }
 
-    output_path = Path(args.output)
-    if not output_path.is_absolute():
-        output_path = Path(__file__).resolve().parent / output_path
-
-    with open(output_path, "w", encoding="utf-8") as f:
-        yaml.dump(layout_data, f, sort_keys=False)
+    output_path = layout_filename(args, "spatial_diversity_2d")
 
     print(
         f"Generated 2D layout with {args.rx_count} Rx (L-shape) and {args.tx_count} Tx (triangular/sparse) elements."
@@ -179,11 +178,7 @@ def main():
     print(f"  Rx Spacing X: {args.rx_spacing_x} mm, Y: {args.rx_spacing_y} mm")
     print(f"  Tx Spacing X: {args.tx_spacing_x} mm, Y-Offset: {args.tx_spacing_y} mm")
     print(f"  Centring: Y array centre at {y_centre:.2f} mm (elements centred about the origin)")
-    print(f"Layout written to: {output_path}")
-    print(f"\nTo synthesize in HFSS, run:")
-    print(
-        f"  hfss_array_builder <project_path> <source_design_name> {output_path} --centre-freq {args.centre_freq} --bandwidth {args.bandwidth}"
-    )
+    write_layout(layout_data, output_path, __file__)
 
 
 if __name__ == "__main__":
