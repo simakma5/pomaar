@@ -7,6 +7,7 @@ the analysis setup and quick-look S-parameter reports.
 """
 
 import argparse
+import json
 import math
 import os
 import re
@@ -16,6 +17,12 @@ from ansys.aedt.core import Desktop, Hfss
 from ansys.aedt.core.generic.constants import Plane
 from ansys.aedt.core.generic.general_methods import grpc_active_sessions
 
+from pomaar.simulator.array_templates import (
+    attach_port_table,
+    is_load_port,
+    polarimetric_quads,
+)
+from pomaar.simulator.array_templates import parse_port as _parse_port
 from pomaar.simulator.hfss_array_builder import (
     DEFAULT_CENTRE_FREQUENCY_GHZ,
     SPEED_OF_LIGHT_MM_S,
@@ -56,19 +63,6 @@ REPORT_S_DB = "S-parameters dB"
 REPORT_S_DB_SCATTERED = "S-parameters dB (scattered)"
 REPORT_COPOL_IMBALANCE = "Co-pol VV/HH"
 REPORT_CROSSPOL_ISOLATION = "Cross-pol isolation"
-
-
-def _parse_port(port_name):
-    """
-    Classifies a source port name as (role, polarization, element key), e.g. 'TxH' ->
-    ('Tx', 'H', 'Tx') and 'Port_Tx_1_H' -> ('Tx', 'H', 'Port_Tx_1_'); None if it is neither.
-    The element key pairs the H and V ports of one dual-polarized element.
-    """
-    role = re.search(r"(Tx|Rx)", port_name)
-    pol = re.search(r"([HV])$", port_name)
-    if not role or not pol:
-        return None
-    return role.group(1), pol.group(1), port_name[:-1]
 
 
 def _ask_field_type(preset=None):
@@ -502,6 +496,9 @@ class SbrSimulationManager:
         """(e) Every Tx port of the linked antenna transmits to every Rx port (Select Tx/Rx)."""
         tx_ports, rx_ports = [], []
         for port in self.source_app.ports:
+            if is_load_port(port):
+                print(f"  Port '{port}' is a matched load on an unused feed; it is skipped.")
+                continue
             parsed = _parse_port(port)
             if parsed is None:
                 print(f"  Warning: cannot tell Tx/Rx and H/V from port '{port}'; it is skipped.")
@@ -583,8 +580,10 @@ class SbrSimulationManager:
     def create_reports(self):
         """
         (g) Quick-look reports: |S| in dB for every Tx/Rx pair (total and scattered), and per
-        dual-polarized Tx/Rx element pair the co-pol ratio S_VV/S_HH (dB and phase) and the
-        cross-pol isolation of the scattered (target-only) solution.
+        polarimetric quad (dual-polarized Rx and Tx, `polarimetric_quads`) the co-pol ratio
+        S_VV/S_HH (dB and phase) and the cross-pol leakage S_VH/S_HH (Tx H) and S_HV/S_VV (Tx V)
+        of the scattered (target-only) solution. With the builder's port table, the VV/HH phase
+        is corrected for the port field signs.
         """
         total = f"{SETUP_NAME} : {SWEEP_NAME}"
         scattered = f"{SETUP_NAME} : {SCATTERED_SWEEP_NAME}"
@@ -594,13 +593,21 @@ class SbrSimulationManager:
             REPORT_S_DB_SCATTERED: (scattered, [f"dB({s})" for s in pairs]),
         }
 
+        signs = self._port_signs()
         imbalance, isolation = [], []
-        for tx in self._dual_pol_elements(self.tx_ports).values():
-            for rx in self._dual_pol_elements(self.rx_ports).values():
-                s_hh, s_vv = f"S({rx['H']},{tx['H']})", f"S({rx['V']},{tx['V']})"
-                s_hv, s_vh = f"S({rx['V']},{tx['H']})", f"S({rx['H']},{tx['V']})"
-                imbalance += [f"dB({s_vv}/{s_hh})", f"ang_deg({s_vv}/{s_hh})"]
-                isolation += [f"dB({s_hv}/{s_hh})", f"dB({s_vh}/{s_vv})"]
+        for name, quad in polarimetric_quads(self.tx_ports + self.rx_ports).items():
+            # S_pq = S(Rx p, Tx q): S_HV is receive H, transmit V
+            s_hh = f"S({quad['RxH']},{quad['TxH']})"
+            s_hv = f"S({quad['RxH']},{quad['TxV']})"
+            s_vh = f"S({quad['RxV']},{quad['TxH']})"
+            s_vv = f"S({quad['RxV']},{quad['TxV']})"
+            # Measured S_VV/S_HH carries s_RxV s_TxV s_RxH s_TxH; a negative product is 180 deg
+            product = math.prod(signs.get(port, 1) for port in quad.values())
+            ratio = f"{'-' if product < 0 else ''}{s_vv}/{s_hh}"
+            if product < 0:
+                print(f"  Quad {name}: VV/HH phase corrected for the port field signs.")
+            imbalance += [f"dB({s_vv}/{s_hh})", f"ang_deg({ratio})"]
+            isolation += [f"dB({s_vh}/{s_hh})", f"dB({s_hv}/{s_vv})"]
         if imbalance:
             reports[REPORT_COPOL_IMBALANCE] = (scattered, imbalance)
             reports[REPORT_CROSSPOL_ISOLATION] = (scattered, isolation)
@@ -685,14 +692,28 @@ class SbrSimulationManager:
         objects = list(src.modeler.solid_names) + list(src.modeler.sheet_names)
         return [name for name in objects if name not in excluded]
 
-    def _dual_pol_elements(self, excitations):
-        """Groups excitations into {element key: {'H': name, 'V': name}} for dual-pol elements."""
-        prefix = f"{self.antenna_instance_name}_"
-        elements = {}
-        for excitation in excitations:
-            _, pol, key = _parse_port(excitation[len(prefix) :])
-            elements.setdefault(key, {})[pol] = excitation
-        return {key: pols for key, pols in elements.items() if set(pols) == {"H", "V"}}
+    def _port_table_path(self):
+        """The builder port table of the linked HFSS design, if it has one."""
+        path = os.path.join(
+            os.path.dirname(self.project_path), f"{self.source_design_name}_ports.json"
+        )
+        return path if os.path.isfile(path) else None
+
+    def _port_signs(self):
+        """{excitation: field sign} from the builder port table; empty without one."""
+        path = self._port_table_path()
+        if not path:
+            return {}
+        try:
+            with open(path, encoding="utf-8") as f:
+                rows = attach_port_table(json.load(f), self.tx_ports + self.rx_ports)
+        except (OSError, ValueError, KeyError) as e:
+            print(f"  Warning: cannot read the port table {path} ({e})")
+            return {}
+        if not rows:
+            print(f"  Warning: the port table {path} does not match the linked ports.")
+            return {}
+        return {row["excitation"]: row["sign"] for row in rows if row.get("sign")}
 
     # ------------------------------------------------------------------------------------------
     # Results
@@ -711,7 +732,9 @@ class SbrSimulationManager:
         solution = solution or f"{SETUP_NAME} : {SCATTERED_SWEEP_NAME}"
         output_path = os.path.abspath(output_path)
         print(f"Exporting '{solution}' to {output_path}...")
-        return export_sbr_parametric_sweep(self.sbr_app, output_path, solution, sweep_variable)
+        return export_sbr_parametric_sweep(
+            self.sbr_app, output_path, solution, sweep_variable, self._port_table_path()
+        )
 
     def close(self):
         """Releases AEDT desktop session connection."""

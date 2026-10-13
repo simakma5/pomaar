@@ -22,31 +22,7 @@ elements:
   - (0 - (4 - 1) / 2.0) * rxSpacing
   - -txOffsetY / 2
   - 0mm
-  polarization: v
-  yaw: 0.0
-- label: Rx_1
-  role: Rx
-  position:
-  - -2.85
-  - -6.0
-  - 0.0
-  position_expression:
-  - (0 - (4 - 1) / 2.0) * rxSpacing
-  - -txOffsetY / 2
-  - 0mm
-  polarization: h
-  yaw: 90.0
-- label: Rx_2
-  role: Rx
-  position:
-  - -0.95
-  - -6.0
-  - 0.0
-  position_expression:
-  - (1 - (4 - 1) / 2.0) * rxSpacing
-  - -txOffsetY / 2
-  - 0mm
-  polarization: v
+  polarization: hv
   yaw: 0.0
 - label: Rx_2
   role: Rx
@@ -58,19 +34,7 @@ elements:
   - (1 - (4 - 1) / 2.0) * rxSpacing
   - -txOffsetY / 2
   - 0mm
-  polarization: h
-  yaw: 90.0
-- label: Rx_3
-  role: Rx
-  position:
-  - 0.95
-  - -6.0
-  - 0.0
-  position_expression:
-  - (2 - (4 - 1) / 2.0) * rxSpacing
-  - -txOffsetY / 2
-  - 0mm
-  polarization: v
+  polarization: hv
   yaw: 0.0
 - label: Rx_3
   role: Rx
@@ -82,19 +46,7 @@ elements:
   - (2 - (4 - 1) / 2.0) * rxSpacing
   - -txOffsetY / 2
   - 0mm
-  polarization: h
-  yaw: 90.0
-- label: Rx_4
-  role: Rx
-  position:
-  - 2.85
-  - -6.0
-  - 0.0
-  position_expression:
-  - (3 - (4 - 1) / 2.0) * rxSpacing
-  - -txOffsetY / 2
-  - 0mm
-  polarization: v
+  polarization: hv
   yaw: 0.0
 - label: Rx_4
   role: Rx
@@ -106,8 +58,8 @@ elements:
   - (3 - (4 - 1) / 2.0) * rxSpacing
   - -txOffsetY / 2
   - 0mm
-  polarization: h
-  yaw: 90.0
+  polarization: hv
+  yaw: 0.0
 - label: Tx_1
   role: Tx
   position:
@@ -131,7 +83,7 @@ elements:
   - txOffsetY / 2
   - 0mm
   polarization: h
-  yaw: 270.0
+  yaw: 90.0
 - label: Tx_3
   role: Tx
   position:
@@ -155,4 +107,4 @@ elements:
   - txOffsetY / 2
   - 0mm
   polarization: h
-  yaw: 270.0
+  yaw: 90.0

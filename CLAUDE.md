@@ -65,7 +65,8 @@ There are three stages, each a class re-exported by `pomaar.simulator`:
 3. **`MimoPolarimetryProcessor`** (`polarimetry_processor.py`). It is pure NumPy, needs no AEDT,
    and works from `.npz` sweeps exported by `sbr_results.py` (export `Setup : Sweep_Scattered`).
    Its module-level functions handle range gating, geometric phase compensation and polarimetric
-   signatures (bistatic Pauli, fidelity, Cloude α/entropy). The class chains them, adding sphere
+   signatures (bistatic Pauli, fidelity, Cloude α/entropy). The class chains them for one
+   polarimetric quad (RxH, RxV, TxH, TxV; `quad=` when an export has several), adding sphere
    calibration and noise injection. `bistaticity_analysis.py` plots the signatures against Tx–Rx
    spacing; it is still specific to the boresight-sphere horn-cluster study (README §4).
 
@@ -74,32 +75,74 @@ There are three stages, each a class re-exported by `pomaar.simulator`:
 `layouts/*.yaml` hold `metadata` and `elements`:
 
 * `metadata`: centre frequency (`centre_frequency_ghz`; the builder still reads the old
-  `center_frequency_ghz`), bandwidth, design `variables` and `board` size formulas;
-* `elements`: each with role Tx/Rx, polarization h/v, numeric `position`, a parametric
-  `position_expression` in design variables, and `yaw`.
+  `center_frequency_ghz`), bandwidth, design `variables`, `board` size formulas and optional
+  `unit_cells` (`{h: PatchH}`, `{hv: DualPatch}`), merged with `--unit-cell`;
+* `elements`: each with role Tx/Rx, polarization h/v/hv, numeric `position`, a parametric
+  `position_expression` in design variables, `yaw` and an optional `unit_cell` design.
 
 The target design is named `<UnitCell><LayoutFileStemInCamelCase>`, or `<UnitCell>MimoArray`
 without a layout.
+
+### Polarization templates
+
+Polarization is a property of the unit-cell template, not of placement. `array_templates.py` (pure,
+AEDT-free, tested in `tests/test_array_templates.py`) holds the rules:
+
+* **Tags.** Port sheets are tagged `PortSheet[<n>]_<H|V>`. Untagged ones take
+  `--native-polarization` or their `--unit-cell` key. A cell has one tagged port or two
+  (dual-port).
+* **Resolution.** An element uses its `unit_cell`, else the template mapped to all its
+  polarizations, else the source design turned by its yaw.
+* **Check.** `plan_elements` checks that R(yaw)·native lies along x (H) or y (V) before Step 2,
+  so an abort never clears a design.
+* **Unused ports** of a dual-port cell become matched `Port_<label>_<P>_Load` ports, which
+  `sbr_simulator` skips.
+* **Naming.** Ports are `Port_<label>_<P>` (`_parse_port` pairs H/V by the shared prefix), with
+  one CS per active port, `CS_` + the port name without `Port_`.
+* **Signs.** Yaw 180 flips E. The builder prints the per-port signs, warns when a role's pair
+  sign s_H·s_V = −1 (cross-pol negated relative to co-pol, invisible to sphere calibration), and
+  writes `<TargetDesign>_ports.json` next to the project.
+* **`--unit-cell` keys** are polarization sets: `h`/`v` serve single-pol elements, `hv` only
+  dual-polarized (`polarization: hv`) ones.
+
+### How the stages share port information
+
+`array_templates.py` also holds the channel helpers that all stages use: `parse_port` (the last
+`Tx|Rx` counts, so instance prefixes such as `Linked1_Port_Rx_1_H` parse), `s_parameter_ports`,
+`polarimetric_quads` (an H/V pair per role, either sharing an element key or the role's single H
+and V ports) and `attach_port_table`.
+
+* `sbr_simulator` skips `_Load` ports, builds its VV/HH and cross-pol reports per quad, and
+  sign-corrects the VV/HH phase from the source design's `_ports.json`.
+* `sbr_results` attaches the matching `_ports.json` (found next to the project, or `--ports`) to
+  the `.npz` metadata as `ports`.
+* `MimoPolarimetryProcessor.from_npz` picks the quad, removes the port signs (`correct_signs`) and
+  offers `quad_positions()` for `compensate_geometry(None, focal)`. Positions are build-time
+  values, so they don't follow a swept layout variable.
 
 ### Builder flow
 
 `synthesize_array_in_hfss`, then `create_post_processing_reports`, then `run_solve`. The numbered
 `STEP` comments in the code are the map:
 
-* **Steps 1–3:** classify unit-cell objects by name convention, create or reuse the target design
-  (variables and setup inherited from the unit cell), then size and draw the board.
-* **Step 4:** each element gets its own relative CS at its position with its yaw. Template geometry
-  is copied once, then replicated with `duplicate_along_line`. `.clone()` (copy/paste) hangs on a
-  headless X11/VNC display.
+* **Steps 1–3:** classify the objects of every template by name convention and plan the
+  elements, create or reuse the target design (variables merged from all templates, setup from
+  the source design), then size and draw the board. All templates must share the board stack,
+  which sits at the source design's phase-centre height `z_ref`.
+* **Step 4:** each active port gets its own relative CS at its phase centre with the element yaw.
+  Each template's geometry is copied once and tagged `<obj>__<template>` (so equal names in two
+  unit cells don't clash), then replicated with `duplicate_along_line`; `map_duplicates` maps the
+  copies back exactly. `.clone()` (copy/paste) hangs on a headless X11/VNC display.
 * **Step 5:** `<Operation>_<Target>` dummy solids are applied as booleans.
-* **Step 6:** wave ports are assigned on `PortSheet*`, falling back to lumped ports.
+* **Step 6:** wave ports (and `_Load` ports) are assigned on `PortSheet*`, falling back to lumped
+  ports.
 * **Step 6b:** `PhaseCentreCS` is placed at the array centroid as the CS of the far-field spheres.
-  The far-field phase reference is per port (each element CS), so SBR+ launches every port from
+  The far-field phase reference is per port (each port CS), so SBR+ launches every port from
   its own phase centre. Only the CS origin appears to matter, not its yaw (no co/cross swap seen).
 * **Step 7:** a laterally flush radiation airbox is added (a deliberate choice: wave ports must sit
   on the boundary).
-* **Step 7b:** `verify_placement` checks every element against R(yaw)(p − o) + pos and aborts on
-  mismatch.
+* **Step 7b:** `verify_placement` checks every element against R(yaw)(p − o) + pos (its template's
+  offset o, z shifted by `z_ref`) and aborts on mismatch. Step 7c reports the port polarizations.
 * **`PhaseCentreCS` in the unit cell** is either reused or fitted by `fit_unit_cell_phase_centre`:
   a |E|-weighted least-squares fit of the co-polar Ludwig-3 phase over θ ≤ 40°. Lateral components
   below 10 µm are snapped to 0.

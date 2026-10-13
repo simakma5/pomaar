@@ -5,6 +5,7 @@ Programmatically builds a planar MIMO antenna array layout on a single PCB subst
 using a template-based, boolean-driven assembly workflow.
 """
 
+import json
 import math
 import os
 import re
@@ -15,6 +16,24 @@ from ansys.aedt.core.generic.constants import Axis, Gravity
 from ansys.aedt.core.generic.data_handlers import _dict2arg
 from ansys.aedt.core.generic.general_methods import grpc_active_sessions
 import numpy as np
+
+from pomaar.simulator.array_templates import (
+    LayoutError,
+    PortSpec,
+    UnitCellTemplate,
+    is_load_port,
+    map_duplicates,
+    merge_unit_cells,
+    offset_expression,
+    parse_unit_cell_args,
+    place,
+    place_xy,
+    plan_elements,
+    port_sheet_polarization,
+    port_table,
+    sidecar_dict,
+    sign_warnings,
+)
 
 SPEED_OF_LIGHT_MM_S = 2.99792458e11
 DEFAULT_CENTRE_FREQUENCY_GHZ = 79.0
@@ -153,14 +172,6 @@ def _find_by_spelling(names, name):
     return next((variant for variant in _spelling_variants(name) if variant in names), None)
 
 
-def _port_name_from_sheet(sheet_name):
-    """Maps a replicated port sheet name (e.g. 'PortSheet_Tx_1_H') to its port ('Port_Tx_1_H')."""
-    suffix = sheet_name.replace("PortSheet", "")
-    if suffix.startswith("_"):
-        suffix = suffix[1:]
-    return f"Port_{suffix}"
-
-
 def _delete_coordinate_system(modeler, cs_name):
     """Deletes a coordinate system by name if it exists."""
     for cs in list(modeler.coordinate_systems):
@@ -218,7 +229,17 @@ class MimoHfssBuilder:
         centre_frequency_ghz=None,
         bandwidth_ghz=4.0,
         phase_reference_mode="per_port",
+        unit_cells=None,
+        native_polarization=None,
+        drop_unused_ports=False,
     ):
+        """
+        `unit_cells` maps polarizations to further unit-cell designs ({'V': 'PatchV'}, or
+        `--unit-cell` strings such as ['v=PatchV', 'hv=DualPatch']); the source design is the
+        primary template. `native_polarization` ('h'/'v') is the polarization of the source
+        design's untagged port sheets. `drop_unused_ports` removes the unused ports of a
+        dual-port cell instead of terminating them in matched loads.
+        """
         self.project_path = os.path.abspath(project_path)
         self.source_design_name = source_design_name
         self.target_design_name = (
@@ -230,6 +251,11 @@ class MimoHfssBuilder:
         self.centre_frequency_ghz = centre_frequency_ghz
         self.bandwidth_ghz = bandwidth_ghz
         self.phase_reference_mode = phase_reference_mode
+        if isinstance(unit_cells, dict):
+            unit_cells = [f"{pol}={design}" for pol, design in unit_cells.items()]
+        self.unit_cells = parse_unit_cell_args(unit_cells)
+        self.native_polarization = native_polarization.upper() if native_polarization else None
+        self.drop_unused_ports = drop_unused_ports
         self.port_to_cs_mapping = {}
         self.element_phase_centres = []
 
@@ -332,6 +358,232 @@ class MimoHfssBuilder:
         print(f"  Tx Elements: {transmitter_count} (spacing={transmitter_spacing_mm:.2f} mm)")
         return elements
 
+    def _open_design(self, design_name, project=None):
+        """Opens (and activates) a design of the project as its own Hfss app."""
+        return Hfss(
+            project=project or self.project_path,
+            design=design_name,
+            new_desktop=False,
+            close_on_exit=False,
+        )
+
+    def _classify_template(self, app, design_name, native_polarization=None):
+        """
+        STEP 1 for one unit cell: classifies its objects by name convention into global layers,
+        port sheets, active copper and boolean dummy solids. Untagged port sheets take
+        `native_polarization`.
+        """
+        template = UnitCellTemplate(design=design_name, app=app)
+        print(f"\nScanning and classifying objects in unit cell '{design_name}':")
+        for name in list(app.modeler.object_names):
+            obj = app.modeler.get_object_from_name(name)
+            if not obj:
+                continue
+
+            # Check for boolean dummy solids first (e.g. Subtract_L2_Ground)
+            if name.startswith("Subtract_") or name.startswith("Unite_"):
+                tokens = name.split("_")
+                key = (tokens[0], "_".join(tokens[1:]))
+                template.dummies.setdefault(key, []).append(name)
+                print(f"  [Dummy {key[0]}]   {name} -> target: {key[1]}")
+                continue
+
+            # Skip vacuum domain solids, radiation boundaries, or airboxes present in source design
+            if (
+                obj.material_name.lower() == "vacuum"
+                or "RadiatingSurface" in name
+                or "Airbox" in name
+                or "RadiationBox" in name
+            ):
+                print(f"  [Skipped Boundary] {name} ({obj.material_name})")
+                continue
+
+            is_substrate = name.startswith(("L12_", "L23_", "L34_", "L45_"))
+            is_ground = name.startswith(("L2_Ground", "Ground_Plane", "GND"))
+            if is_substrate or is_ground:
+                z_min, z_max = _z_extent(obj)
+                template.layers[name] = {
+                    "material": obj.material_name,
+                    "z_min": z_min,
+                    "z_max": z_max,
+                }
+                tag = "[Global Layer]    " if is_substrate else "[Global Ground]   "
+                print(
+                    f"  {tag} {name} ({obj.material_name}, Z=[{z_min:.2f}, {z_max:.2f}] mm)"
+                )
+
+            elif "PortSheet" in name or name.startswith("Port_"):
+                template.port_sheets.append(name)
+                tagged = port_sheet_polarization(name)
+                pol = tagged or native_polarization
+                source = "tag" if tagged else ("declared" if pol else "unknown")
+                print(f"  [Port Sheet]       {name} (polarization {pol or '?'}, {source})")
+
+            else:
+                template.active.append(name)
+                print(f"  [Active Element]   {name}")
+
+        # Port specs get their phase centres in `_template_phase_centres`
+        template.ports = tuple(
+            PortSpec(sheet, port_sheet_polarization(sheet) or native_polarization, (0.0, 0.0, 0.0))
+            for sheet in template.port_sheets
+        )
+        return template
+
+    def _template_phase_centres(self, template, use_existing_cs=None):
+        """
+        Sets the template's reference point (its `PhaseCentreCS`, reused or fitted) and the phase
+        centre of each port. A dual-port cell may hold `PhaseCentreCS_H` / `PhaseCentreCS_V` for
+        its ports; it is never fitted, since that needs per-port sources in the unit cell.
+        """
+        app = template.app
+        cs_map = {cs.name: cs for cs in app.modeler.coordinate_systems}
+        # Also finds a unit cell's 'PhaseCenterCS'
+        main_cs = _find_by_spelling(cs_map, "PhaseCentreCS")
+        port_cs = {
+            pol: _find_by_spelling(cs_map, f"PhaseCentreCS_{pol}")
+            for pol in template.native_polarizations
+        }
+        port_cs = {pol: name for pol, name in port_cs.items() if name}
+        multi_port = len(template.ports) > 1
+
+        def origin(cs_name):
+            props = cs_map[cs_name].props
+            try:
+                return [
+                    round(_length_mm(app, props[key]), 3)
+                    for key in ("OriginX", "OriginY", "OriginZ")
+                ]
+            except Exception as e:
+                print(f"  Warning: Could not evaluate {cs_name} origin ({e}); using zero offset.")
+                return [0.0, 0.0, 0.0]
+
+        offset = [0.0, 0.0, 0.0]
+        run_fit = False
+        if main_cs:
+            offset = origin(main_cs)
+            print(f"\n[INFO] {main_cs} found in '{template.design}'. Origin offset: {offset} mm.")
+            if not multi_port and not _confirm(
+                f"Do you want to use the existing {main_cs}?", preset=use_existing_cs
+            ):
+                run_fit = True
+        elif port_cs:
+            centres = [origin(name) for name in port_cs.values()]
+            offset = [round(sum(c[i] for c in centres) / len(centres), 3) for i in range(3)]
+            print(
+                f"\n[INFO] '{template.design}' has {', '.join(port_cs.values())}; reference point "
+                f"(their mean): {offset} mm."
+            )
+        else:
+            print("\n" + "=" * 80)
+            print(f"[WARNING] PhaseCentreCS was NOT found in unit cell '{template.design}'!")
+            print("=" * 80 + "\n")
+            if use_existing_cs:
+                print("[INFO] Proceeding without PhaseCentreCS offset [0.0, 0.0, 0.0] mm.")
+            elif multi_port:
+                print(
+                    "[INFO] A dual-port unit cell is not fitted (it would need per-port "
+                    "sources); add PhaseCentreCS or PhaseCentreCS_H/_V to it."
+                )
+                if not _confirm("Proceed without PhaseCentreCS offset?"):
+                    raise BuildAbortedError("Aborted by user: no phase centre available.")
+            elif _confirm("Do you want to fit the phase centre from the unit-cell far field?"):
+                run_fit = True
+            elif _confirm("Proceed without PhaseCentreCS offset?"):
+                print("[INFO] Proceeding with zero offset [0.0, 0.0, 0.0] mm.")
+            else:
+                raise BuildAbortedError("Aborted by user: no phase centre available.")
+
+        if run_fit:
+            offset = self.fit_unit_cell_phase_centre(app=app)
+
+        template.offset = tuple(offset)
+        template.ports = tuple(
+            PortSpec(
+                spec.sheet,
+                spec.polarization,
+                tuple(origin(port_cs[spec.polarization]))
+                if spec.polarization in port_cs
+                else template.offset,
+            )
+            for spec in template.ports
+        )
+
+    def _load_templates(self, unit_cells, explicit_designs=(), use_existing_cs=None):
+        """
+        Opens and classifies the primary unit cell, every design of `unit_cells` ({pol: design})
+        and the designs named by elements (`unit_cell:`), and determines their phase centres.
+        Returns {design: template}, primary first.
+        """
+        designs = list(
+            dict.fromkeys([self.source_design_name, *unit_cells.values(), *explicit_designs])
+        )
+        missing = [d for d in designs if d not in self.source_design_app.design_list]
+        if missing:
+            raise LayoutError(f"Unit-cell design(s) not found in the project: {', '.join(missing)}")
+
+        templates = {}
+        for design in designs:
+            # Untagged port sheets take the declared polarization: '--unit-cell v=Design', or
+            # '--native-polarization' for the primary unit cell
+            declared = [key for key, d in unit_cells.items() if d == design and len(key) == 1]
+            native = declared[0] if len(declared) == 1 else None
+            if design == self.source_design_name and self.native_polarization:
+                native = self.native_polarization
+            app = (
+                self.source_design_app
+                if design == self.source_design_name
+                else self._open_design(design, self.source_design_app.project_name)
+            )
+            template = self._classify_template(app, design, native)
+            self._template_phase_centres(template, use_existing_cs)
+            templates[design] = template
+        return templates
+
+    @staticmethod
+    def _check_shared_stack(templates):
+        """All templates must share the board stack (layer names, materials and z extents)."""
+        primary, *others = templates.values()
+        reference = {
+            name: (info["material"], round(info["z_min"], 4), round(info["z_max"], 4))
+            for name, info in primary.layers.items()
+        }
+        for template in others:
+            stack = {
+                name: (info["material"], round(info["z_min"], 4), round(info["z_max"], 4))
+                for name, info in template.layers.items()
+            }
+            if stack != reference:
+                raise LayoutError(
+                    f"Unit cell '{template.design}' has a different board stack than "
+                    f"'{primary.design}':\n  {stack}\n  vs {reference}"
+                )
+
+    @staticmethod
+    def _merged_design_variables(templates):
+        """
+        Design variables of all templates, primary first. A name with different expressions in
+        two templates is an error, since the array design has only one value for it.
+        """
+        merged, sources, conflicts = {}, {}, []
+        for template in templates.values():
+            for name, variable in template.app.variable_manager.design_variables.items():
+                expression = str(getattr(variable, "expression", variable)).replace(" ", "")
+                if name in merged and sources[name][1] != expression:
+                    conflicts.append(
+                        f"{name}: '{sources[name][1]}' in '{sources[name][0]}', "
+                        f"'{expression}' in '{template.design}'"
+                    )
+                    continue
+                merged.setdefault(name, variable)
+                sources.setdefault(name, (template.design, expression))
+        if conflicts:
+            raise LayoutError(
+                "Unit cells define the same design variable differently; rename variables per "
+                "template:\n  " + "\n  ".join(conflicts)
+            )
+        return merged
+
     def synthesize_array_in_hfss(
         self,
         elements,
@@ -343,18 +595,23 @@ class MimoHfssBuilder:
     ):
         """
         Synthesizes the MIMO array in HFSS using a naming-convention boolean assembly:
-        1. Classifies objects in the unit cell (Global Layers, Port Sheets, Active Copper, Dummy Cutouts).
-        2. Sizes and draws the global continuous substrate and ground layers.
-        3. Copies the source templates into the target design exactly ONCE.
-        4. Replicates active structures, port sheets, and dummy solids to all coordinates using local duplicate command.
+        1. Classifies the objects of every unit-cell template and plans the elements (template,
+           ports, polarization check) before the target design is touched.
+        2. Creates or clears the target design.
+        3. Sizes and draws the global continuous substrate and ground layers.
+        4. Copies each template into the target design exactly ONCE and replicates it to its
+           elements with the local duplicate command.
         5. Applies boolean operations using the dummy solids (e.g. Subtract_L2_Ground).
-        6. Assigns lumped port excitations to the replicated port sheets.
-        7. Creates radiation airbox, sets up simulation sweep, asks user whether to set up results, and prompts to launch simulation ('Analyze All').
+        6. Assigns wave ports (lumped fallback), including matched loads on unused feeds.
+        7. Creates the radiation airbox, verifies the placement, reports the port polarizations,
+           sets up the simulation and asks whether to set up results and to solve.
 
         Raises
         ------
         BuildAbortedError
             If the user declines to continue at one of the interactive prompts.
+        LayoutError
+            If the layout and the unit cells are inconsistent (raised before any change).
         """
         if isinstance(elements, dict):
             layout_metadata = elements.get("metadata", {})
@@ -370,12 +627,7 @@ class MimoHfssBuilder:
             self.connect_desktop()
 
         print(f"Loading project: {self.project_path}")
-        self.source_design_app = Hfss(
-            project=self.project_path,
-            design=self.source_design_name,
-            new_desktop=False,
-            close_on_exit=False,
-        )
+        self.source_design_app = self._open_design(self.source_design_name)
 
         # Centre frequency precedence: explicit argument > constructor > layout metadata >
         # unit-cell analysis setup > default.
@@ -395,102 +647,35 @@ class MimoHfssBuilder:
         operating_frequency_ghz = self.centre_frequency_ghz
         print(f"Centre frequency: {operating_frequency_ghz:.3f} GHz")
 
-        source_modeler = self.source_design_app.modeler
-        all_object_names = list(source_modeler.object_names)
+        # --- STEP 1: Classify the unit-cell templates and plan the elements ---
+        # Everything that can reject the layout runs here, before Step 2 clears a design.
+        unit_cells = merge_unit_cells(self.unit_cells, layout_metadata.get("unit_cells"))
+        explicit_designs = [str(e["unit_cell"]) for e in elements_list if e.get("unit_cell")]
+        templates = self._load_templates(unit_cells, explicit_designs, use_existing_cs)
+        primary = templates[self.source_design_name]
+        self._check_shared_stack(templates)
+        design_variables = self._merged_design_variables(templates)
+        # All templates share the board stack, which is shifted by the primary unit cell's
+        # phase-centre height: z_ref ends up at the layout z of every element.
+        z_ref = primary.offset[2]
 
-        # --- STEP 1: Classify Objects ---
-        print("\nScanning and classifying objects in the unit-cell design:")
-        global_layers = {}
-        active_elements = []
-        port_sheets = []
-        dummy_solids = {}
-
-        for name in all_object_names:
-            obj = source_modeler.get_object_from_name(name)
-            if not obj:
-                continue
-
-            # Check for boolean dummy solids first (e.g. Subtract_L2_Ground)
-            if name.startswith("Subtract_") or name.startswith("Unite_"):
-                tokens = name.split("_")
-                operation = tokens[0]
-                target_solid = "_".join(tokens[1:])
-                key = (operation, target_solid)
-                if key not in dummy_solids:
-                    dummy_solids[key] = []
-                dummy_solids[key].append(name)
-                print(f"  [Dummy {operation}]   {name} -> target: {target_solid}")
-                continue
-
-            # Skip vacuum domain solids, radiation boundaries, or airboxes present in source design
-            if (
-                obj.material_name.lower() == "vacuum"
-                or "RadiatingSurface" in name
-                or "Airbox" in name
-                or "RadiationBox" in name
-            ):
-                print(f"  [Skipped Boundary] {name} ({obj.material_name})")
-                continue
-
-            is_substrate = name.startswith(("L12_", "L23_", "L34_", "L45_"))
-            is_ground = name.startswith(("L2_Ground", "Ground_Plane", "GND"))
-            if is_substrate or is_ground:
-                z_min, z_max = _z_extent(obj)
-                global_layers[name] = {
-                    "material": obj.material_name,
-                    "z_min": z_min,
-                    "z_max": z_max,
-                }
-                tag = "[Global Layer]    " if is_substrate else "[Global Ground]   "
-                print(
-                    f"  {tag} {name} ({obj.material_name}, Z=[{z_min:.2f}, {z_max:.2f}] mm)"
-                )
-
-            elif "PortSheet" in name or name.startswith("Port_"):
-                port_sheets.append(name)
-                print(f"  [Port Sheet]       {name}")
-
-            else:
-                active_elements.append(name)
-                print(f"  [Active Element]   {name}")
-
-        run_fit = False
-        offset = [0.0, 0.0, 0.0]
-
-        cs_map = {cs.name: cs for cs in source_modeler.coordinate_systems}
-        # Also finds a unit cell's 'PhaseCenterCS'
-        phase_centre_cs = _find_by_spelling(cs_map, "PhaseCentreCS")
-        if phase_centre_cs:
-            cs_props = cs_map[phase_centre_cs].props
-            try:
-                offset = [
-                    round(_length_mm(self.source_design_app, cs_props[key]), 3)
-                    for key in ("OriginX", "OriginY", "OriginZ")
-                ]
-            except Exception as e:
-                print(
-                    f"  Warning: Could not evaluate {phase_centre_cs} origin ({e}); using zero offset."
-                )
-            print(f"\n[INFO] {phase_centre_cs} found in unit-cell design. Origin offset: {offset} mm.")
-            if not _confirm(
-                f"Do you want to use the existing {phase_centre_cs}?", preset=use_existing_cs
-            ):
-                run_fit = True
-        else:
-            print("\n" + "=" * 80)
-            print("[WARNING] PhaseCentreCS was NOT found in the unit-cell design!")
-            print("=" * 80 + "\n")
-            if use_existing_cs:
-                print("[INFO] Proceeding without PhaseCentreCS offset [0.0, 0.0, 0.0] mm.")
-            elif _confirm("Do you want to fit the phase centre from the unit-cell far field?"):
-                run_fit = True
-            elif _confirm("Proceed without PhaseCentreCS offset?"):
-                print("[INFO] Proceeding with zero offset [0.0, 0.0, 0.0] mm.")
-            else:
-                raise BuildAbortedError("Aborted by user: no phase centre available.")
-
-        if run_fit:
-            offset = self.fit_unit_cell_phase_centre()
+        plans, layout_warnings = plan_elements(
+            elements_list,
+            templates,
+            self.source_design_name,
+            unit_cells,
+            drop_unused_ports=self.drop_unused_ports,
+            z_ref=z_ref,
+        )
+        used_templates = list({id(p.template): p.template for p in plans}.values())
+        print(f"\nPlanned {len(plans)} elements:")
+        for plan in plans:
+            ports = ", ".join(
+                f"{p.name or p.spec.sheet + ' (dropped)'}" for p in plan.ports
+            )
+            print(f"  {plan.label}: '{plan.template.design}' at yaw {plan.yaw:g} deg -> {ports}")
+        for warning in layout_warnings:
+            print(f"  [WARNING] {warning}")
 
         project_name = self.source_design_app.project_name
         design_list = self.source_design_app.design_list
@@ -513,12 +698,7 @@ class MimoHfssBuilder:
                 raise BuildAbortedError("Aborted by user to prevent overwriting existing design.")
 
             print(f"Design '{self.target_design_name}' already exists. Reusing and clearing it...")
-            self.target_design_app = Hfss(
-                project=project_name,
-                design=self.target_design_name,
-                new_desktop=False,
-                close_on_exit=False,
-            )
+            self.target_design_app = self._open_design(self.target_design_name, project_name)
             self.is_new_design = False
 
             # Clear existing 3D bodies
@@ -559,54 +739,45 @@ class MimoHfssBuilder:
                 )
             except Exception as e:
                 print(f"  Failed to create design ({e}). Attempting to connect to cached design...")
-                self.target_design_app = Hfss(
-                    project=project_name,
-                    design=self.target_design_name,
-                    new_desktop=False,
-                    close_on_exit=False,
-                )
+                self.target_design_app = self._open_design(self.target_design_name, project_name)
 
-        # Reconnect source_design_app connection to make sure it points to the unit cell design
-        self.source_design_app = Hfss(
-            project=project_name,
-            design=self.source_design_name,
-            new_desktop=False,
-            close_on_exit=False,
-        )
+        # Reconnect the template apps so that they point to the unit-cell designs again
+        for template in reversed(list(templates.values())):
+            template.app = self._open_design(template.design, project_name)
+        self.source_design_app = primary.app
 
-        # Sync design variables from source design to target design
+        # Sync design variables from the unit cells to the target design
         # This prevents copied objects in the target design from retaining stale/cached design variable dimensions.
         try:
-            print("Syncing design variables from source to target design...")
-            for (
-                var_name,
-                var_expr,
-            ) in self.source_design_app.variable_manager.design_variables.items():
+            print("Syncing design variables from the unit cells to the target design...")
+            for var_name, var_expr in design_variables.items():
                 self.target_design_app[var_name] = var_expr
         except Exception as e:
             print(f"  Warning: Failed to sync design variables ({e})")
 
         target_modeler = self.target_design_app.modeler
 
-        # Measure unit-cell bounding box relative to PhaseCentreCS (offset)
-        # Note: We measure exclusively from active elements and port sheets so that
-        # the measurement reflects the true element reach (L_feed) and is never corrupted
-        # by pre-existing or oversized substrate boundaries.
+        # Measure the unit-cell reach relative to each template's PhaseCentreCS (offset), from
+        # the active elements and port sheets so that the measurement reflects the true element
+        # reach (L_feed) and is never corrupted by oversized substrate boundaries.
         uc_x_extents = []
         uc_y_extents = []
-        for obj_name in list(global_layers.keys()) + active_elements + port_sheets:
-            try:
-                obj = self.source_design_app.modeler.get_object_from_name(obj_name)
-                if obj:
-                    bb = obj.bounding_box
+        template_corners = {}
+        for template in used_templates:
+            modeler = template.app.modeler
+            offset = template.offset
+            for obj_name in list(template.layers) + template.active + template.port_sheets:
+                try:
+                    bb = modeler.get_object_from_name(obj_name).bounding_box
                     uc_x_extents.extend(
                         [abs(float(bb[0]) - offset[0]), abs(float(bb[3]) - offset[0])]
                     )
                     uc_y_extents.extend(
                         [abs(float(bb[1]) - offset[1]), abs(float(bb[4]) - offset[1])]
                     )
-            except Exception:
-                pass
+                except Exception:
+                    pass
+            template_corners[id(template)] = self._template_corners(template)
 
         unit_cell_extent_x = max(uc_x_extents) if uc_x_extents else 5.0
         unit_cell_extent_y = max(uc_y_extents) if uc_y_extents else 5.0
@@ -632,75 +803,18 @@ class MimoHfssBuilder:
 
         # --- STEP 3: Size & Draw Global Contiguous Board ---
         # Sort layers by prefix (L1, L12, L2...) to ensure they are created in stackup order
+        global_layers = primary.layers
         sorted_layers = sorted(global_layers.keys(), key=lambda name: name.split("_")[0])
         ground_layer_names = []
 
-        # Track overall board bounds for numerical fallback and Z calculation
-        overall_x_min = None
-        overall_x_max = None
-        overall_y_min = None
-        overall_y_max = None
-
-        # Y-reach of the active structures (feedlines and ports) is layer-independent
-        active_y_extents = []
-        for active_name in active_elements + port_sheets:
-            try:
-                act_obj = self.source_design_app.modeler.get_object_from_name(active_name)
-                act_bbox = act_obj.bounding_box
-                active_y_extents.extend([float(act_bbox[1]), float(act_bbox[4])])
-            except Exception:
-                pass
-
-        for layer_name in sorted_layers:
-            layer_obj = self.source_design_app.modeler.get_object_from_name(layer_name)
-            bbox = layer_obj.bounding_box
-            x_min_uc, x_max_uc = float(bbox[0]), float(bbox[3])
-
-            y_min_active_uc = min(active_y_extents) if active_y_extents else None
-            y_max_active_uc = max(active_y_extents) if active_y_extents else None
-
-            if y_min_active_uc is None:
-                y_min_active_uc = float(bbox[1])
-            if y_max_active_uc is None:
-                y_max_active_uc = float(bbox[4])
-
-            corners = [
-                (x_min_uc, y_min_active_uc),
-                (x_max_uc, y_min_active_uc),
-                (x_min_uc, y_max_active_uc),
-                (x_max_uc, y_max_active_uc),
-            ]
-
-            all_x_glob = []
-            all_y_glob = []
-            for element in elements_list:
-                pos = element.get("position", element.get("pos", [0.0, 0.0, 0.0]))
-                yaw_deg = float(
-                    element.get("yaw", element.get("rotation_yaw", element.get("rotation", 0.0)))
-                )
-                rad = math.radians(yaw_deg)
-                cos_val = math.cos(rad)
-                sin_val = math.sin(rad)
-
-                for cx, cy in corners:
-                    rx = cx * cos_val - cy * sin_val
-                    ry = cx * sin_val + cy * cos_val
-                    all_x_glob.append(rx + pos[0])
-                    all_y_glob.append(ry + pos[1])
-
-            global_x_min = min(all_x_glob) - self.pcb_margin_mm
-            global_x_max = max(all_x_glob) + self.pcb_margin_mm
-            global_y_min = min(all_y_glob) - self.pcb_margin_mm
-            global_y_max = max(all_y_glob) + self.pcb_margin_mm
-
-            if overall_x_min is None or global_x_min < overall_x_min:
-                overall_x_min = global_x_min
-            if overall_x_max is None or global_x_max > overall_x_max:
-                overall_x_max = global_x_max
-            if overall_y_min is None or global_y_min < overall_y_min:
-                overall_y_min = global_y_min
-            if overall_y_max is None or global_y_max > overall_y_max:
-                overall_y_max = global_y_max
+        # The board covers every element's template footprint (its layer outline in x, the
+        # reach of its feedlines and ports in y), placed like the element itself
+        all_x_glob, all_y_glob = [], []
+        for plan in plans:
+            for corner in template_corners[id(plan.template)]:
+                x, y = place_xy(corner, plan.template.offset, plan.yaw, plan.position)
+                all_x_glob.append(x)
+                all_y_glob.append(y)
 
         # Determine arrayBoardWidth and arrayBoardLength formulas or values
         # We use arrayBoardWidth / arrayBoardLength for the synthesized board layers so that
@@ -710,8 +824,11 @@ class MimoHfssBuilder:
         width_formula = board_config.get("width_formula")
         length_formula = board_config.get("length_formula")
 
-        board_width_calc = overall_x_max - overall_x_min if overall_x_max is not None else 10.0
-        board_height_calc = overall_y_max - overall_y_min if overall_y_max is not None else 10.0
+        if all_x_glob:
+            board_width_calc = max(all_x_glob) - min(all_x_glob) + 2 * self.pcb_margin_mm
+            board_height_calc = max(all_y_glob) - min(all_y_glob) + 2 * self.pcb_margin_mm
+        else:
+            board_width_calc = board_height_calc = 10.0
 
         if width_formula:
             self.target_design_app["arrayBoardWidth"] = str(width_formula)
@@ -739,7 +856,7 @@ class MimoHfssBuilder:
                     origin=[
                         "-arrayBoardWidth / 2",
                         "-arrayBoardLength / 2",
-                        f"{z_min - offset[2]:.4f}mm",
+                        f"{z_min - z_ref:.4f}mm",
                     ],
                     sizes=["arrayBoardWidth", "arrayBoardLength", f"{thickness:.4f}mm"],
                     name=layer_name,
@@ -751,14 +868,14 @@ class MimoHfssBuilder:
                 ground_layer_names.append(layer_name)
                 if thickness == 0.0:
                     print(
-                        f"  Creating ground plane sheet '{layer_name}' at Z={z_min - offset[2]:.2f} mm"
+                        f"  Creating ground plane sheet '{layer_name}' at Z={z_min - z_ref:.2f} mm"
                     )
                     target_modeler.create_rectangle(
                         orientation="XY",
                         origin=[
                             "-arrayBoardWidth / 2",
                             "-arrayBoardLength / 2",
-                            f"{z_min - offset[2]:.4f}mm",
+                            f"{z_min - z_ref:.4f}mm",
                         ],
                         sizes=["arrayBoardWidth", "arrayBoardLength"],
                         name=layer_name,
@@ -771,7 +888,7 @@ class MimoHfssBuilder:
                         origin=[
                             "-arrayBoardWidth / 2",
                             "-arrayBoardLength / 2",
-                            f"{z_min - offset[2]:.4f}mm",
+                            f"{z_min - z_ref:.4f}mm",
                         ],
                         sizes=["arrayBoardWidth", "arrayBoardLength", f"{thickness:.4f}mm"],
                         name=layer_name,
@@ -779,27 +896,43 @@ class MimoHfssBuilder:
                     )
 
         # --- STEP 4: Replicate Elements via Dedicated Coordinate Systems ---
-        all_replicate_sources = active_elements + port_sheets
-        for dummy_list in dummy_solids.values():
-            all_replicate_sources.extend(dummy_list)
-
-        replicated_dummy_mapping = {key: [] for key in dummy_solids.keys()}
-        replicated_ports_list = []
+        replicated_dummy_mapping = {}
+        for template in used_templates:
+            for key in template.dummies:
+                replicated_dummy_mapping.setdefault(key, [])
+        replicated_ports = []  # (port name, replicated sheet, CS name)
         element_phase_centres = []
         element_phase_centre_exprs = []
-        element_placements = []  # (label, [x, y, z] mm, yaw deg) for the post-build check
         port_to_cs_mapping = {}
 
-        # Optimization: Copy the templates from the source design to the target design exactly ONCE.
+        # Copy each template from its unit cell exactly ONCE. Templates are copied one at a time
+        # and tagged '<name>__<template>' right away, so that equal object names in two unit
+        # cells (e.g. both have 'L1_Patch') never clash.
         print("\nCopying template geometries to target design...")
         target_modeler.set_working_coordinate_system("Global")
-        self.target_design_app.copy_solid_bodies_from(
-            design=self.source_design_app,
-            assignment=all_replicate_sources,
-            no_vacuum=False,
-            no_pec=False,
-            include_sheets=True,
-        )
+        for template in used_templates:
+            names = template.objects
+            clashes = [n for n in names if n in target_modeler.object_names]
+            if clashes:
+                raise RuntimeError(
+                    f"Template objects of '{template.design}' clash with objects already in the "
+                    f"array design: {', '.join(clashes)}"
+                )
+            self.target_design_app.copy_solid_bodies_from(
+                design=template.app,
+                assignment=names,
+                no_vacuum=False,
+                no_pec=False,
+                include_sheets=True,
+            )
+            missing = [n for n in names if n not in target_modeler.object_names]
+            if missing:
+                raise RuntimeError(
+                    f"Copying templates from '{template.design}' failed for: {', '.join(missing)}"
+                )
+            for name in names:
+                target_modeler.get_object_from_name(name).name = template.tagged(name)
+            print(f"  Copied {len(names)} template objects from '{template.design}'.")
 
         # Clear any copied boundaries/excitations to strip wave ports from template geometries
         try:
@@ -812,69 +945,55 @@ class MimoHfssBuilder:
         self.target_design_app.set_active_design(self.target_design_name)
 
         print("Replicating structures to array grid with element coordinate systems...")
-        for element in elements_list:
-            raw_label = element.get("label", element.get("name", "Element"))
-            pos = element.get("position", element.get("pos", [0.0, 0.0, 0.0]))
-            pos_expr = element.get("position_expression", element.get("pos_expr", None))
-            element_yaw = float(
-                element.get("yaw", element.get("rotation_yaw", element.get("rotation", 0.0)))
-            )
-            pol = str(element.get("polarization", element.get("pol", ""))).strip().upper()
-
-            # Append polarization suffix if specified and not already present in the label
-            if pol and not raw_label.upper().endswith(f"_{pol}"):
-                label = f"{raw_label}_{pol}"
-            else:
-                label = raw_label
-
-            cs_name = f"CS_{label}"
-            print(f"\n  Setting up element {label} (yaw={element_yaw:.1f} deg)...")
-
-            # Track the element phase centre in array coordinates. The whole stack is shifted by
-            # -offset[2] in Z, which places the unit-cell phase centre exactly at pos[2].
-            z_pos_val = float(pos[2]) if len(pos) > 2 else 0.0
-            element_phase_centres.append([float(pos[0]), float(pos[1]), z_pos_val])
-
-            # Element CS sits at the element phase centre (parametric where available). Its origin Z
-            # does not affect placement: only its axes and vertical rotation axis are used below.
-            if pos_expr:
-                cs_origin = [str(pos_expr[0]), str(pos_expr[1]), f"{z_pos_val:.4f}mm"]
-                element_phase_centre_exprs.append([str(pos_expr[0]), str(pos_expr[1])])
-            else:
-                cs_origin = [f"{pos[0]:.4f}mm", f"{pos[1]:.4f}mm", f"{z_pos_val:.4f}mm"]
-                element_phase_centre_exprs.append([f"{pos[0]:.4f}mm", f"{pos[1]:.4f}mm"])
+        for plan in plans:
+            template = plan.template
+            label = plan.label
+            pos, pos_expr, yaw = plan.position, plan.position_expression, plan.yaw
+            print(f"\n  Setting up element {label} ('{template.design}', yaw={yaw:.1f} deg)...")
 
             # Calculate pointing vectors for the CS rotation around Z
-            rad = math.radians(element_yaw)
-            cos_val = math.cos(rad)
-            sin_val = math.sin(rad)
+            cos_val, sin_val = math.cos(math.radians(yaw)), math.sin(math.radians(yaw))
             x_pointing = [cos_val, sin_val, 0.0]
             y_pointing = [-sin_val, cos_val, 0.0]
 
-            # Recreate coordinate system if it exists
-            _delete_coordinate_system(target_modeler, cs_name)
+            # Every port gets its own CS at its phase centre (parametric where the layout is),
+            # the far-field phase reference of that port. Its origin Z does not affect placement.
+            for port in plan.ports:
+                if not port.active:
+                    continue
+                pc = port.phase_centre
+                if pos_expr:
+                    cs_origin = [
+                        offset_expression(pos_expr[0], pc[0] - pos[0]),
+                        offset_expression(pos_expr[1], pc[1] - pos[1]),
+                        f"{pc[2]:.4f}mm",
+                    ]
+                else:
+                    cs_origin = [f"{pc[0]:.4f}mm", f"{pc[1]:.4f}mm", f"{pc[2]:.4f}mm"]
+                element_phase_centres.append(list(pc))
+                element_phase_centre_exprs.append(cs_origin[:2])
 
-            print(f"  Creating relative coordinate system '{cs_name}' at origin {cs_origin}...")
-            target_modeler.create_coordinate_system(
-                origin=cs_origin,
-                reference_cs="Global",
-                name=cs_name,
-                mode="axis",
-                x_pointing=x_pointing,
-                y_pointing=y_pointing,
-            )
-            # Creating a CS makes it the working CS. All placement operations below are defined
-            # in Global coordinates (rotation about the global Z axis, then a global translation),
-            # so the working CS must be reset; otherwise the rotation pivots about the element CS
-            # and the move vector is read in its rotated axes.
-            target_modeler.set_working_coordinate_system("Global")
-            element_placements.append(
-                (label, [float(pos[0]), float(pos[1]), z_pos_val], element_yaw)
-            )
+                # Recreate coordinate system if it exists
+                _delete_coordinate_system(target_modeler, port.cs_name)
+                print(f"  Creating relative coordinate system '{port.cs_name}' at {cs_origin}...")
+                target_modeler.create_coordinate_system(
+                    origin=cs_origin,
+                    reference_cs="Global",
+                    name=port.cs_name,
+                    mode="axis",
+                    x_pointing=x_pointing,
+                    y_pointing=y_pointing,
+                )
+                # Creating a CS makes it the working CS. All placement operations below are
+                # defined in Global coordinates (rotation about the global Z axis, then a global
+                # translation), so the working CS must be reset; otherwise the rotation pivots
+                # about the element CS and the move vector is read in its rotated axes.
+                target_modeler.set_working_coordinate_system("Global")
 
-            # Duplicate all templates locally using duplicate_along_line with a dummy Z offset of 1.0 mm.
+            # Duplicate the element's template locally using duplicate_along_line with a dummy Z offset of 1.0 mm.
+            tagged_to_base = {template.tagged(name): name for name in template.objects}
             success, pasted_names = target_modeler.duplicate_along_line(
-                assignment=all_replicate_sources,
+                assignment=list(tagged_to_base),
                 vector=[0, 0, 1.0],
                 clones=2,
             )
@@ -887,64 +1006,44 @@ class MimoHfssBuilder:
                 vector=[0, 0, -1.0],
             )
 
-            # Rename duplicated objects, assign to element CS, and track ports/dummy solids
+            # Rename duplicated objects to '<template object>_<label>' and track ports/dummies
+            base_names = map_duplicates(pasted_names, tagged_to_base)
             renamed_objs = []
-            for pasted_name in pasted_names:
-                # Strip numerical suffixes added by AEDT duplicate if any (e.g. L1_Patch_1 -> L1_Patch)
-                base_name = pasted_name
-                for source_name in all_replicate_sources:
-                    if pasted_name.startswith(source_name):
-                        base_name = source_name
-                        break
-
+            for pasted_name, base_name in base_names.items():
                 new_name = f"{base_name}_{label}"
-                obj = target_modeler.get_object_from_name(pasted_name)
-                obj.name = new_name
+                target_modeler.get_object_from_name(pasted_name).name = new_name
                 renamed_objs.append(new_name)
-
-                # Track port sheets
-                if base_name in port_sheets:
-                    replicated_ports_list.append(new_name)
-                    port_to_cs_mapping[_port_name_from_sheet(new_name)] = cs_name
-
-                # Track dummy solids
-                for key, dummy_src_list in dummy_solids.items():
+                for key, dummy_src_list in template.dummies.items():
                     if base_name in dummy_src_list:
                         replicated_dummy_mapping[key].append(new_name)
 
             # Rotate element if needed (about the global Z axis through the unit-cell origin)
-            if element_yaw != 0.0:
+            if yaw != 0.0:
                 target_modeler.rotate(
                     assignment=renamed_objs,
                     axis=Axis.Z,
-                    angle=element_yaw,
+                    angle=yaw,
                 )
 
             # Translate so that the rotated phase centre R*offset lands on the layout position:
             # p -> R(p) + pos - R(offset) = R(p - offset) + pos
+            offset = template.offset
             rot_dx = offset[0] * cos_val - offset[1] * sin_val
             rot_dy = offset[0] * sin_val + offset[1] * cos_val
-            rot_dz = offset[2]
 
-            # In Z, the element is translated by (pos[2] - offset[2]), matching the -offset[2]
-            # shift of the board layers so the stack-up is preserved exactly.
-            z_shift_str = f"{z_pos_val - rot_dz:.4f}mm"
+            # In Z, every element is translated by (pos[2] - z_ref), matching the -z_ref shift of
+            # the board layers so the stack-up is preserved exactly.
+            z_shift_str = f"{pos[2] - z_ref:.4f}mm"
 
             # Move element to final position
             if pos_expr:
                 # Parenthesized so that negative offsets and unary minus in the layout
                 # expression never produce ambiguous terms such as "-r - -0.005mm"
-                x_move = (
-                    f"({pos_expr[0]}) - ({rot_dx:.4f}mm)"
-                    if abs(rot_dx) > 1e-4
-                    else str(pos_expr[0])
-                )
-                y_move = (
-                    f"({pos_expr[1]}) - ({rot_dy:.4f}mm)"
-                    if abs(rot_dy) > 1e-4
-                    else str(pos_expr[1])
-                )
-                move_vector = [x_move, y_move, z_shift_str]
+                move_vector = [
+                    offset_expression(pos_expr[0], -rot_dx),
+                    offset_expression(pos_expr[1], -rot_dy),
+                    z_shift_str,
+                ]
             else:
                 move_vector = [
                     f"{pos[0] - rot_dx:.4f}mm",
@@ -957,6 +1056,18 @@ class MimoHfssBuilder:
                 vector=move_vector,
             )
 
+            # Ports: active ports use their own CS; a matched load uses the element's first
+            # active port CS; a dropped port's sheet is removed
+            element_cs = next((p.cs_name for p in plan.ports if p.active), "PhaseCentreCS")
+            for port in plan.ports:
+                if port.name is None:
+                    target_modeler.delete([port.sheet])
+                    print(f"  Dropped unused port sheet '{port.sheet}'.")
+                    continue
+                cs = port.cs_name or element_cs
+                replicated_ports.append((port.name, port.sheet, cs))
+                port_to_cs_mapping[port.name] = cs
+
         # Reset working coordinate system to Global
         target_modeler.set_working_coordinate_system("Global")
         self.element_phase_centres = element_phase_centres
@@ -964,7 +1075,9 @@ class MimoHfssBuilder:
 
         # Clean up the original template geometries at the origin of the target design
         print("\nCleaning up template geometries...")
-        target_modeler.delete(all_replicate_sources)
+        target_modeler.delete(
+            [template.tagged(name) for template in used_templates for name in template.objects]
+        )
 
         # --- STEP 5: Perform Boolean Dummy Operations ---
         print("\nExecuting boolean cutout operations...")
@@ -1002,10 +1115,9 @@ class MimoHfssBuilder:
         # termination: residual reflections limit the reliable XPD floor (~35-40 dB), and the
         # far-field integral treats the dielectric/ground-crossing faces as free space, so
         # near-grazing (theta ~ 90 deg) and back-hemisphere patterns are approximate.
-        for port_sheet in replicated_ports_list:
-            port_name = _port_name_from_sheet(port_sheet)
-
-            print(f"  Assigning wave port to sheet '{port_sheet}' referencing '{default_ground}'")
+        for port_name, port_sheet, _ in replicated_ports:
+            kind = "matched load" if is_load_port(port_name) else "wave port"
+            print(f"  Assigning {kind} '{port_name}' to sheet '{port_sheet}' ({default_ground})")
             try:
                 self.target_design_app.wave_port(
                     assignment=port_sheet,
@@ -1028,7 +1140,7 @@ class MimoHfssBuilder:
         # Far-field reports show the Edit Sources superposition. Exciting every port at once would
         # mix all Tx/Rx and H/V patterns, so only the first Tx port (or first port) is excited.
         # SBR+ linked antennas use each port separately and are unaffected by this choice.
-        port_names = sorted(_port_name_from_sheet(sheet) for sheet in replicated_ports_list)
+        port_names = sorted(name for name, _, _ in replicated_ports if not is_load_port(name))
         if port_names:
             tx_ports = [p for p in port_names if "Tx" in p]
             excited_port = tx_ports[0] if tx_ports else port_names[0]
@@ -1046,9 +1158,9 @@ class MimoHfssBuilder:
                 print(f"  Warning: Could not configure Edit Sources ({e})")
 
         # --- STEP 6b: Create Array PhaseCentreCS & Configure Far-field Phase Reference ---
-        # PhaseCentreCS sits at the centroid of the element phase centres with global axes. It is
+        # PhaseCentreCS sits at the centroid of the port phase centres with global axes. It is
         # the CS of all far-field spheres (z = boresight, x = co-polar reference). The far-field
-        # phase reference for SBR+ linking is per port (element CSs) unless mode 'single' puts it
+        # phase reference for SBR+ linking is per port (port CSs) unless mode 'single' puts it
         # here. Lateral coordinates stay parametric when the layout is.
         if element_phase_centres:
             count = len(element_phase_centres)
@@ -1071,6 +1183,7 @@ class MimoHfssBuilder:
             x_pointing=[1.0, 0.0, 0.0],
             y_pointing=[0.0, 1.0, 0.0],
         )
+        target_modeler.set_working_coordinate_system("Global")
 
         # Set Far-field Phase Reference for SBR+ Antenna Linking
         self.set_far_field_phase_reference(mode=self.phase_reference_mode)
@@ -1081,8 +1194,8 @@ class MimoHfssBuilder:
         all_z_coords = []
         for layer_info in global_layers.values():
             all_z_coords.extend([layer_info["z_min"], layer_info["z_max"]])
-        overall_z_min = (min(all_z_coords) if all_z_coords else 0.0) - offset[2]
-        overall_z_max = (max(all_z_coords) if all_z_coords else 1.0) - offset[2]
+        overall_z_min = (min(all_z_coords) if all_z_coords else 0.0) - z_ref
+        overall_z_max = (max(all_z_coords) if all_z_coords else 1.0) - z_ref
         total_z_thickness = overall_z_max - overall_z_min
 
         print(
@@ -1116,7 +1229,7 @@ class MimoHfssBuilder:
 
         # --- STEP 7b: Post-build placement check ---
         placement_errors = self.verify_placement(
-            element_placements, active_elements + port_sheets, offset, replicated_ports_list
+            plans, z_ref, [sheet for _, sheet, _ in replicated_ports]
         )
         if placement_errors:
             self.target_design_app.save_project()
@@ -1124,6 +1237,9 @@ class MimoHfssBuilder:
                 "Post-build placement check failed (project saved for inspection):\n  "
                 + "\n  ".join(placement_errors)
             )
+
+        # --- STEP 7c: Port polarization report ---
+        self.report_port_polarizations(plans, z_ref)
 
         # Configure simulation setup and sweep by inheriting from the element design
         self.configure_simulation_setup()
@@ -1162,20 +1278,74 @@ class MimoHfssBuilder:
         else:
             print("\n[INFO] Skipping simulation execution. Model synthesis is complete.")
 
-    def verify_placement(
-        self, element_placements, template_names, offset, port_sheet_names, tolerance_mm=1e-3
-    ):
+    @staticmethod
+    def _template_corners(template):
+        """
+        Footprint corners of a template in its own coordinates: its layer outline in x (widened
+        to any copper reaching beyond it, e.g. the side feed of a dual-port cell) and the reach of
+        its active structures (feedlines and ports) in y.
+        """
+        modeler = template.app.modeler
+        x_values, y_layer, y_active = [], [], []
+        for name in template.layers:
+            bbox = modeler.get_object_from_name(name).bounding_box
+            x_values += [float(bbox[0]), float(bbox[3])]
+            y_layer += [float(bbox[1]), float(bbox[4])]
+        for name in template.active + template.port_sheets:
+            try:
+                bbox = modeler.get_object_from_name(name).bounding_box
+                y_active += [float(bbox[1]), float(bbox[4])]
+                if x_values:
+                    x_values += [float(bbox[0]), float(bbox[3])]
+            except Exception:
+                pass
+        y_values = y_active or y_layer
+        if not x_values or not y_values:
+            return []
+        return [(x, y) for x in (min(x_values), max(x_values)) for y in (min(y_values), max(y_values))]
+
+    def report_port_polarizations(self, plans, z_ref):
+        """
+        Prints every port's built polarization and field sign, warns about sign combinations
+        that a sphere calibration cannot reveal, and writes '<design>_ports.json' next to the
+        project.
+        """
+        rows = port_table(plans)
+        print("\nPort polarizations (global frame: H along +x, V along +y):")
+        print(f"  {'Port':<24} {'Role':<4} {'Pol':<3} {'Sign':>4}  {'Template':<24} {'Yaw':>6}")
+        for row in rows:
+            port = row["port"] or f"({row['template_sheet']} dropped)"
+            sign = {1: "+", -1: "-"}.get(row["sign"], "?")
+            kind = "" if row["active"] else "  load"
+            print(
+                f"  {port:<24} {row['role'] or '?':<4} {row['polarization'] or '?':<3} "
+                f"{sign:>4}  {row['template']:<24} {row['yaw_deg']:>6g}{kind}"
+            )
+        for warning in sign_warnings(rows):
+            print(f"  [WARNING] {warning}")
+
+        sidecar = os.path.join(
+            os.path.dirname(self.project_path), f"{self.target_design_name}_ports.json"
+        )
+        try:
+            with open(sidecar, "w", encoding="utf-8") as f:
+                json.dump(sidecar_dict(self.target_design_name, plans, z_ref), f, indent=2)
+            print(f"  Port table written to {sidecar}")
+        except OSError as e:
+            print(f"  Warning: Could not write the port table ({e})")
+
+    def verify_placement(self, plans, z_ref, port_sheet_names, tolerance_mm=1e-3):
         """
         Checks the built geometry against the layout, independently of how AEDT applied the
         placement operations.
 
         1. Every replicated template object must satisfy p -> R(yaw) (p - offset_xy) + pos_xy and
-           z -> z - offset_z + pos_z, compared via the vertex centroid (exact under any rotation).
+           z -> z - z_ref + pos_z (its template's offset, the common stack reference), compared
+           via the vertex centroid (exact under any rotation).
         2. Every wave port sheet must lie on a lateral face of the Airbox (exterior boundary).
 
         Returns a list of human-readable violations (empty when everything is in place).
         """
-        source_modeler = self.source_design_app.modeler
         target_modeler = self.target_design_app.modeler
         print("\nVerifying element placement and port positions...")
 
@@ -1184,36 +1354,39 @@ class MimoHfssBuilder:
             return np.mean(np.array(positions, dtype=float), axis=0) if positions else None
 
         errors = []
-        templates = {}
-        for name in template_names:
-            centroid = vertex_centroid(source_modeler[name])
-            if centroid is None:
-                print(f"  Note: '{name}' has no vertices; its placement is not checked.")
-            else:
-                templates[name] = centroid
+        centroids = {}
+        for plan in plans:
+            template = plan.template
+            if id(template) in centroids:
+                continue
+            template_centroids = {}
+            for name in template.active + template.port_sheets:
+                centroid = vertex_centroid(template.app.modeler[name])
+                if centroid is None:
+                    print(f"  Note: '{name}' has no vertices; its placement is not checked.")
+                else:
+                    template_centroids[name] = centroid
+            centroids[id(template)] = template_centroids
 
         checked = 0
-        for label, pos, yaw in element_placements:
-            cos_val, sin_val = math.cos(math.radians(yaw)), math.sin(math.radians(yaw))
-            for name, template_centroid in templates.items():
-                obj = target_modeler.get_object_from_name(f"{name}_{label}")
-                if not obj:
-                    errors.append(f"Missing replicated object '{name}_{label}'")
+        for plan in plans:
+            dropped = {port.spec.sheet for port in plan.ports if port.name is None}
+            for name, template_centroid in centroids[id(plan.template)].items():
+                if name in dropped:
                     continue
-                dx, dy = template_centroid[0] - offset[0], template_centroid[1] - offset[1]
+                obj = target_modeler.get_object_from_name(f"{name}_{plan.label}")
+                if not obj:
+                    errors.append(f"Missing replicated object '{name}_{plan.label}'")
+                    continue
                 expected = np.array(
-                    [
-                        cos_val * dx - sin_val * dy + pos[0],
-                        sin_val * dx + cos_val * dy + pos[1],
-                        template_centroid[2] - offset[2] + pos[2],
-                    ]
+                    place(template_centroid, plan.template.offset, z_ref, plan.yaw, plan.position)
                 )
                 actual = vertex_centroid(obj)
                 deviation = np.linalg.norm(actual - expected)
                 checked += 1
                 if deviation > tolerance_mm:
                     errors.append(
-                        f"'{name}_{label}' is {deviation:.4f} mm off its layout position "
+                        f"'{name}_{plan.label}' is {deviation:.4f} mm off its layout position "
                         f"(expected centroid {np.round(expected, 4).tolist()}, "
                         f"actual {np.round(actual, 4).tolist()})"
                     )
@@ -1478,8 +1651,11 @@ class MimoHfssBuilder:
         print("\nCreating automated post-processing reports...")
         try:
             raw_excitations = self.target_design_app.excitation_names
-            # Strip mode suffixes (e.g. "Port_Rx_1_V:1" -> "Port_Rx_1_V") and deduplicate
-            port_names = sorted(list(set(p.split(":")[0] for p in raw_excitations if p)))
+            # Strip mode suffixes (e.g. "Port_Rx_1_V:1" -> "Port_Rx_1_V") and deduplicate;
+            # matched loads on unused feeds are left out of the reports
+            port_names = sorted(
+                set(p.split(":")[0] for p in raw_excitations if p and not is_load_port(p))
+            )
         except Exception as e:
             print(f"  Warning: Failed to retrieve excitation names ({e})")
             port_names = []
@@ -1824,7 +2000,7 @@ class MimoHfssBuilder:
         else:
             print(f"  Warning: Unknown phase reference mode '{mode}'. Skipping.")
 
-    def fit_unit_cell_phase_centre(self, cap_deg=40.0, cs_name="PhaseCentreCS"):
+    def fit_unit_cell_phase_centre(self, cap_deg=40.0, cs_name="PhaseCentreCS", app=None):
         """
         Fits the unit-cell phase centre from its solved far field and stores it as `cs_name` in the
         unit-cell design.
@@ -1841,7 +2017,7 @@ class MimoHfssBuilder:
         list of float
             Phase centre [x, y, z] in mm, in unit-cell global coordinates.
         """
-        app = self.source_design_app
+        app = app or self.source_design_app
         freq_ghz = (
             self.centre_frequency_ghz or _setup_frequency_ghz(app) or DEFAULT_CENTRE_FREQUENCY_GHZ
         )
@@ -1863,7 +2039,7 @@ class MimoHfssBuilder:
             units="deg",
         )
         try:
-            data = self._unit_cell_far_field(sphere_name, ["rEL3X", "rEL3Y"], freq_ghz)
+            data = self._unit_cell_far_field(sphere_name, ["rEL3X", "rEL3Y"], freq_ghz, app)
         finally:
             _delete_far_field_sphere(app, sphere_name)
 
@@ -1943,13 +2119,13 @@ class MimoHfssBuilder:
         print("  Unit cell design saved.")
         return centre_mm
 
-    def _unit_cell_far_field(self, sphere_name, expressions, freq_ghz):
+    def _unit_cell_far_field(self, sphere_name, expressions, freq_ghz, app=None):
         """
         Reads far-field expressions on `sphere_name` from the unit-cell solution: first from the
         setup's frequency sweeps at `freq_ghz`, then from LastAdaptive at the nearest adaptive
         frequency. Solves the setup once if no far-field data is available.
         """
-        app = self.source_design_app
+        app = app or self.source_design_app
         setup_names = list(app.setup_names)
         if not setup_names:
             raise RuntimeError("Unit-cell design has no analysis setup to take the far field from.")
@@ -2115,6 +2291,33 @@ def main(argv=None):
             "element CS, default) or 'single' (array centroid PhaseCentreCS)"
         ),
     )
+    parser.add_argument(
+        "--unit-cell",
+        action="append",
+        default=[],
+        metavar="POL=DESIGN",
+        help=(
+            "Further unit-cell design for a polarization, e.g. 'v=PatchV', 'h=PatchH' or "
+            "'hv=DualPatch' (repeatable; also read from the layout's metadata.unit_cells). "
+            "Elements without one use the source design, turned by their yaw"
+        ),
+    )
+    parser.add_argument(
+        "--native-polarization",
+        type=str.lower,
+        choices=["h", "v"],
+        default=None,
+        help="Polarization of the source design's untagged port sheets (e.g. 'PortSheet')",
+    )
+    parser.add_argument(
+        "--drop-unused-ports",
+        action="store_true",
+        default=False,
+        help=(
+            "Remove the unused ports of dual-port unit cells instead of terminating them in "
+            "matched '_Load' wave ports"
+        ),
+    )
 
     parser.add_argument(
         "--port",
@@ -2145,6 +2348,9 @@ def main(argv=None):
         phase_reference_mode=args.phase_reference_mode,
         grpc_port=args.port,
         non_graphical=True,
+        unit_cells=args.unit_cell,
+        native_polarization=args.native_polarization,
+        drop_unused_ports=args.drop_unused_ports,
     )
 
     try:
@@ -2212,6 +2418,9 @@ def main(argv=None):
     except BuildAbortedError as e:
         print(f"[INFO] {e}")
         return 0
+    except LayoutError as e:
+        print(f"[ERROR] {e}")
+        return 1
     except NativeAedtRefusedError as e:
         print(f"[ERROR] {e}")
         return 2

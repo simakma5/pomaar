@@ -7,18 +7,50 @@ Run inside the AEDT container, attached to the running GUI session:
 
     ansys-vnc exec sbr_results <project> <design> <out.npz> \
         [--setup "Setup : Sweep_Scattered"] [--sweep-variable copolarSpacingLambda] [--port 50051]
+        [--ports <ArrayDesign>_ports.json]
 """
 
 import argparse
+import glob
 import json
+import os
 import sys
 
 from ansys.aedt.core import Hfss
 from ansys.aedt.core.generic.general_methods import grpc_active_sessions
 import numpy as np
 
+from pomaar.simulator.array_templates import attach_port_table, s_parameter_ports
 
-def export_sbr_parametric_sweep(app, output_path, setup_sweep="Setup : Sweep", sweep_variable=None):
+
+def find_port_table(expressions, search_dir, ports_path=None):
+    """
+    The builder port table ('<ArrayDesign>_ports.json', written next to the project) that matches
+    the excitations of `expressions`, as (rows with their 'excitation', path), or (None, None).
+    `ports_path` names the table; otherwise every '*_ports.json' in `search_dir` is tried.
+    """
+    excitations = [p for e in expressions if (pair := s_parameter_ports(e)) for p in pair]
+    if ports_path:
+        candidates = [ports_path]
+    else:
+        candidates = sorted(glob.glob(os.path.join(search_dir, "*_ports.json")))
+    for path in candidates:
+        try:
+            with open(path, encoding="utf-8") as f:
+                rows = attach_port_table(json.load(f), excitations)
+        except (OSError, ValueError, KeyError) as e:
+            print(f"  Warning: cannot read port table {path} ({e})")
+            continue
+        if rows:
+            return rows, path
+    if ports_path:
+        raise ValueError(f"Port table {ports_path} does not match the exported excitations.")
+    return None, None
+
+
+def export_sbr_parametric_sweep(
+    app, output_path, setup_sweep="Setup : Sweep", sweep_variable=None, ports_path=None
+):
     """
     Writes every S-parameter of `setup_sweep` for all solved values of `sweep_variable`.
 
@@ -30,6 +62,10 @@ def export_sbr_parametric_sweep(app, output_path, setup_sweep="Setup : Sweep", s
     `sweep_values`, `expressions` (AEDT names, e.g. 'S(HornCluster1_RxH,HornCluster1_TxV)', i.e.
     S(receive, transmit)), and `metadata` (JSON: project, design, setup, sweep variable and the
     nominal design variables). Without a sweep variable only the nominal variation is written.
+    When the linked antenna was built by `hfss_array_builder`, its port table (`ports_path`, or
+    found next to the project) is added to the metadata as 'ports': per excitation the builder
+    port, role, polarization, field sign and phase centre (mm, at build time), which
+    `MimoPolarimetryProcessor` uses to correct the signs and to place the ports.
     The result data must exist: an SBR+ design whose results were invalidated (e.g. by an edit
     of the linked source) reports "No Data Available" until it is re-solved.
     """
@@ -75,6 +111,13 @@ def export_sbr_parametric_sweep(app, output_path, setup_sweep="Setup : Sweep", s
         "sweep_variable": sweep_variable,
         "nominal_variables": app.available_variations.nominal_values,
     }
+    rows, table_path = find_port_table(expressions, app.project_path, ports_path)
+    if rows:
+        metadata["ports"] = rows
+        metadata["port_table"] = table_path
+        print(f"Attached the builder port table {table_path} ({len(rows)} ports)")
+    else:
+        print("No builder port table found; port signs and positions are not attached")
     np.savez(
         output_path,
         s=s,
@@ -94,11 +137,22 @@ def main():
     parser.add_argument("output", help="Output .npz path")
     parser.add_argument("--setup", default="Setup : Sweep", help="Setup and sweep name")
     parser.add_argument("--sweep-variable", default=None, help="Parametric variable to export")
-    parser.add_argument("--port", type=int, default=50051, help="gRPC port of the GUI session")
+    parser.add_argument(
+        "--port", type=int, default=50051, help="gRPC port of the (GUI) AEDT session"
+    )
+    parser.add_argument(
+        "--ports",
+        default=None,
+        help=(
+            "Builder port table of the linked array (default: the matching '*_ports.json' next "
+            "to the project)"
+        ),
+    )
     args = parser.parse_args()
 
-    # Only ever attach: PyAEDT would otherwise start a fresh AEDT on a free port
-    if args.port not in grpc_active_sessions():
+    # Only ever attach (to a GUI or a non-graphical session): PyAEDT would otherwise start a
+    # fresh AEDT on a free port
+    if args.port not in grpc_active_sessions() + grpc_active_sessions(non_graphical=True):
         sys.exit(f"No AEDT listening on gRPC port {args.port}; refusing to start one.")
     app = Hfss(
         project=args.project,
@@ -108,7 +162,9 @@ def main():
         close_on_exit=False,
     )
     try:
-        export_sbr_parametric_sweep(app, args.output, args.setup, args.sweep_variable)
+        export_sbr_parametric_sweep(
+            app, args.output, args.setup, args.sweep_variable, ports_path=args.ports
+        )
     finally:
         app.release_desktop(close_projects=False, close_desktop=False)
 

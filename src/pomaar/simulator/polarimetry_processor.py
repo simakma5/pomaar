@@ -10,13 +10,25 @@ chains them for one exported sweep.
 Scattering matrices have shape (..., 2, 2) and are indexed S[..., rx, tx] with 0 = H and 1 = V,
 so S = [[S_HH, S_HV], [S_VH, S_VV]] and S_HV is the H-receive, V-transmit channel (AEDT's
 S(RxH,TxV)).
+
+Channels are read from their port names, both the hand-built style ('HornCluster1_RxH') and the
+array builder's ('Linked1_Port_Rx_1_H'). An export with several dual-polarized Tx/Rx elements
+holds several polarimetric quads (RxH, RxV, TxH, TxV); one is selected per processor. When the
+export carries the builder's port table (`sbr_results` attaches it), the field signs of the
+ports are corrected and their phase centres are available for geometric compensation.
 """
 
 import json
-import re
 
 import numpy as np
 from scipy.signal import get_window
+
+from pomaar.simulator.array_templates import (
+    parse_port,
+    polarimetric_quads,
+    s_parameter_ports,
+    select_quad,
+)
 
 SPEED_OF_LIGHT = 299792458.0
 
@@ -33,26 +45,70 @@ def assemble_scattering_matrix(s_hh, s_hv, s_vh, s_vv):
     return np.stack([np.stack([s_hh, s_hv], axis=-1), np.stack([s_vh, s_vv], axis=-1)], axis=-2)
 
 
-def channel_layout(expressions):
-    """Maps AEDT 'S(<..>Rx<p>..,<..>Tx<q>..)' expressions to (rx, tx) polarization index pairs."""
-    layout = []
+def channel_ports(expressions):
+    """(receive port, transmit port) of every 'S(<receive>,<transmit>)' expression."""
+    ports = []
     for expression in expressions:
-        match = re.fullmatch(r"S\(\w*?Rx([HV])\w*,\w*?Tx([HV])\w*\)", str(expression))
-        if not match:
-            raise ValueError(f"Expected S(receive, transmit) with Rx/Tx port names: {expression}")
-        layout.append((POLARISATION_INDEX[match[1]], POLARISATION_INDEX[match[2]]))
+        pair = s_parameter_ports(expression)
+        if pair is None:
+            raise ValueError(f"Expected S(receive, transmit): {expression}")
+        ports.append(pair)
+    return ports
+
+
+def channel_layout(expressions):
+    """Maps AEDT 'S(<Rx port>,<Tx port>)' expressions to (rx, tx) polarization index pairs."""
+    layout = []
+    for rx_port, tx_port in channel_ports(expressions):
+        rx, tx = parse_port(rx_port), parse_port(tx_port)
+        if not rx or not tx or rx[0] != "Rx" or tx[0] != "Tx":
+            raise ValueError(
+                f"Expected S(receive, transmit) with Rx/Tx H/V port names: S({rx_port},{tx_port})"
+            )
+        layout.append((POLARISATION_INDEX[rx[1]], POLARISATION_INDEX[tx[1]]))
     return layout
 
 
-def to_scattering_matrices(s, expressions):
-    """(n_var, n_expr, n_freq) channel array -> (n_var, n_freq, 2, 2) matrices S[rx, tx]."""
-    layout = channel_layout(expressions)
-    if sorted(layout) != [(0, 0), (0, 1), (1, 0), (1, 1)]:
-        raise ValueError(f"Expected the four HH/HV/VH/VV channels, got {list(expressions)}")
-    matrices = np.zeros((s.shape[0], s.shape[2], 2, 2), dtype=complex)
-    for expression_index, (rx, tx) in enumerate(layout):
-        matrices[:, :, rx, tx] = s[:, expression_index, :]
-    return matrices
+def quad_channel_indices(expressions, quad=None):
+    """
+    Indices of the S_HH, S_HV, S_VH, S_VV expressions of one polarimetric quad, as a 2x2 array
+    [rx, tx], plus the quad's name and ports (see `array_templates.select_quad`; `quad` is None
+    for the only quad, a quad name such as 'Rx_1/Tx_2', or a dict of the four ports).
+    """
+    pairs = channel_ports(expressions)
+    ports = [port for pair in pairs for port in pair]
+    name, ports_of = select_quad(ports, quad)
+    index = {pair: i for i, pair in enumerate(pairs)}
+    indices = np.zeros((2, 2), dtype=int)
+    for rx_pol, rx in POLARISATION_INDEX.items():
+        for tx_pol, tx in POLARISATION_INDEX.items():
+            pair = (ports_of[f"Rx{rx_pol}"], ports_of[f"Tx{tx_pol}"])
+            if pair not in index:
+                raise ValueError(
+                    f"Quad '{name}' lacks the {rx_pol}{tx_pol} channel S({pair[0]},{pair[1]})."
+                )
+            indices[rx, tx] = index[pair]
+    return indices, name, ports_of
+
+
+def to_scattering_matrices(s, expressions, quad=None):
+    """
+    (n_var, n_expr, n_freq) channel array -> (n_var, n_freq, 2, 2) matrices S[rx, tx] of one
+    polarimetric quad (by default the only one in the export).
+    """
+    indices, _, _ = quad_channel_indices(expressions, quad)
+    return np.moveaxis(np.asarray(s)[:, indices, :], -1, 1)
+
+
+def port_sign_matrix(quad_ports, signs):
+    """
+    s_rx * s_tx per channel [rx, tx] from the per-port field signs (+1 along +x for H, +y for V).
+    The measured matrix is diag(s_RxH, s_RxV) S diag(s_TxH, s_TxV), so multiplying it by this
+    matrix (its own inverse) restores S.
+    """
+    rx = np.array([signs[quad_ports["RxH"]], signs[quad_ports["RxV"]]], dtype=float)
+    tx = np.array([signs[quad_ports["TxH"]], signs[quad_ports["TxV"]]], dtype=float)
+    return np.outer(rx, tx)
 
 
 def delay_profile(s_freq, frequencies_hz, window="blackmanharris", n_fft=None):
@@ -271,20 +327,33 @@ def entropy_alpha(coherency):
 
 class MimoPolarimetryProcessor:
     """
-    Polarimetric processing of one exported SBR+ sweep: scattering matrices of shape
-    (n_variations, n_frequencies, 2, 2) over a uniform frequency grid.
+    Polarimetric processing of one polarimetric quad (RxH, RxV, TxH, TxV) of an exported SBR+
+    sweep: scattering matrices of shape (n_variations, n_frequencies, 2, 2) over a uniform
+    frequency grid.
 
     Typical use:
 
-        processor = MimoPolarimetryProcessor.from_npz("sphere_scattered.npz")
+        processor = MimoPolarimetryProcessor.from_npz("sphere_scattered.npz")  # or quad="Rx_1/Tx"
         processor.compensate_geometry(positions_per_variation, focal_point)  # optional
         signatures = processor.signatures(reference=REFERENCE_SPHERE)
+
+    For an array built by `hfss_array_builder`, `from_npz` takes the port field signs out and
+    `compensate_geometry(None, focal_point)` uses the port phase centres of the export's port
+    table.
 
     Use the `Setup : Sweep_Scattered` export (target only). For total-field exports, pass the
     `Sweep_Incident` or no-target export as `background`, or range-gate with `gate`.
     """
 
-    def __init__(self, scattering_matrices, frequencies_hz, sweep_values=None, metadata=None):
+    def __init__(
+        self,
+        scattering_matrices,
+        frequencies_hz,
+        sweep_values=None,
+        metadata=None,
+        quad_ports=None,
+        quad_name=None,
+    ):
         self.scattering_matrices = np.asarray(scattering_matrices, dtype=complex)
         self.frequencies_hz = np.asarray(frequencies_hz, dtype=float)
         n_variations = self.scattering_matrices.shape[0]
@@ -295,10 +364,33 @@ class MimoPolarimetryProcessor:
         )
         self.metadata = metadata or {}
         self.valid_band = np.ones(len(self.frequencies_hz), dtype=bool)
+        # {'RxH', 'RxV', 'TxH', 'TxV': excitation} of the processed quad, when known
+        self.quad_ports = quad_ports
+        self.quad_name = quad_name
+        self.signs_corrected = False
+
+    @property
+    def port_table(self):
+        """Builder port table rows of the export ({excitation: row}); empty without one."""
+        rows = self.metadata.get("ports") or []
+        return {row["excitation"]: row for row in rows if row.get("excitation")}
 
     @classmethod
-    def from_npz(cls, path, background_path=None):
-        """Loads an `sbr_results` export, optionally subtracting a background export coherently."""
+    def available_quads(cls, path):
+        """Names of the polarimetric quads in an `sbr_results` export."""
+        expressions = np.load(path)["expressions"]
+        return list(polarimetric_quads([p for pair in channel_ports(expressions) for p in pair]))
+
+    @classmethod
+    def from_npz(cls, path, background_path=None, quad=None, correct_signs=True):
+        """
+        Loads an `sbr_results` export, optionally subtracting a background export coherently.
+
+        `quad` selects the polarimetric quad (None: the only one; a name from `available_quads`;
+        or a dict of the four ports). With `correct_signs`, the builder's port field signs
+        (attached by `sbr_results`) are taken out, so that every channel refers to +x (H) and +y
+        (V); without a port table the channels are used as measured.
+        """
         data = np.load(path)
         s = data["s"]
         if background_path:
@@ -307,12 +399,49 @@ class MimoPolarimetryProcessor:
                 if not np.array_equal(background[key], data[key]):
                     raise ValueError(f"Background sweep differs from the target sweep in '{key}'")
             s = s - background["s"]
-        return cls(
-            to_scattering_matrices(s, data["expressions"]),
+        indices, name, quad_ports = quad_channel_indices(data["expressions"], quad)
+        processor = cls(
+            np.moveaxis(np.asarray(s)[:, indices, :], -1, 1),
             data["frequencies_hz"],
             data["sweep_values"],
             json.loads(str(data["metadata"])),
+            quad_ports=quad_ports,
+            quad_name=name,
         )
+        if correct_signs:
+            processor.correct_port_signs()
+        return processor
+
+    def correct_port_signs(self):
+        """
+        Takes the builder's port field signs out of the quad (see `port_sign_matrix`). Returns
+        False, and changes nothing, when the export has no port table for all four ports.
+        """
+        table = self.port_table
+        if self.signs_corrected or not self.quad_ports:
+            return self.signs_corrected
+        if not all(table.get(port, {}).get("sign") for port in self.quad_ports.values()):
+            return False
+        signs = {port: table[port]["sign"] for port in self.quad_ports.values()}
+        self.scattering_matrices = self.scattering_matrices * port_sign_matrix(
+            self.quad_ports, signs
+        )
+        self.signs_corrected = True
+        return True
+
+    def quad_positions(self):
+        """
+        Phase centres (metres, array coordinates = SBR+ AntennaCS) of the quad's ports from the
+        builder's port table, as {'TxH', 'TxV', 'RxH', 'RxV': xyz} for `compensate_geometry`.
+        They are the values at build time, so they do not follow a swept layout variable.
+        """
+        table = self.port_table
+        if not self.quad_ports or not all(p in table for p in self.quad_ports.values()):
+            raise ValueError("The export carries no builder port table for this quad.")
+        return {
+            key: np.asarray(table[port]["phase_centre_mm"], dtype=float) / 1000.0
+            for key, port in self.quad_ports.items()
+        }
 
     def gate(self, centre_paths_m, half_width_m, window=("kaiser", 14), min_taper=0.5):
         """
@@ -332,9 +461,11 @@ class MimoPolarimetryProcessor:
         Divides every channel by its spherical-wave phase to `focal_point` (`spherical_wave_phase`),
         removing the linear and Fresnel terms of the bistatic geometry.
 
-        `positions` is one dict per variation with keys 'TxH', 'TxV', 'RxH', 'RxV' (metres), or a
-        single dict used for all variations.
+        `positions` is one dict per variation with keys 'TxH', 'TxV', 'RxH', 'RxV' (metres), a
+        single dict used for all variations, or None for the port table's `quad_positions`.
         """
+        if positions is None:
+            positions = self.quad_positions()
         if isinstance(positions, dict):
             positions = [positions] * len(self.sweep_values)
         names = "HV"

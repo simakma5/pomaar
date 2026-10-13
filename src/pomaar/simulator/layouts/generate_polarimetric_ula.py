@@ -28,6 +28,16 @@ def main():
         "--pcb-margin", type=float, default=0.0, help="Additional PCB margin in mm (default: 0.0)"
     )
     parser.add_argument(
+        "--dual-pol-cell",
+        default=None,
+        metavar="DESIGN",
+        help=(
+            "Dual-port unit-cell design (PortSheet_H + PortSheet_V) of the dual-polarized Rx "
+            "elements, written to metadata.unit_cells (default: none; then pass "
+            "--unit-cell hv=<DESIGN> to hfss_array_builder)"
+        ),
+    )
+    parser.add_argument(
         "-o", "--output", default="polarimetric_ula.yaml", help="Output YAML filename (default: polarimetric_ula.yaml)"
     )
 
@@ -46,8 +56,12 @@ def main():
     rx_y = -args.tx_offset_y / 2.0
     tx_y = args.tx_offset_y / 2.0
 
+    # Every Rx is one dual-polarized element (polarization: hv) built from a dual-port unit cell;
+    # two single-pol copies at one position would overlap. The Tx elements are single-pol copies
+    # of the source design, assumed V-polarized with its feed towards -y at yaw 0, and H is made by
+    # turning it. Their yaws keep the pair sign s_H * s_V = +1 (V yaw 180 -> -y, H yaw 90 -> -x),
+    # so no cross-pol channel is measured with a 180 deg flip relative to the co-pol ones.
     elements = []
-    # Dual-pol Receivers (add V and H elements at each location)
     rx_offset_x = (args.rx_count - 1) * args.rx_spacing / 2.0
     for i in range(args.rx_count):
         x_pos = i * args.rx_spacing - rx_offset_x
@@ -58,18 +72,8 @@ def main():
                 "role": "Rx",
                 "position": [round(x_pos, 4), round(rx_y, 4), 0.0],
                 "position_expression": [f"{rx_idx_offset} * rxSpacing", "-txOffsetY / 2", "0mm"],
-                "polarization": "v",
+                "polarization": "hv",
                 "yaw": 0.0,
-            }
-        )
-        elements.append(
-            {
-                "label": f"Rx_{i+1}",
-                "role": "Rx",
-                "position": [round(x_pos, 4), round(rx_y, 4), 0.0],
-                "position_expression": [f"{rx_idx_offset} * rxSpacing", "-txOffsetY / 2", "0mm"],
-                "polarization": "h",
-                "yaw": 90.0,
             }
         )
 
@@ -86,7 +90,7 @@ def main():
                 "position": [round(x_pos, 4), round(tx_y, 4), 0.0],
                 "position_expression": [f"{tx_idx_offset} * txSpacing", "txOffsetY / 2", "0mm"],
                 "polarization": "v" if is_v_pol else "h",
-                "yaw": 180.0 if is_v_pol else 270.0,
+                "yaw": 180.0 if is_v_pol else 90.0,
             }
         )
 
@@ -108,6 +112,8 @@ def main():
         },
         "elements": elements,
     }
+    if args.dual_pol_cell:
+        layout_data["metadata"]["unit_cells"] = {"hv": args.dual_pol_cell}
 
     output_path = Path(args.output)
     if not output_path.is_absolute():
@@ -123,8 +129,9 @@ def main():
     print(f"  Rx row at y = {rx_y:.2f} mm, Tx row at y = {tx_y:.2f} mm (centred)")
     print(f"Layout written to: {output_path}")
     print(f"\nTo synthesize in HFSS, run:")
+    dual = "" if args.dual_pol_cell else " --unit-cell hv=<DualPortUnitCell>"
     print(
-        f"  hfss_array_builder <project_path> <source_design_name> {output_path} --centre-freq {args.centre_freq} --bandwidth {args.bandwidth}"
+        f"  hfss_array_builder <project_path> <source_design_name> {output_path}{dual} --centre-freq {args.centre_freq} --bandwidth {args.bandwidth}"
     )
 
 

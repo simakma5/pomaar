@@ -169,3 +169,93 @@ def test_from_npz_subtracts_background_and_signatures_of_ideal_sphere(tmp_path):
 def test_assemble_scattering_matrix_layout():
     s = assemble_scattering_matrix(1, 2, 3, 4)
     np.testing.assert_array_equal(s, [[1, 2], [3, 4]])
+
+
+def builder_export(tmp_path, matrices, ports, rows=None):
+    """Writes an export whose expressions use builder port names (Rx first, then Tx)."""
+    expressions, channels = [], []
+    for rx_index, rx_pol in enumerate("HV"):
+        for tx_index, tx_pol in enumerate("HV"):
+            expressions.append(f"S({ports['Rx' + rx_pol]},{ports['Tx' + tx_pol]})")
+            channels.append(matrices[..., rx_index, tx_index])
+    metadata = {"setup_sweep": "Setup : Sweep_Scattered"}
+    if rows is not None:
+        metadata["ports"] = rows
+    path = tmp_path / "builder.npz"
+    np.savez(
+        path,
+        s=np.stack(channels, axis=1)[:, :, :],
+        frequencies_hz=FREQUENCIES[: matrices.shape[1]],
+        sweep_values=np.arange(matrices.shape[0], dtype=float),
+        expressions=np.asarray(expressions),
+        metadata=json.dumps(metadata),
+    )
+    return path
+
+
+CLUSTER_PORTS = {
+    "RxH": "Cluster1_Port_Rx_H",
+    "RxV": "Cluster1_Port_Rx_V",
+    "TxH": "Cluster1_Port_Tx_H",
+    "TxV": "Cluster1_Port_Tx_V",
+}
+
+
+def test_builder_port_names_map_like_hand_built_ones():
+    s = np.arange(4)[None, :, None] * np.ones((1, 4, 3))
+    expressions = [
+        f"S({CLUSTER_PORTS['Rx' + r]},{CLUSTER_PORTS['Tx' + t]})" for r in "HV" for t in "HV"
+    ]
+    np.testing.assert_array_equal(to_scattering_matrices(s, expressions)[0, 0], [[0, 1], [2, 3]])
+    # Expression order does not matter
+    np.testing.assert_array_equal(
+        to_scattering_matrices(s[:, ::-1], expressions[::-1])[0, 0], [[0, 1], [2, 3]]
+    )
+
+
+def test_several_quads_need_a_choice(tmp_path):
+    matrices = random_matrices((1, 3))
+    ports = {key: f"A1_Port_{key[:2]}_1_{key[2]}" for key in CLUSTER_PORTS}
+    other = {key: f"A1_Port_{key[:2]}_2_{key[2]}" for key in CLUSTER_PORTS}
+    path = builder_export(tmp_path, matrices, ports)
+    # Add the channels of a second Tx element so that two quads exist
+    data = dict(np.load(path))
+    extra = [f"S({ports['Rx' + r]},{other['Tx' + t]})" for r in "HV" for t in "HV"]
+    data["expressions"] = np.concatenate([data["expressions"], extra])
+    data["s"] = np.concatenate([data["s"], 2 * data["s"]], axis=1)
+    np.savez(path, **data)
+    assert MimoPolarimetryProcessor.available_quads(path) == ["Rx_1/Tx_1", "Rx_1/Tx_2"]
+    with pytest.raises(ValueError, match="choose one of"):
+        MimoPolarimetryProcessor.from_npz(path)
+    processor = MimoPolarimetryProcessor.from_npz(path, quad="Rx_1/Tx_2")
+    np.testing.assert_allclose(processor.scattering_matrices, 2 * matrices)
+    assert processor.quad_ports["TxV"] == "A1_Port_Tx_2_V"
+
+
+def test_port_table_signs_and_positions(tmp_path):
+    # pi_Tx = pi_Rx = -1 (the old polarimetric_ula yaws): HV and VH are measured negated
+    signs = {"RxH": -1, "RxV": 1, "TxH": 1, "TxV": -1}
+    truth = random_matrices((2, 3))
+    measured = truth * np.outer([signs["RxH"], signs["RxV"]], [signs["TxH"], signs["TxV"]])
+    rows = [
+        {
+            "excitation": CLUSTER_PORTS[key],
+            "port": CLUSTER_PORTS[key].removeprefix("Cluster1_"),
+            "sign": signs[key],
+            "phase_centre_mm": [float(i), 2.0, 0.0],
+        }
+        for i, key in enumerate(CLUSTER_PORTS)
+    ]
+    path = builder_export(tmp_path, measured, CLUSTER_PORTS, rows)
+    processor = MimoPolarimetryProcessor.from_npz(path)
+    assert processor.signs_corrected
+    np.testing.assert_allclose(processor.scattering_matrices, truth)
+    raw = MimoPolarimetryProcessor.from_npz(path, correct_signs=False)
+    np.testing.assert_allclose(raw.scattering_matrices, measured)
+    positions = processor.quad_positions()
+    np.testing.assert_allclose(positions["TxH"], [0.002, 0.002, 0.0])
+    # Without a port table there is nothing to correct or place
+    bare = MimoPolarimetryProcessor.from_npz(builder_export(tmp_path, measured, CLUSTER_PORTS))
+    assert not bare.signs_corrected
+    with pytest.raises(ValueError, match="port table"):
+        bare.quad_positions()
