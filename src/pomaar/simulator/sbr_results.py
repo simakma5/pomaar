@@ -67,6 +67,10 @@ def export_sbr_parametric_sweep(
     Tx->Rx coupling only) and 'Setup : Sweep_Scattered' (target only, the default); target
     signatures need the scattered one.
 
+    S is read as AEDT's real and imaginary parts and stored complex: that is AEDT's own form,
+    exact, and free of the -inf dB of a zero channel and of phase wrapping (magnitude/phase data
+    from elsewhere rebuild with `polarimetry_processor.complex_from_db_deg`).
+
     The .npz holds `s` (n_variations, n_expressions, n_frequencies) complex, `frequencies_hz`,
     `sweep_values`, `expressions` (AEDT names, e.g. 'S(HornCluster1_RxH,HornCluster1_TxV)', i.e.
     S(receive, transmit)), and `metadata` (JSON: project, design, setup, sweep variable and the
@@ -74,7 +78,7 @@ def export_sbr_parametric_sweep(
     When the linked antenna was built by `hfss_array_builder`, its port table (`ports_path`, or
     found next to the project) is added to the metadata as 'ports': per excitation the builder
     port, role, polarization, field sign and phase centre (mm, at build time), which
-    `MimoPolarimetryProcessor` uses to correct the signs and to place the ports.
+    `MimoPolarimetryProcessor` uses to correct the signs and as virtual-channel positions.
     The result data must exist: an SBR+ design whose results were invalidated (e.g. by an edit
     of the linked source) reports "No Data Available" until it is re-solved.
     """

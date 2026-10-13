@@ -64,7 +64,7 @@ hfss_array_builder <path_to_project.aedt> <layout.yaml> [-y | --build-only] [-f]
   Older layouts' `centre_frequency_ghz`, `bandwidth_ghz` and `topology` are ignored (with a note).
 
 * **Flags** only answer the interactive prompts: `-y` accepts everything (reuse `PhaseCentreCS`, overwrite, set up results, solve), `--build-only` builds without results setup or solve, `-f` overwrites an existing array design, `--use-existing-cs` reuses the unit cells' `PhaseCentreCS`. `--results-only` and `--simulate-only` act on the already-built array design of the layout.
-* **Frequencies** are never part of a layout. The builder takes the centre frequency from the primary unit cell's setup (for the far-field reports, the λ/4 Airbox clearance and a phase-centre fit) and copies that setup with all its sweeps (`ArraySetup`; a native copy-paste, else a recreation from its properties, else the build fails), and `sbr_simulator` copies that sweep into the SBR+ setup. `ApertureCoupledPatch` sweeps 77–81 GHz in 81 points (interpolating), i.e. Δf = 50 MHz: the unambiguous two-way path is c/Δf = 6.0 m, a maximum unambiguous range of c/(2Δf) = 3.0 m, and the range resolution is c/(2B) = 3.7 cm. A target beyond 3 m (e.g. `sbr_simulator`'s default 4 m) folds back in range; that does not matter for the scattered solution, which needs no gating, but it does for any range gating of total fields (§4.3–4.4). Change the sampling in the unit cell (e.g. 161 points for 6 m).
+* **Frequencies** are never part of a layout. The builder takes the centre frequency from the primary unit cell's setup (for the far-field reports, the λ/4 Airbox clearance and a phase-centre fit) and copies that setup with all its sweeps (`ArraySetup`; a native copy-paste, else a recreation from its properties, else the build fails), and `sbr_simulator` copies that sweep into the SBR+ setup. `ApertureCoupledPatch` sweeps 77–81 GHz in 81 points (interpolating), i.e. Δf = 50 MHz: the unambiguous two-way path is c/Δf = 6.0 m, a maximum unambiguous range of c/(2Δf) = 3.0 m, and the range resolution is c/(2B) = 3.7 cm. A target beyond 3 m (e.g. `sbr_simulator`'s default 4 m) folds back in the range profiles and maps; the signatures, taken in the frequency domain, are unaffected. Change the sampling in the unit cell (e.g. 161 points for 6 m).
 * **Polarization:** an element's polarization comes from its unit-cell template, not from its placement. Port sheets carry their native polarization in the name (`PortSheet_H`, `PortSheet_V`); a unit cell has one such port (single-pol) or two (dual-port). Elements without a unit cell of their own polarization set use the primary design, turned by their `yaw`. Either way the builder checks that R(yaw) applied to each port's native E-field lies along x for `polarization: h` and y for `v` (`hv` needs a dual-port cell) and aborts otherwise, before it touches any design.
 * **Unused ports:** an element that uses only one port of a dual-port cell keeps the other feed, terminated in a matched wave port `Port_<label>_<P>_Load`, so that it does not become an open stub; `metadata.drop_unused_ports: true` removes it instead. `sbr_simulator` skips `_Load` ports.
 * **Field signs:** turning an element by 180° flips its E-field. After building, the builder prints every port's polarization and sign (+1 along +x for H, +y for V) and writes them, with the phase centres, to `<ArrayDesign>_ports.json` next to the project. The measured matrix is diag(s_RxH, s_RxV) S diag(s_TxH, s_TxV), so a role whose H and V ports have opposite signs (pair sign −1) negates the cross-pol channels against the co-pol ones; a sphere calibration cannot reveal this, and the builder warns about it.
@@ -148,11 +148,11 @@ sbr_simulator <path_to_project.aedt> <hfss_design_name> [--target dihedral] [--s
 
   `SbrSimulationManager.export_results(path, sweep_variable)` writes the solved scattered solution to an `.npz` for Module 3 (via `sbr_results.py`, which is also a standalone CLI; see §4.2).
 
-* **The scattered field is the default, everywhere.** SBR+ splits its total solution `Setup : Sweep` into `Setup : Sweep_Incident`, the direct Tx→Rx coupling between the linked antenna's ports (the line-of-sight path that never touches the target), and `Setup : Sweep_Scattered`, everything that reached the receiver via the target (total = incident + scattered). The reports above, `export_results` and `sbr_results` all use the scattered part. This is the simulation's counterpart of what every practical radar measurement does to the antenna coupling: the direct Tx→Rx leakage arrives at (almost) zero range, well ahead of any target, and is removed by range gating, i.e. by keeping only the target's cells of the range (delay) profile, or equivalently by subtracting an empty-scene background measurement. SBR+ makes the same separation exactly, by bookkeeping of the rays instead of by delay, so it needs no window, loses no bandwidth or resolution, and still works when the frequency step folds the target's delay next to the coupling (§4.3). Because the coupling is 30–60 dB above the target at short Tx/Rx spacings, reading the total field means reading the coupling. The total field stays available (`S-parameters dB (total)`, `sbr_results --setup "Setup : Sweep"`) to cross-check the gating chain of §4.4.
+* **The scattered field is the default, everywhere.** SBR+ splits its total solution `Setup : Sweep` into `Setup : Sweep_Incident`, the direct Tx→Rx coupling between the linked antenna's ports (the line-of-sight path that never touches the target), and `Setup : Sweep_Scattered`, everything that reached the receiver via the target (total = incident + scattered). The reports above, `export_results` and `sbr_results` all use the scattered part. This is the simulation's counterpart of what every practical radar measurement does to the antenna coupling: the direct Tx→Rx leakage arrives at (almost) zero range, well ahead of any target, and is removed by range gating, i.e. by keeping only the target's cells of the range (delay) profile, or equivalently by subtracting an empty-scene background measurement. SBR+ makes the same separation exactly, by bookkeeping of the rays instead of by delay, so it needs no window, loses no bandwidth or resolution, and still works when the frequency step folds the target's delay next to the coupling (§4.4). Because the coupling is 30–60 dB above the target at short Tx/Rx spacings, reading the total field means reading the coupling. The total field stays visible in `S-parameters dB (total)` and exportable with `sbr_results --setup "Setup : Sweep"` for debugging; the processor and the analysis assume the scattered solution.
 
 ### Module 3: Offline polarimetric post-processing (`polarimetry_processor.py`, `bistaticity_analysis.py`)
 
-Pure NumPy, no AEDT: `MimoPolarimetryProcessor` loads an exported sweep and computes polarimetric signatures; `bistaticity_analysis` plots them against the Tx–Rx spacing. Section 4 documents the full chain, its validation and the first results.
+Pure NumPy, no AEDT. `MimoPolarimetryProcessor` runs the usual MIMO radar chain on an exported sweep (frequency window, IFFT to range profiles, optional spatial window, beamforming with steering vectors, maps of total power, polarimetric channel powers and Pauli features); `CanonicalTargetProcessor` adds the qualities of canonical scatterers; `bistaticity_analysis` plots those against the swept variable. Section 4 documents the chain, the signatures and the first results.
 
 ### Spelling
 
@@ -188,11 +188,11 @@ To ensure the automated builder script runs successfully without manual alignmen
 ## 4. Bistaticity study: polarimetric signatures from SBR+ sweeps
 
 How much Tx–Rx separation can a polarimetric cluster tolerate before its polarimetric signatures
-break down? This section documents the post-processing chain for that question. It covers what the
-exported data contain, how the target return is isolated, which signatures are computed, and how
-to interpret them. The verified routines are the module-level functions of
-`polarimetry_processor.py` (pure NumPy, no AEDT), chained by its `MimoPolarimetryProcessor` class
-and covered by `tests/test_polarimetry_processor.py`.
+break down? This section documents the post-processing chain for that question: what the exported
+data contain, how they are processed, which signatures are computed, and how to interpret them.
+The routines are the functions of `polarimetry_processor.py` (pure NumPy, no AEDT), chained by its
+`MimoPolarimetryProcessor` and `CanonicalTargetProcessor` classes and covered by
+`tests/test_polarimetry_processor.py`.
 
 ### 4.1 Setup
 
@@ -214,9 +214,7 @@ and covered by `tests/test_polarimetry_processor.py`.
   d/√2 apart along x.
 * **Scene:** the hand-built `LinkedDualPolHornCluster` (SBR+), which predates `sbr_simulator`. It
   contains the far-field linked antenna and a PEC sphere of radius `targetRadius` = 100 mm,
-  centred at `targetRange` = 3 m on boresight. For designs built by `sbr_simulator --target sphere`,
-  pass `targetDistance` as `--target-range` and `targetSize` as `--target-radius`. The setup
-  uses 4 rays/λ and 5 bounces, and sweeps 74–84 GHz in 201 points (Δf = 50 MHz). The parametric
+  centred at `targetRange` = 3 m on boresight. The setup uses 4 rays/λ and 5 bounces, and sweeps 74–84 GHz in 201 points (Δf = 50 MHz). The parametric
   sweep `copolarSpacingLambda` = 1.41…8.41 (step 1) gives a co-polar bistatic angle
   β = 2·atan(d/2R) of only 0.11°…0.63°.
 
@@ -226,71 +224,83 @@ and covered by `tests/test_polarimetry_processor.py`.
 # 1. Export the scattered-field solution, the default (in the container via the `ansys-vnc link`
 #    wrapper, attached to the GUI session; refuses to start an AEDT)
 sbr_results mimo_polarimetry \
-    LinkedDualPolHornCluster data/interim/bistatic_sweep/sphere_boresight_3m_scattered.npz \
+    LinkedDualPolHornCluster data/interim/bistatic_sweep/sphere_boresight_3m.npz \
     --sweep-variable copolarSpacingLambda
-# 2. Analyse (host or container); figures + CSVs go to --out
+# 2. Analyse (host or container); figures + CSV go to --out
 bistaticity_analysis \
-    data/interim/bistatic_sweep/sphere_boresight_3m_scattered.npz \
-    --out data/processed/bistaticity_scattered
+    data/interim/bistatic_sweep/sphere_boresight_3m.npz \
+    --out data/processed/bistaticity
 ```
 
-A solved SBR+ design holds three solutions under the same setup and sweep:
+`bistaticity_analysis` options: `--azimuth`/`--elevation` (deg) steer towards an off-boresight
+target; `--quad` keeps one polarimetric quad (default: every channel); `--window` is the frequency
+window of the range profiles. Its outputs make no assumption about the target or the scene: no
+reference target, no thresholds or "ideal" lines, no classification. It writes:
 
-| Solution | Contents |
-| --- | --- |
-| `Setup : Sweep` | Total fields |
-| `Setup : Sweep_Incident` | Incident only: the direct Tx→Rx coupling (§4.3) |
-| `Setup : Sweep_Scattered` | Scattered only: the target |
+* `signatures_vs_sweep.png` and `signatures_vs_sweep.csv`: the signatures of §4.5 against the
+  swept variable; per-frequency quantities as a line at the centre frequency with a band spanning
+  their minimum and maximum over the frequency sweep (not a confidence interval), band-averaged
+  ones as a line;
+* `range_profiles.png`: the beamformed range profiles of the total power and of every
+  polarimetric channel towards the target;
+* `azimuth_elevation_maps.png`: total power and Pauli powers at the target range, only for arrays
+  with several virtual channels per polarization (a cluster has no angular resolution).
 
-Total = Incident + Scattered holds to 3·10⁻¹⁰ in the horn-cluster sweep. **Use
-`Sweep_Scattered`**, the default of `sbr_results` (Module 2 explains why it equals range gating in a
-measurement). The total solution (`--setup "Setup : Sweep"`) also works in two ways:
+Off boresight, the steering needs the virtual channel positions; they come from the builder's port
+table in the export (a hand-built design such as the horn cluster has none, so it is analysed at
+boresight, where every steering vector is 1).
 
-* with `--background <Sweep_Incident or no-target run>.npz` for coherent subtraction, which
-  reproduces the scattered-solution signatures to 5·10⁻⁹;
-* via range gating (§4.4).
+### 4.3 The processing chain
 
-`--gate auto` (the default) decides between these. It gates only total-field exports without a
-background. Target-only data (`_Scattered` exports, or a subtracted background) are processed
-ungated over the full sweep, because gating would only discard band and smooth the response.
-`--gate on|off` overrides the choice.
+`MimoPolarimetryProcessor` keeps the exported channels S_c(f_n), c = S(Rx port, Tx port), for every
+variation, grouped into the polarimetric channels q ∈ {HH, HV, VH, VV} (receive, transmit), each
+with its virtual channels p (Tx/Rx pairs). Every step is a method; `raw()` returns the export
+untouched.
 
-The same chain from Python:
+| Step | Method / function | What it does |
+| --- | --- | --- |
+| (a) | `from_npz`, `complex_from_db_deg` | The export holds complex S directly (AEDT's real and imaginary parts, exact). Magnitude/phase data (reports, measurements) rebuild as S = 10^(M/20) e^{jπΦ/180}. Builder port signs are removed here. |
+| (b) | `frequency_window` | Taper w_n over the frequency samples (Hann by default). |
+| (c) | `range_profiles` | x_c[m] = IFFT(w_n S_c(f_n)) / Σw, zero-padded (4× by default), so a point target of amplitude A peaks at \|A\| at its range. Range bins are c·m/(2 N Δf), up to c/(2Δf). The phase refers to the centre frequency. |
+| (d) | `spatial_weights` | Optional separable taper (`hann`, `hamming`, `blackman`) over each polarimetric channel's virtual aperture, for sidelobe control in real MIMO arrays; off by default, and pointless with one virtual channel per polarization. |
+| (e) | caller | Azimuth/elevation grids. r = (cos ε sin α, sin ε, cos ε cos α) in the array frame: boresight +z, azimuth towards +x (H), elevation towards +y (V). |
+| (f) | `beamform` | b_q(m, α, ε) = Σ_p w_p x_q[m, p] a_p*(α, ε) / Σ_p w_p with a_p = e^{+j k₀ v_p·r} and the virtual position v_p = p_Tx + p_Rx. |
+| (g) | `range_azimuth_maps`, `azimuth_elevation_maps`; `total_power`, `channel_powers`, `pauli_powers` | Maps of the mean power over the polarimetric channels, of every channel's power relative to one common reference (the total-power peak), and of the Pauli powers \|k_i\|². |
+
+* **Sign of the steering vector.** AEDT uses e^{+jωt}, so a path L adds e^{−jkL} and a far-field
+  target in direction r gives every virtual channel e^{+jk v_p·r} (times common terms). The
+  matched beamformer therefore multiplies by the *conjugate* of a_p = e^{+jk₀ v_p·r}. With the
+  opposite time convention the conjugate moves to the steering vector itself.
+* **No Doppler.** An SBR+ frequency sweep of a static scene has no slow-time axis, so the maps are
+  range–azimuth and azimuth–elevation, not range–Doppler.
+
+`CanonicalTargetProcessor` adds `target_matrices(azimuth, elevation)`: every polarimetric channel
+beamformed towards the target in the frequency domain (exact k per frequency), giving S[rx, tx]
+(variation × frequency × 2 × 2). At boresight, or for a cluster with one virtual channel per
+polarization, this is the plane-wave compensation of each channel towards the target. On top come
+the target-agnostic `signatures` of §4.5. Interpretations are explicit opt-ins that the analysis
+never uses: `fidelity(matrices, reference)` with `REFERENCE_SPHERE`, `REFERENCE_TRIHEDRAL` or
+`reference_dihedral(roll)`, the `bounce_parity` classifier, and `calibrate_with_sphere`, which can
+only assume equal cross-pol channel gains, because a sphere does not reveal them (see its
+docstring).
 
 ```python
-from pomaar.simulator.polarimetry_processor import MimoPolarimetryProcessor, REFERENCE_SPHERE
+from pomaar.simulator.polarimetry_processor import CanonicalTargetProcessor
 
-processor = MimoPolarimetryProcessor.from_npz("sphere_boresight_3m_scattered.npz")
-processor.compensate_geometry(positions, focal_point)  # optional; per-variation element positions
-signatures = processor.signatures(REFERENCE_SPHERE)    # dict of (n_variations, n_frequencies) arrays
+processor = CanonicalTargetProcessor.from_npz("sphere_boresight_3m.npz")
+matrices = processor.target_matrices()                         # boresight
+features = processor.signatures(matrices=matrices)
+range_m, profiles = processor.range_profiles()                 # raw channel range profiles
 ```
 
-**Quads.** The processor works on one polarimetric quad (RxH, RxV, TxH, TxV), found from the port
-names as in `sbr_simulator`'s reports. Hand-built names (`HornCluster1_RxH`) and builder names
-(`Linked1_Port_Rx_1_H`) both work. An export with several quads needs a choice:
-`MimoPolarimetryProcessor.available_quads(path)` lists them (e.g. `Rx_1/Tx`, `Rx_2/Tx`), and
-`from_npz(path, quad="Rx_2/Tx")` picks one. A dict `{"RxH": ..., "RxV": ..., "TxH": ..., "TxV": ...}`
-of excitation names picks any four ports, e.g. single-pol Tx elements with different labels.
-
-**Arrays from `hfss_array_builder`.** `sbr_results` attaches the builder's port table to the export
-(below). `from_npz` then takes the port field signs out (`correct_signs=False` keeps the channels as
-measured), so that every channel refers to +x (H) and +y (V); a sphere calibration could not reveal
-a wrong sign. `compensate_geometry(None, focal_point)` uses the ports' phase centres from the
-table. They are the values at build time, so a sweep of a layout variable still needs explicit
-positions per variation.
-
-`MimoPolarimetryProcessor` provides the following methods:
-
-| Method | What it does |
-| --- | --- |
-| `gate` | Range gating (§4.4) |
-| `calibrate_with_sphere` | Complex channel-imbalance calibration from a sphere measurement |
-| `inject_noise` | Adds complex white Gaussian noise at a given SNR |
-
-`calibrate_with_sphere` can only assume equal cross-pol channel gains, because a sphere does not
-reveal them; see its docstring.
-
-Tests (pure NumPy, no AEDT): `uv run --with pytest python -m pytest tests`.
+**Quads and port tables.** Channels are read from their port names, both hand-built
+(`HornCluster1_RxH`) and builder ones (`Linked1_Port_Rx_1_H`); every channel takes part by default,
+and `quad=` (a name from `available_quads(path)`, e.g. `Rx_1/Tx`, or a dict of four ports) keeps
+one quad. For an array built by `hfss_array_builder`, `sbr_results` attaches the builder's port
+table; the processor then removes the port field signs (`correct_signs=False` keeps them), so that
+every channel refers to +x (H) and +y (V), and takes the virtual positions from the port phase
+centres. Those are build-time values, so a sweep of a layout variable still needs `positions=` per
+variation. `positions` (port name or suffix → metres) also places hand-built designs.
 
 `sbr_results.export_sbr_parametric_sweep` stores the following in the `.npz`:
 
@@ -313,7 +323,7 @@ AEDT.
 **Convention.** Scattering matrices are indexed `S[..., rx, tx]` with 0 = H and 1 = V, so
 `S_HV` = receive H, transmit V = AEDT `S(...RxH, ...TxV)`.
 
-### 4.3 What the exported S-parameters actually contain
+### 4.4 What the exported S-parameters contain
 
 The total-field SBR+ S-parameters (`Setup : Sweep`, the GUI default) are **not** the target
 response. Transforming each channel to the two-way-path (delay) domain (`delay_profile`) shows two
@@ -336,98 +346,47 @@ components:
   down. They are common to all channels, so ratios are unaffected.
 
 Because the coupling is 30–60 dB stronger, a 0.1 % irregularity in it reaches the target's level
-at every delay. When the total solution is gated, this contaminates the co-pol channels at 3.41λ
-and 5.41λ. It also leaks into the cross-pol channels *inside* the gate, where the guard-band check
-cannot see it: gated total-field cross-pol came out at −30…−41 dB at 79 GHz, whereas the scattered
-solution gives −36…−57 dB (§4.7).
+at every delay. An earlier version of this study range-gated the total solution; the leakage
+contaminated the co-pol channels at 3.41λ and 5.41λ and, inside the gate, the cross-pol channels:
+gated total-field cross-pol came out at −30…−41 dB at 79 GHz, whereas the scattered solution
+gives −36…−57 dB (§4.7). That gating chain has been removed.
 
 > [!IMPORTANT]
-> **Remove the coupling at its source.** Export `Setup : Sweep_Scattered`. Equivalently, subtract
-> `Sweep_Incident` or a no-target run (`Sphere1` → *Model* off, or `sbr_simulator --target none`)
-> with `--background`. Gating the total field is only a fallback, and its cross-pol values are not
-> trustworthy.
+> **Remove the coupling at its source.** Export `Setup : Sweep_Scattered` (the default).
+> The processor and the analysis assume it and do no background subtraction of their own.
 
-### 4.4 Total-field fallback: gate-normalized time gating
+### 4.5 Signatures (panels of `signatures_vs_sweep.png`)
 
-Everything in this subsection applies only when gating is on (total-field data without a
-background).
+The signatures are computed from `target_matrices`, i.e. the channels beamformed towards the
+steering direction (at boresight: as exported). None of them refers to a particular target.
 
-`time_gate(s, f, centre_path, half_width, window)` works as follows:
-
-1. Taper the sweep with `window`.
-2. Transform to the path domain.
-3. Keep a rectangular gate of ±`half_width` around the (wrapped) target path.
-4. Transform back.
-5. Divide by the same processing applied to an ideal point reflector at `centre_path`, then
-   multiply that reflector back in (gate normalization).
-
-Step 5 removes the taper and the truncation of the target's own main lobe. What remains is only
-leakage from other paths.
-
-**Chosen parameters** (validated on synthetic data with the measured levels and paths):
-
-| Parameter | Value | Why |
-| --- | --- | --- |
-| `window` | Kaiser β = 14 | Hann leaks the −35 dB coupling into the gate (6 dB / 43° error) |
-| Half-width | ±0.06 m | Narrower truncates the target; wider reaches the coupling |
-| Valid band | taper ≥ 0.5 → 77.45–80.55 GHz (`gate_valid_band`) | Errors grow outside it |
-
-**Synthetic errors:**
-
-| Case | Error |
-| --- | --- |
-| Sphere, worst case (−35.6 dB coupling) | ≤ 0.015 dB / 0.12° |
-| −140 dB cross-pol term at the same delay | ≤ 1 dB / 7° |
-
-**Gate centre.** The gate is centred on the peak of |S_HH|² + |S_VV|² in the zero-padded profile,
-searched within ±3 cm of the geometric path. It is common to all four channels, so ratios see the
-same gate.
-
-**Contamination checks** (`delay_window_peak`). Each check marks points as hollow markers in the
-figures:
-
-* **Gate SNR:** the target peak in the gate versus the peak in a guard band at −0.40…−0.18 m from
-  it, on the side away from the coupling. Clean spacings reach about 31 dB, limited by the paired
-  echo. Co-pol below 20 dB is flagged.
-* **Peak shift:** a co-pol peak more than 5 mm from the sweep's median target path is flagged
-  (3.41λ: +17 mm, 5.41λ: +15 mm).
-* **Cross-pol floor:** the guard-band level of the cross-pol channel relative to the co-pol
-  target, drawn dotted in panel (3). Cross-pol less than 10 dB above it is "unresolved", and every
-  metric using cross-pol channels is flagged.
-
-### 4.5 Signatures (panels of `signatures_vs_spacing.png`)
-
-Before the signatures are computed, `compensate_geometry` divides each channel by its
-spherical-wave phase to the sphere's front point (`spherical_wave_phase`), gated or not. For this
-square every element is d/2 from the centroid, so all four channels have identical paths (spread
-0 µm), and compensation changes no ratio (≤ 3·10⁻¹⁴ °). It matters for off-boresight targets
-(§4.6).
-
-Each panel plots one scalar against spacing, with β on the top axis. The line is the 79 GHz value
-and the band is the min–max over the valid band: the whole sweep when ungated, 77.45–80.55 GHz
-when gated.
-
-| # | Signature | Function | Sphere ideal | Dihedral (edge ∥ H) ideal |
-| --- | --- | --- | --- | --- |
-| 1 | Co-pol imbalance \|S_VV/S_HH\| | `copolar_ratio` | 0 dB | 0 dB |
-| 2 | Co-pol phase difference ∠(S_VV S_HH*) | `copolar_ratio` | 0° (reference) | 180° relative to sphere |
-| 3 | Cross-pol leakage per Tx pol: \|S_VH/S_HH\| (Tx H), \|S_HV/S_VV\| (Tx V) | `crosspolar_isolation` | → −∞ | → −∞ |
-| 4a/b | Reciprocity S_HV/S_VH | `reciprocity_ratio` | (undefined, both → 0) | (use a 45° dihedral) |
-| 4c | Normalized asymmetry \|S_HV − S_VH\| / ‖S‖_F | `normalized_asymmetry` | → −∞ | → −∞ |
-| 5 | Bistatic Pauli power fractions of k = [HH+VV, HH−VV, HV+VH, j(HV−VH)]/√2 | `pauli_vector`, `pauli_power_fractions` | k₁ = 1 | k₂ = 1 |
-| 6 | Infidelity 1 − \|⟨k, k_ref⟩\| / (‖k‖‖k_ref‖) | `polarimetric_fidelity` | → −∞ | → −∞ (vs `REFERENCE_DIHEDRAL`) |
-| 7 | Single-target Cloude α, cos α = \|k₁\|/‖k‖; entropy H of the band-averaged T | `alpha_angle`, `coherency_matrix`, `entropy_alpha` | 0°, H = 0 | 90°, H = 0 |
+| # | Signature | Key in `signatures()` | Per |
+| --- | --- | --- | --- |
+| 1 | Channel returns \|S_pq\|² | `power_<pq>_db` | frequency |
+| 2 | Span ‖S‖²_F | `span_db` | frequency |
+| 3 | Co-pol ratio \|S_VV/S_HH\| | `copol_ratio_db` | frequency |
+| 4 | Co-pol phase difference ∠(S_VV S_HH*) | `copol_phase_difference_deg` | frequency |
+| 5 | Co- minus cross-pol return per Tx pol: \|S_HH\| − \|S_VH\| (Tx H), \|S_VV\| − \|S_HV\| (Tx V) | `co_minus_cross_tx<h\|v>_db` | frequency |
+| 6, 7 | Cross-pol ratio S_HV/S_VH: magnitude and phase difference | `reciprocity_db`, `reciprocity_phase_deg` | frequency |
+| 8 | Normalized asymmetry \|S_HV − S_VH\| / ‖S‖_F | `asymmetry_db` | frequency |
+| 9 | Bistatic Pauli power fractions of k = [HH+VV, HH−VV, HV+VH, j(HV−VH)]/√2 | `pauli_fractions_db` | frequency |
+| 10–12 | Cloude–Pottier entropy H, anisotropy A = (λ₂−λ₃)/(λ₂+λ₃) and mean α of the bistatic 4×4 coherency matrix | `entropy`, `anisotropy`, `mean_alpha_deg` | variation (averaged over the band) |
+| (CSV) | Pauli angle of the single matrix, cos α = \|k₁\|/‖k‖ | `alpha_deg` | frequency |
 
 Notes on the table:
 
-* **Antisymmetric component.** k₄ is zero for any monostatic reciprocal measurement. Its power
-  fraction is the direct bistaticity indicator. Note that the monostatic k_p of the literature
-  (`bistatic=False`) symmetrizes it away.
-* **Entropy.** H is computed for the 4×4 (bistatic) and 3×3 (symmetrized) coherency matrices
-  averaged over the valid band. For one deterministic target, H > 0 means its signature changes
-  across the band.
+* **Bistatic 4×4 only.** The monostatic 3×3 coherency matrix symmetrizes HV and VH, i.e. assumes
+  reciprocity; the analysis does not use it. k₄ vanishes for any monostatic reciprocal
+  measurement, so its fraction directly shows the asymmetry of the measured matrix.
+* **Cloude–Pottier over the band.** For one deterministic target, the coherency matrix is averaged
+  over the frequency samples; H > 0 then means the signature changes across the band.
 * **Phase reference.** All phases are relative between channels. The absolute arg S_HH is path
   length (geometry), not polarimetry.
+* **Reading them (not done by the code).** An odd-bounce scatterer (sphere, trihedral, plate)
+  shows S_VV ≈ S_HH (0 dB, 0°), all power in k₁ and ᾱ ≈ 0°; an even-bounce one (dihedral with its
+  edge along H or V) S_VV ≈ −S_HH (0 dB, ±180°), k₂ and ᾱ ≈ 90°; a 45°-rolled dihedral is purely
+  cross-polar (k₃). These are comparisons the reader makes, or opt-ins such as
+  `CanonicalTargetProcessor.fidelity`.
 
 ### 4.6 The linear term versus what survives compensating it
 
@@ -450,8 +409,8 @@ For a target at elevation θ_y off boresight (y–z plane):
 This breaks the apparent reciprocity S_HV = S_VH. Take a 45°-rotated dihedral (S_HV = S_VH,
 HH = VV = 0) seen through the uncompensated linear term. A fraction sin²(Δφ/2) of its power moves
 from k₃ to the antisymmetric k₄, which helix-sensitive decompositions (Yamaguchi, Singh) read as
-helix scattering. Values from `linear_term.csv` and the first two panels of
-`linear_term_study.png`:
+helix scattering. Values computed with `plane_wave_phase` for this cluster (an earlier version of
+`bistaticity_analysis` plotted them as `linear_term_study.png`):
 
 | d | θ_y | Δφ(HV − VH) | 45° dihedral power into k₄ |
 | --- | --- | --- | --- |
@@ -467,16 +426,15 @@ helix scattering. Values from `linear_term.csv` and the first two panels of
 The k₄ fraction is periodic in θ_y, so it can also vanish by coincidence.
 
 **The linear term is deterministic and removable.** Divide each channel by `plane_wave_phase`
-for its own Tx/Rx pair and the look direction. Delay-and-sum beamforming does this implicitly, as
-long as the steering vectors use each polarization channel's own virtual positions, not one shared
-array. Better still, divide by `spherical_wave_phase` for the focal point, which also removes the
+for its own Tx/Rx pair and the look direction. Beamforming does exactly this, as long as the
+steering vectors use each polarization channel's own virtual positions, not one shared array; this
+is how `beamform` and `target_matrices` work. Better still, divide by `spherical_wave_phase` for the focal point, which also removes the
 Fresnel (quadratic) term. **Polarimetric errors caused by the linear term are therefore a
 processing error, not a limit of the configuration.**
 
 **What survives compensation** sets the real bistaticity limit:
 
-1. **Fresnel residual, when only plane-wave compensation is used** (third panel of
-   `linear_term_study.png`). Elements on a circle around the centroid make it common-mode at
+1. **Fresnel residual, when only plane-wave compensation is used** (as in the beamforming). Elements on a circle around the centroid make it common-mode at
    boresight. For d = 8.41λ the differential residual HV − VH stays ≤ 0.95° at R = 0.5 m and
    θ_y ≤ 30°, ≤ 0.24° at 1 m, and ≤ 0.03° at 3 m. Negligible here, and zero with spherical
    compensation.
@@ -490,54 +448,53 @@ processing error, not a limit of the configuration.**
    cross-pol (mutual coupling to the orthogonal neighbour). The off-boresight angle also differs
    per element. None of this cancels under geometric compensation. It needs polarimetric
    calibration (per-channel distortion matrices from a sphere and a depolarizing reference).
-4. **Coupling and multipath.** Direct coupling is removable (scattered solution, background
-   subtraction or gating).
+4. **Coupling and multipath.** Direct coupling is removable (scattered solution or background
+   subtraction).
    Interactions between the target and the antenna structure are absent from this SBR+ model
    unless the structure is included in the scene.
 
 ### 4.7 First results: boresight sphere at 3 m
 
-From `Setup : Sweep_Scattered`, processed ungated (default), i.e.
-`data/processed/bistaticity_scattered/signatures_vs_spacing.csv` (79 GHz values):
+From `data/processed/bistaticity/signatures_vs_sweep.csv` (79 GHz values; H, A and ᾱ over the
+band; β = 2·atan(d/2R) is the co-polar bistatic angle of this scene):
 
-| d (λ₀) | β (°) | \|S_VV/S_HH\| (dB) | ∠ (°) | Tx H leak (dB) | Tx V leak (dB) | \|S_HV/S_VH\| (dB) | Infidelity (dB) | α (°) |
-| --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| 1.41 | 0.11 | −0.08 | −0.4 | −41.3 | −36.5 | 4.7 | −40.4 | 0.78 |
-| 2.41 | 0.18 | −0.07 | 0.8 | −40.6 | −57.5 | −16.9 | −42.4 | 0.62 |
-| 3.41 | 0.26 | −0.14 | 0.6 | −40.3 | −40.5 | −0.4 | −40.4 | 0.77 |
-| 4.41 | 0.33 | −0.19 | 0.8 | −41.1 | −48.5 | −7.6 | −39.7 | 0.84 |
-| 5.41 | 0.41 | 0.00 | 0.6 | −42.9 | −44.2 | −1.2 | −44.5 | 0.48 |
-| 6.41 | 0.48 | −0.12 | −0.8 | −39.1 | −47.9 | −8.9 | −40.7 | 0.74 |
-| 7.41 | 0.56 | 0.15 | 0.1 | −43.5 | −41.4 | 2.2 | −41.5 | 0.68 |
-| 8.41 | 0.63 | −0.02 | −0.1 | −44.2 | −42.8 | 1.4 | −46.3 | 0.39 |
+| d (λ₀) | β (°) | \|S_VV/S_HH\| (dB) | ∠(S_VV S_HH*) (°) | Co − cross, Tx H (dB) | Co − cross, Tx V (dB) | \|S_HV/S_VH\| (dB) | H (10⁻⁴) | A | ᾱ (°) |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| 1.41 | 0.11 | −0.08 | −0.4 | 41.2 | 36.5 | 4.7 | 7.7 | 0.89 | 0.74 |
+| 2.41 | 0.18 | −0.07 | 0.8 | 40.6 | 57.5 | −16.9 | 3.9 | 0.46 | 0.50 |
+| 3.41 | 0.26 | −0.14 | 0.6 | 40.3 | 40.5 | −0.4 | 5.4 | 0.67 | 0.40 |
+| 4.41 | 0.33 | −0.19 | 0.8 | 41.1 | 48.5 | −7.6 | 4.5 | 0.84 | 1.02 |
+| 5.41 | 0.41 | 0.00 | 0.6 | 42.9 | 44.2 | −1.2 | 2.3 | 0.82 | 0.52 |
+| 6.41 | 0.48 | −0.12 | −0.8 | 39.1 | 47.9 | −8.9 | 3.0 | 0.79 | 0.71 |
+| 7.41 | 0.56 | 0.15 | 0.1 | 43.5 | 41.4 | 2.2 | 1.6 | 0.47 | 0.56 |
+| 8.41 | 0.63 | −0.02 | −0.1 | 44.2 | 42.8 | 1.4 | 2.3 | 0.48 | 0.33 |
 
-* **Co-pol.** Ideal: within −0.28…+0.20 dB and −1.3…+2.7° over the full 74–84 GHz band, with no
+* **Co-pol.** Within −0.28…+0.20 dB and −1.3…+2.7° over the full 74–84 GHz band, with no
   bistatic trend up to β = 0.63°, as expected for a sphere. Absolute |S_HH| is −97.6…−98.1 dB.
-* **Cross-pol.** Leakage is −33…−73 dB over the band (−36…−57 dB at 79 GHz), with no trend in β.
+* **Cross-pol.** The cross-pol returns sit 33…73 dB below the co-pol ones over the band (36…57 dB
+  at 79 GHz), with no trend in β.
   It varies non-monotonically from one spacing to the next, which points to the elements'
   embedded-pattern cross-pol (mutual coupling to the orthogonal neighbour changes with spacing;
   item 3 of §4.6) rather than to the bistatic geometry.
 * **HV versus VH.** They differ by up to 17 dB in magnitude and by arbitrary phase. With cross-pol
   produced by different antenna pairs, nothing forces them to agree. The antisymmetric k₄
   fraction (−40…−52 dB at 79 GHz) therefore reflects antenna diversity, not bistaticity.
-* **Overall.** Infidelity ≤ −34 dB over the band, α ≤ 1.5° and H < 10⁻³ are all set by that
-  cross-pol.
+* **Overall.** The single-matrix Pauli angle stays ≤ 1.5° over the band and H < 10⁻³ at every
+  spacing; both are set by that cross-pol. A (0.46…0.89) only says how the little non-k₁ power
+  splits between the second and third eigenvalues, so it is not meaningful at this H.
 * **Interim conclusion.** Up to 8.41λ at 3 m (β ≤ 0.63°), the boresight sphere shows no
-  polarimetric breakdown. The configuration's polarimetric floor (about −40 dB infidelity) is set
-  by the antennas. To find where bistaticity starts to matter, use targets with narrow bistatic
+  polarimetric breakdown. The configuration's polarimetric floor (cross-pol about 40 dB below
+  co-pol) is set by the antennas. To find where bistaticity starts to matter, use targets with narrow bistatic
   lobes, shorter range, or off-boresight positions (§4.8).
-* **Gating versus ungated.** Gating the scattered data changes co-pol by ≤ 0.03 dB / 0.2° at
-  79 GHz. Cross-pol changes by up to 4.5 dB, because the gate smooths over a few GHz, including
-  the ≈ 1.25 GHz kinks of §4.3.
-* **Total-field results.** The gated total-field analysis (`data/processed/bistaticity_total/`)
-  flags 3.41λ and 5.41λ as contaminated. It agrees on co-pol at the clean spacings, but overstates
-  the cross-pol (−30…−41 dB) because coupling leaks inside the gate.
+* **Total-field results.** An earlier, now removed, gated total-field analysis flagged 3.41λ and
+  5.41λ as contaminated. It agreed on co-pol at the clean spacings, but overstated the cross-pol
+  (−30…−41 dB) because coupling leaked inside the gate.
 
 ### 4.8 Next steps
 
 * **Finer frequency steps.** Halving Δf, which the SBR+ sweep inherits from the HFSS
-  interpolating sweep and that in turn from the unit cell, doubles the unambiguous path. It is
-  only needed when gating total fields.
+  interpolating sweep and that in turn from the unit cell, doubles the unambiguous range of the
+  range profiles and maps.
 * **Cross-pol cross-check.** Check the cross-pol level against the HFSS embedded patterns:
   M_VH ≈ e_rx,V · S_ideal · e_tx,H at θ ≈ β/2 for every element.
 * **Off-boresight targets.** Put the target off boresight (θ_y scan) to observe the linear term in
@@ -545,11 +502,7 @@ From `Setup : Sweep_Scattered`, processed ungated (default), i.e.
 * **Dihedral and trihedral.** `sbr_simulator --target dihedral|trihedral` builds both; use
   `targetRoll` for the edge parallel and perpendicular to each baseline and for the 45° dihedral
   (reciprocity), and a range R ≈ 1 m so that d·L/(λR) reaches order 1.
-* **Generalize `bistaticity_analysis`.** It is still specific to this study: the sphere reference
-  (`REFERENCE_SPHERE`), a boresight focal point at the sphere's front, and the `DualPolHornCluster`
-  geometry (`cluster_positions`, 20 mm feeds). On an export of a builder array it has no `--quad`
-  for several quads and would use the horn positions. Dihedral, trihedral and off-boresight runs
-  need the reference matrix, the target position and the element positions as inputs: the quad
-  (`--quad`), the target range and size and the centre wavelength from the export's metadata
-  (`targetDistance`, `targetSize`, frequencies), and the positions from its port table (build-time
-  values, so a spacing sweep still needs them per variation).
+* **More products.** Further map quantities (e.g. coherency/decomposition maps) as functions of the
+  processor; per-variation virtual positions for sweeps of a layout variable (the port table holds
+  build-time values); a Doppler axis once a scene has slow time (SBR+ Range-Doppler setups or a
+  moving target).

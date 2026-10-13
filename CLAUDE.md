@@ -65,12 +65,19 @@ There are three stages, each a class re-exported by `pomaar.simulator`:
    SBR+ total = `_Incident` (direct Tx/Rx coupling) + `_Scattered` (target); read targets from
    `Setup : Sweep_Scattered`.
 3. **`MimoPolarimetryProcessor`** (`polarimetry_processor.py`). It is pure NumPy, needs no AEDT,
-   and works from `.npz` sweeps exported by `sbr_results.py` (export `Setup : Sweep_Scattered`).
-   Its module-level functions handle range gating, geometric phase compensation and polarimetric
-   signatures (bistatic Pauli, fidelity, Cloude α/entropy). The class chains them for one
-   polarimetric quad (RxH, RxV, TxH, TxV; `quad=` when an export has several), adding sphere
-   calibration and noise injection. `bistaticity_analysis.py` plots the signatures against Tx–Rx
-   spacing; it is still specific to the boresight-sphere horn-cluster study (README §4).
+   and works from `.npz` sweeps exported by `sbr_results.py` (scattered solution by default). It
+   runs a plain MIMO radar chain, one method each: frequency window, IFFT to range profiles
+   (phase referred to the centre frequency), optional spatial window, beamforming with steering
+   vectors a_p = e^{+jk₀ v_p·r} (applied conjugated; v_p = p_Tx + p_Rx; AEDT's e^{+jωt}), and
+   range–azimuth / azimuth–elevation maps of total power, channel powers and Pauli powers.
+   `raw()` forwards the export. No gating and no Doppler (static frequency sweeps).
+   `CanonicalTargetProcessor` adds `target_matrices` (frequency-domain beamforming towards the
+   target) and target-agnostic `signatures` (channel powers, span, co-pol ratio/phase difference,
+   co−cross dB, cross-pol ratio, asymmetry, bistatic Pauli fractions, Cloude–Pottier H/A/ᾱ of
+   the 4×4 band-averaged coherency matrix); `fidelity`, `bounce_parity` and the reference
+   matrices are opt-ins the analysis never uses. Exports are always the scattered solution:
+   neither the processor nor the analysis handles total fields or background subtraction.
+   `bistaticity_analysis.py` only combines and plots those products against the swept variable.
 
 ### Layouts
 
@@ -127,9 +134,10 @@ and V ports) and `attach_port_table`.
   phase from the source design's `_ports.json`.
 * `sbr_results` exports `Setup : Sweep_Scattered` by default and attaches the matching
   `_ports.json` (found next to the project, or `--port-table`) to the `.npz` metadata as `ports`.
-* `MimoPolarimetryProcessor.from_npz` picks the quad, removes the port signs (`correct_signs`) and
-  offers `quad_positions()` for `compensate_geometry(None, focal)`. Positions are build-time
-  values, so they don't follow a swept layout variable.
+* `MimoPolarimetryProcessor.from_npz` keeps every channel (or one `quad=`), removes the port
+  signs (`correct_signs`) and takes the virtual positions from the port phase centres
+  (`positions=` overrides, e.g. for hand-built designs). Positions are build-time values, so they
+  don't follow a swept layout variable; without any, steering is exact only at boresight.
 
 ### Builder flow
 
@@ -201,6 +209,12 @@ and V ports) and `attach_port_table`.
   first solve; the native `ReportSetup.CreateReport` accepts it.
 
 ## Conventions
+
+* **Analysis outputs are unbiased.** Figures and CSVs show quantities that assume nothing about
+  the target or the scene: no reference target or fidelity to one, no "ideal" values, threshold
+  lines or classifications, no titles naming the target. Interpretation belongs in the README
+  text or in explicit opt-in functions (e.g. `CanonicalTargetProcessor.fidelity`). Bands in the
+  signature plots are the min–max over the frequency sweep, not confidence intervals.
 
 * British spelling with Oxford -ize in code and docs (centre, metre, polarization). Keep AEDT,
   PyAEDT and matplotlib names as they are (`SetPhaseCenterPerPort`, `analyze()`, the `meter`

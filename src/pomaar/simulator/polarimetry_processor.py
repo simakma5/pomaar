@@ -1,21 +1,48 @@
 #!/usr/bin/env python3
 """
-Module 3: Offline polarimetric processor (pure NumPy, no AEDT).
+Module 3: Offline polarimetric MIMO radar processing (pure NumPy, no AEDT).
 
-Works from SBR+ sweeps exported by `sbr_results` (.npz). The module-level functions are the
-verified routines of the bistaticity study (see the README): range gating, geometric phase
-compensation, and per-matrix polarimetric signatures and decompositions. `MimoPolarimetryProcessor`
-chains them for one exported sweep.
+Works on SBR+ sweeps exported by `sbr_results` (.npz): every channel S(<Rx port>,<Tx port>) over
+frequency, for every value of a swept design variable. `MimoPolarimetryProcessor` runs the usual
+MIMO radar chain on them and returns general products (range profiles, beamformed maps of total
+power, polarimetric channel powers and Pauli features); `CanonicalTargetProcessor` adds a
+single target's scattering matrix over frequency and its target-agnostic signatures (channel
+powers, co-pol ratio and phase difference, co- minus cross-pol, reciprocity, Pauli, Cloude-Pottier).
+Studies such as `bistaticity_analysis` combine these products; they do no signal processing of
+their own.
 
-Scattering matrices have shape (..., 2, 2) and are indexed S[..., rx, tx] with 0 = H and 1 = V,
-so S = [[S_HH, S_HV], [S_VH, S_VV]] and S_HV is the H-receive, V-transmit channel (AEDT's
-S(RxH,TxV)).
+The chain, one method each:
+
+(a) Complex S-parameters: the export holds them as complex values (AEDT's real and imaginary
+    parts, exact); `complex_from_db_deg` rebuilds them from magnitude (dB) and phase (deg) data.
+(b) `frequency_window`: taper over the frequency samples.
+(c) `range_profiles`: IFFT of the windowed sweep, with its phase referred to the centre frequency.
+(d) `spatial_weights`: optional taper over each polarimetric channel's virtual aperture.
+(e) Directions (azimuth, elevation), given by the caller; the virtual channel positions come from
+    the export's builder port table (or `positions`).
+(f) `beamform`: b_q = sum_p w_p x_q[p] conj(a_p(az, el)) / sum_p w_p.
+(g) `range_azimuth_maps`, `azimuth_elevation_maps` and the map quantities `total_power`,
+    `channel_powers` and `pauli_powers`.
+
+A static scene swept in frequency has no slow time, hence no Doppler axis: maps are range-azimuth
+and azimuth-elevation. `raw` forwards the exported data untouched.
+
+Conventions
+-----------
+* Scattering matrices have shape (..., 2, 2) and are indexed S[..., rx, tx] with 0 = H and 1 = V,
+  so S = [[S_HH, S_HV], [S_VH, S_VV]] and S_HV is the H-receive, V-transmit channel (AEDT's
+  S(RxH,TxV)). The polarimetric channel q of S(Rx p, Tx q') is the string p + q', e.g. 'HV'.
+* The array frame is the builder's global frame (= SBR+ AntennaCS): boresight +z, x horizontal
+  (H), y vertical (V). A direction (az, el) is r = (cos el sin az, sin el, cos el cos az).
+* AEDT's time convention is e^{+j w t}, so a path L contributes exp(-j k L). A Tx at p_t and an
+  Rx at p_r see a far-field target in direction r with exp(+j k v . r) times common terms, where
+  v = p_t + p_r is the virtual channel position. Hence the steering vector a_p = exp(+j k0 v_p . r)
+  and the matched beamformer uses its conjugate.
 
 Channels are read from their port names, both the hand-built style ('HornCluster1_RxH') and the
-array builder's ('Linked1_Port_Rx_1_H'). An export with several dual-polarized Tx/Rx elements
-holds several polarimetric quads (RxH, RxV, TxH, TxV); one is selected per processor. When the
-export carries the builder's port table (`sbr_results` attaches it), the field signs of the
-ports are corrected and their phase centres are available for geometric compensation.
+array builder's ('Linked1_Port_Rx_1_H'). When the export carries the builder's port table
+(`sbr_results` attaches it), the port field signs are removed and the port phase centres give the
+virtual channel positions.
 """
 
 import json
@@ -34,10 +61,21 @@ SPEED_OF_LIGHT = 299792458.0
 
 # Reference scattering matrices (BSA, S[rx, tx]) for fidelity metrics
 REFERENCE_SPHERE = np.array([[1.0, 0.0], [0.0, 1.0]], dtype=complex)
+REFERENCE_TRIHEDRAL = REFERENCE_SPHERE  # odd bounce, like the sphere
 REFERENCE_DIHEDRAL = np.array([[1.0, 0.0], [0.0, -1.0]], dtype=complex)
 
-
 POLARISATION_INDEX = {"H": 0, "V": 1}
+POLARIMETRIC_CHANNELS = ("HH", "HV", "VH", "VV")
+
+
+# ----------------------------------------------------------------------------------------------
+# (a) Complex S-parameters and channel bookkeeping
+# ----------------------------------------------------------------------------------------------
+
+
+def complex_from_db_deg(magnitude_db, phase_deg):
+    """S = 10^(M/20) exp(j pi/180 Phi) from a magnitude in dB and a phase in degrees."""
+    return 10 ** (np.asarray(magnitude_db) / 20) * np.exp(1j * np.radians(phase_deg))
 
 
 def assemble_scattering_matrix(s_hh, s_hv, s_vh, s_vv):
@@ -111,79 +149,151 @@ def port_sign_matrix(quad_ports, signs):
     return np.outer(rx, tx)
 
 
-def delay_profile(s_freq, frequencies_hz, window="blackmanharris", n_fft=None):
-    """
-    Transforms a uniformly swept response to the two-way path domain.
+# ----------------------------------------------------------------------------------------------
+# (b)-(f) Radar processing
+# ----------------------------------------------------------------------------------------------
 
-    Returns (path_m, profile) with path_m centred on zero (fftshift order) and profile scaled so
-    that a single scatterer of frequency-domain amplitude A peaks at |A|. Paths are ambiguous
-    modulo c/df, so a target farther than that wraps around.
-    """
-    n_freq = s_freq.shape[-1]
-    n_fft = n_fft or n_freq
-    taper = get_window(window, n_freq, fftbins=False)
+
+def frequency_window(n_frequencies, window="hann"):
+    """Symmetric taper over the frequency samples; None or 'rect' is uniform."""
+    if window in (None, "rect", "rectangular", "boxcar"):
+        return np.ones(n_frequencies)
+    return get_window(window, n_frequencies, fftbins=False)
+
+
+def range_axis(frequencies_hz, n_range):
+    """Range bins (m) of an `n_range`-point IFFT: c m / (2 n_range df), up to c / (2 df)."""
     df = frequencies_hz[1] - frequencies_hz[0]
-    profile = np.fft.ifft(s_freq * taper, n=n_fft, axis=-1) * n_fft / taper.sum()
-    path_m = np.fft.fftfreq(n_fft, d=df) * SPEED_OF_LIGHT
-    return np.fft.fftshift(path_m), np.fft.fftshift(profile, axes=-1)
+    return SPEED_OF_LIGHT * np.arange(n_range) / (2 * n_range * df)
 
 
-def wrap_path(path_m, frequencies_hz):
-    """Wraps an absolute two-way path into the centred unambiguous window of a frequency sweep."""
-    unambiguous_m = SPEED_OF_LIGHT / (frequencies_hz[1] - frequencies_hz[0])
-    return (path_m + unambiguous_m / 2) % unambiguous_m - unambiguous_m / 2
-
-
-def time_gate(s_freq, frequencies_hz, centre_path_m, half_width_m, window="blackmanharris"):
+def range_compress(s, frequencies_hz, window="hann", oversampling=4):
     """
-    Range-gates a swept response around one two-way path (VNA-style, gate-normalized).
+    IFFT of the windowed sweep along the last axis -> (range_m, profiles).
 
-    The sweep is tapered with `window`, transformed to the path domain, multiplied by a
-    rectangular gate of +-`half_width_m` centred on `centre_path_m` (wrapped into the unambiguous
-    window), and transformed back. The result is then divided by the same processing applied to
-    an ideal point reflector exp(-j k centre_path_m) and multiplied by that reflector again. This
-    gate normalization removes the taper and the truncation of the target's own main lobe, so a
-    point scatterer at `centre_path_m` comes out unbiased; only leakage of other paths into the
-    gate remains. The band edges stay less reliable (see `gate_valid_band`).
+    A point scatterer of frequency-domain amplitude A at range R peaks at |A| in bin R. The phase
+    of the profile refers to the centre frequency (the IFFT runs over the frequency index counted
+    from the centre), which is what the steering vector's k0 assumes. Targets beyond the
+    unambiguous range c / (2 df) fold back.
     """
-    n_freq = s_freq.shape[-1]
-    taper = get_window(window, n_freq, fftbins=False)
-    df = frequencies_hz[1] - frequencies_hz[0]
-    path_m = np.fft.fftfreq(n_freq, d=df) * SPEED_OF_LIGHT
-    unambiguous_m = SPEED_OF_LIGHT / df
-    offset = (path_m - wrap_path(centre_path_m, frequencies_hz) + unambiguous_m / 2) % unambiguous_m
-    gate = np.abs(offset - unambiguous_m / 2) <= half_width_m
-
-    def apply_gate(response):
-        return np.fft.fft(np.fft.ifft(response * taper, axis=-1) * gate, axis=-1)
-
-    reflector = np.exp(-2j * np.pi * np.asarray(frequencies_hz) * centre_path_m / SPEED_OF_LIGHT)
-    return apply_gate(s_freq) / apply_gate(reflector) * reflector
+    s = np.asarray(s)
+    n_frequencies = s.shape[-1]
+    n_range = int(oversampling * n_frequencies)
+    taper = frequency_window(n_frequencies, window)
+    profile = np.fft.ifft(s * taper, n=n_range, axis=-1) * n_range / taper.sum()
+    centre_index = (n_frequencies - 1) / 2
+    profile = profile * np.exp(-2j * np.pi * centre_index * np.arange(n_range) / n_range)
+    return range_axis(frequencies_hz, n_range), profile
 
 
-def gate_valid_band(frequencies_hz, window="blackmanharris", min_taper=0.5):
-    """Boolean mask of the frequencies where the gating taper exceeds `min_taper` of its peak."""
-    taper = get_window(window, len(frequencies_hz), fftbins=False)
-    return taper >= min_taper * taper.max()
-
-
-def delay_window_peak(
-    s_freq, frequencies_hz, centre_path_m, offsets_m, window="blackmanharris", oversample=16
-):
-    """
-    Peak |delay profile| within centre_path_m + [offsets_m[0], offsets_m[1]] (wrapped).
-
-    With offsets (-half_width, +half_width) it is the gated target level; with an interval beside
-    the gate (a guard band) it estimates what leaks into the gate from elsewhere, e.g. the skirt
-    of a much stronger, dispersive direct-coupling term. Their ratio is the gate's
-    signal-to-contamination ratio.
-    """
-    path_m, profile = delay_profile(
-        s_freq, frequencies_hz, window=window, n_fft=oversample * s_freq.shape[-1]
+def direction_vectors(azimuth_deg, elevation_deg):
+    """Unit vectors (n_az, n_el, 3) of the direction grid; boresight +z, azimuth towards +x."""
+    az = np.radians(np.atleast_1d(np.asarray(azimuth_deg, dtype=float)))[:, None]
+    el = np.radians(np.atleast_1d(np.asarray(elevation_deg, dtype=float)))[None, :]
+    return np.stack(
+        np.broadcast_arrays(np.cos(el) * np.sin(az), np.sin(el), np.cos(el) * np.cos(az)), axis=-1
     )
-    offset = wrap_path(path_m - centre_path_m, frequencies_hz)
-    inside = (offset >= offsets_m[0]) & (offset <= offsets_m[1])
-    return np.max(np.abs(profile[..., inside]), axis=-1)
+
+
+def steering_vectors(virtual_positions, azimuth_deg, elevation_deg, wavenumber):
+    """
+    a_p(az, el) = exp(+j k v_p . r) for virtual positions (..., n_p, 3) in metres, as an array
+    (..., n_p, n_az, n_el) for a scalar k, or (..., n_p, n_k, n_az, n_el) for an array of k.
+    """
+    projection = np.einsum(
+        "...pi,aei->...pae", virtual_positions, direction_vectors(azimuth_deg, elevation_deg)
+    )
+    k = np.asarray(wavenumber, dtype=float)
+    if k.ndim == 0:
+        return np.exp(1j * k * projection)
+    return np.exp(1j * k[:, None, None] * projection[..., None, :, :])
+
+
+def spatial_window(virtual_positions, window=None):
+    """
+    Weights (..., n_p) of a separable taper over the virtual aperture: the window function of
+    each in-plane coordinate (x, y), evaluated over the aperture extent widened by one mean
+    element spacing so that the edge channels keep a non-zero weight. None is uniform; 'hann',
+    'hamming' and 'blackman' are available for arbitrary (sparse, 2D) virtual arrays.
+    """
+    positions = np.asarray(virtual_positions, dtype=float)
+    weights = np.ones(positions.shape[:-1])
+    if window is None:
+        return weights
+    shapes = {
+        "hann": lambda u: 0.5 + 0.5 * np.cos(2 * np.pi * u),
+        "hamming": lambda u: 0.54 + 0.46 * np.cos(2 * np.pi * u),
+        "blackman": lambda u: 0.42 + 0.5 * np.cos(2 * np.pi * u) + 0.08 * np.cos(4 * np.pi * u),
+    }
+    if window not in shapes:
+        raise ValueError(f"Unknown spatial window '{window}' (use {', '.join(shapes)} or None).")
+    for axis in (0, 1):
+        coordinate = positions[..., axis]
+        low = coordinate.min(axis=-1, keepdims=True)
+        high = coordinate.max(axis=-1, keepdims=True)
+        extent = high - low
+        n_unique = max(len(np.unique(np.round(coordinate, 9))), 2)
+        width = np.where(extent > 0, extent * n_unique / (n_unique - 1), 1.0)
+        u = (coordinate - (low + high) / 2) / width
+        weights = weights * np.where(extent > 0, shapes[window](u), 1.0)
+    return weights
+
+
+def beamform(values, steering, weights):
+    """
+    b(az, el) = sum_p w_p x[p] conj(a_p(az, el)) / sum_p w_p, with values (n_var, n_p, n_x),
+    steering (n_var, n_p, n_az, n_el) or (n_var, n_p, n_x, n_az, n_el) and weights (n_var, n_p).
+    Returns (n_var, n_x, n_az, n_el).
+    """
+    weighted = values * weights[..., None] / weights.sum(axis=-1)[:, None, None]
+    if steering.ndim == 4:
+        return np.einsum("vpx,vpae->vxae", weighted, np.conj(steering))
+    return np.einsum("vpx,vpxae->vxae", weighted, np.conj(steering))
+
+
+# ----------------------------------------------------------------------------------------------
+# (g) Map quantities
+# ----------------------------------------------------------------------------------------------
+
+
+def total_power(channel_maps):
+    """Mean power over the polarimetric channels, mean_q |b_q|^2 (span / 4)."""
+    return np.mean([np.abs(channel_maps[q]) ** 2 for q in channel_maps], axis=0)
+
+
+def channel_powers(channel_maps, reference=None):
+    """
+    |b_q|^2 of every polarimetric channel, divided by one common reference so that their levels
+    stay comparable: by default the peak of the total power (per variation, i.e. per leading
+    index of the maps).
+    """
+    if reference is None:
+        total = total_power(channel_maps)
+        reference = total.reshape(total.shape[0], -1).max(axis=-1)
+        reference = reference.reshape((-1,) + (1,) * (total.ndim - 1))
+    return {q: np.abs(values) ** 2 / reference for q, values in channel_maps.items()}
+
+
+def pauli_powers(channel_maps):
+    """
+    |k_i|^2 of the bistatic Pauli vector k = [HH+VV, HH-VV, HV+VH, j(HV-VH)] / sqrt(2) per pixel,
+    as an array (..., 4); needs all four polarimetric channels.
+    """
+    matrices = assemble_scattering_matrix(*(channel_maps[q] for q in POLARIMETRIC_CHANNELS))
+    return np.abs(pauli_vector(matrices)) ** 2
+
+
+def db10(x):
+    return 10 * np.log10(np.abs(x) + 1e-300)
+
+
+def db20(x):
+    return 20 * np.log10(np.abs(x) + 1e-300)
+
+
+# ----------------------------------------------------------------------------------------------
+# Per-matrix polarimetric signatures
+# ----------------------------------------------------------------------------------------------
 
 
 def bistatic_path(tx_position, rx_position, target_position):
@@ -197,11 +307,8 @@ def bistatic_path(tx_position, rx_position, target_position):
 
 def plane_wave_phase(frequencies_hz, tx_position, rx_position, direction):
     """
-    Linear (plane-wave) MIMO phase term exp(+j k (p_tx + p_rx) . r_hat) of one Tx/Rx pair.
-
-    This is the far-field steering phase of the virtual element at (p_tx + p_rx) / 2, relative to
-    the array origin, for a target in unit direction r_hat. Dividing a channel by it moves that
-    channel's phase reference to the origin.
+    Linear (plane-wave) MIMO phase term exp(+j k (p_tx + p_rx) . r_hat) of one Tx/Rx pair: the
+    steering phase of its virtual channel for a far-field target in unit direction r_hat.
     """
     direction = np.asarray(direction, dtype=float)
     direction = direction / np.linalg.norm(direction)
@@ -212,11 +319,8 @@ def plane_wave_phase(frequencies_hz, tx_position, rx_position, direction):
 
 def spherical_wave_phase(frequencies_hz, tx_position, rx_position, target_position):
     """
-    Exact geometric phase exp(-j k (|p_tx - x| + |p_rx - x|)) of one Tx/Rx pair and focal point.
-
-    Dividing a channel by it removes the linear term and the Fresnel (quadratic) term together,
-    i.e. it focuses the channel on x. What remains is the scattering itself plus the antenna
-    response in the direction of x.
+    Exact geometric phase exp(-j k (|p_tx - x| + |p_rx - x|)) of one Tx/Rx pair and focal point,
+    the near-field counterpart of `plane_wave_phase`.
     """
     path = bistatic_path(tx_position, rx_position, target_position)
     k = 2 * np.pi * np.asarray(frequencies_hz) / SPEED_OF_LIGHT
@@ -230,10 +334,8 @@ def copolar_ratio(scattering_matrix):
 
 def crosspolar_isolation(scattering_matrix):
     """
-    Cross-polar leakage per transmit polarization, (S_VH / S_HH, S_HV / S_VV).
-
-    The first ratio is the power that a transmitted H wave puts into the V receiver relative to
-    the H receiver, the second the same for a transmitted V wave.
+    Cross-polar leakage per transmit polarization, (S_VH / S_HH, S_HV / S_VV): the power that a
+    transmitted H (V) wave puts into the V (H) receiver relative to the H (V) receiver.
     """
     s = scattering_matrix
     return s[..., 1, 0] / s[..., 0, 0], s[..., 0, 1] / s[..., 1, 1]
@@ -281,11 +383,8 @@ def pauli_power_fractions(scattering_matrix):
 
 def polarimetric_fidelity(scattering_matrix, reference_matrix):
     """
-    Phase- and scale-invariant similarity |<k, k_ref>| / (||k|| ||k_ref||) in [0, 1].
-
-    It is 1 when S is a complex multiple of the reference. 1 - fidelity is the infidelity; in dB
-    it is the floor that a bistatic configuration imposes on telling the reference mechanism
-    apart from others.
+    Phase- and scale-invariant similarity |<k, k_ref>| / (||k|| ||k_ref||) in [0, 1]; 1 when S
+    is a complex multiple of the reference.
     """
     k = pauli_vector(scattering_matrix, bistatic=True)
     k_ref = pauli_vector(np.asarray(reference_matrix, dtype=complex), bistatic=True)
@@ -306,13 +405,13 @@ def coherency_matrix(target_vectors, axis=-2):
     return np.einsum("...ni,...nj->...ij", k, np.conj(k)) / k.shape[-2]
 
 
-def entropy_alpha(coherency):
+def cloude_pottier(coherency):
     """
-    Cloude-Pottier entropy H (log base d) and mean alpha (deg) of (..., d, d) coherency matrices.
-
-    Works for the monostatic 3x3 and the bistatic 4x4 matrices. Averaging the Pauli vectors of one
-    deterministic target over frequency gives H > 0 only if its polarimetric signature changes
-    across the band.
+    Cloude-Pottier parameters of (..., d, d) coherency matrices (bistatic 4x4 or monostatic 3x3):
+    entropy H (log base d), anisotropy A = (l2 - l3) / (l2 + l3) of the eigenvalues sorted
+    l1 >= l2 >= l3 >= ..., and the mean alpha (deg). Returns (H, A, mean_alpha). For one
+    deterministic target averaged over frequency, H > 0 only if its polarimetric signature
+    changes across the band.
     """
     eigenvalues, eigenvectors = np.linalg.eigh(coherency)
     eigenvalues = np.clip(eigenvalues, 0.0, None)
@@ -320,60 +419,136 @@ def entropy_alpha(coherency):
     dimension = coherency.shape[-1]
     with np.errstate(divide="ignore", invalid="ignore"):
         log_p = np.where(probabilities > 0, np.log(probabilities), 0.0)
+        descending = np.sort(eigenvalues, axis=-1)[..., ::-1]
+        anisotropy = np.nan_to_num(
+            (descending[..., 1] - descending[..., 2]) / (descending[..., 1] + descending[..., 2])
+        )
     entropy = -np.sum(probabilities * log_p, axis=-1) / np.log(dimension)
     alphas = np.arccos(np.clip(np.abs(eigenvectors[..., 0, :]), 0.0, 1.0))
-    return entropy, np.degrees(np.sum(probabilities * alphas, axis=-1))
+    return entropy, anisotropy, np.degrees(np.sum(probabilities * alphas, axis=-1))
+
+
+def reference_dihedral(roll_deg=0.0):
+    """Dihedral rolled by `roll_deg` about the line of sight: R(roll) diag(1, -1) R(roll)^T."""
+    c, s = np.cos(np.radians(roll_deg)), np.sin(np.radians(roll_deg))
+    rotation = np.array([[c, -s], [s, c]])
+    return (rotation @ REFERENCE_DIHEDRAL.real @ rotation.T).astype(complex)
+
+
+def calibrate_with_sphere(matrices, sphere_matrices):
+    """
+    Complex channel-imbalance calibration of `matrices` from a sphere measured with the same
+    channels (both (..., 2, 2)).
+
+    A sphere's ideal matrix is the identity, so the co-polar gains are g_HH = S_HH and
+    g_VV = S_VV of the sphere measurement. The cross-polar gains cannot be observed on a sphere;
+    with g_pq = r_p t_q only their product g_HV g_VH = g_HH g_VV is known, so both are set to
+    sqrt(g_HH g_VV). That is exact for a monostatic reciprocal system and an assumption for
+    separate Tx/Rx antennas; a depolarizing reference (e.g. a 45 deg dihedral) is needed to
+    resolve it. Cross-polar leakage is not corrected.
+    """
+    g_hh = sphere_matrices[..., 0, 0]
+    g_vv = sphere_matrices[..., 1, 1]
+    g_cross = np.sqrt(g_hh * g_vv)
+    return matrices / assemble_scattering_matrix(g_hh, g_cross, g_cross, g_vv)
+
+
+# ----------------------------------------------------------------------------------------------
+# Processors
+# ----------------------------------------------------------------------------------------------
 
 
 class MimoPolarimetryProcessor:
     """
-    Polarimetric processing of one polarimetric quad (RxH, RxV, TxH, TxV) of an exported SBR+
-    sweep: scattering matrices of shape (n_variations, n_frequencies, 2, 2) over a uniform
-    frequency grid.
+    MIMO radar processing of one exported SBR+ sweep: channels S(Rx, Tx) of shape
+    (n_variations, n_channels, n_frequencies) over a uniform frequency grid, grouped into the
+    polarimetric channels HH, HV, VH, VV, each with its virtual channels p (Tx/Rx pairs).
 
     Typical use:
 
-        processor = MimoPolarimetryProcessor.from_npz("sphere_scattered.npz")  # or quad="Rx_1/Tx"
-        processor.compensate_geometry(positions_per_variation, focal_point)  # optional
-        signatures = processor.signatures(reference=REFERENCE_SPHERE)
+        processor = MimoPolarimetryProcessor.from_npz("sphere_scattered.npz")
+        range_m, profiles = processor.range_profiles()                  # (b), (c)
+        maps = processor.azimuth_elevation_maps(np.arange(-60, 61), np.arange(-30, 31))
+        power = total_power(maps["channels"])                          # (g)
 
-    For an array built by `hfss_array_builder`, `from_npz` takes the port field signs out and
-    `compensate_geometry(None, focal_point)` uses the port phase centres of the export's port
-    table.
-
-    Use the `Setup : Sweep_Scattered` export (target only). For total-field exports, pass the
-    `Sweep_Incident` or no-target export as `background`, or range-gate with `gate`.
+    It expects the scattered (target-only) solution, the default of `sbr_results`.
     """
 
     def __init__(
         self,
-        scattering_matrices,
+        s,
         frequencies_hz,
+        expressions,
         sweep_values=None,
         metadata=None,
-        quad_ports=None,
-        quad_name=None,
+        positions=None,
+        correct_signs=True,
     ):
-        self.scattering_matrices = np.asarray(scattering_matrices, dtype=complex)
+        """
+        `s` is (n_variations, n_expressions, n_frequencies) complex and `expressions` its AEDT
+        names S(<Rx port>,<Tx port>). `positions` maps port (excitation) names, or their
+        suffixes such as 'TxH', to phase-centre positions in metres, (3,) or per variation
+        (n_variations, 3); without it the export's builder port table is used, and channels
+        without either get position 0 (no steering phase, exact only at boresight).
+        """
+        self.s = np.asarray(s, dtype=complex)
         self.frequencies_hz = np.asarray(frequencies_hz, dtype=float)
-        n_variations = self.scattering_matrices.shape[0]
+        self.expressions = [str(e) for e in expressions]
+        n_variations = self.s.shape[0]
         self.sweep_values = (
             np.arange(n_variations, dtype=float)
             if sweep_values is None
-            else np.asarray(sweep_values)
+            else np.asarray(sweep_values, dtype=float)
         )
         self.metadata = metadata or {}
-        self.valid_band = np.ones(len(self.frequencies_hz), dtype=bool)
-        # {'RxH', 'RxV', 'TxH', 'TxV': excitation} of the processed quad, when known
-        self.quad_ports = quad_ports
-        self.quad_name = quad_name
-        self.signs_corrected = False
+        self._raw = {
+            "s": self.s.copy(),
+            "frequencies_hz": self.frequencies_hz.copy(),
+            "sweep_values": self.sweep_values.copy(),
+            "expressions": list(self.expressions),
+            "metadata": self.metadata,
+        }
 
-    @property
-    def port_table(self):
-        """Builder port table rows of the export ({excitation: row}); empty without one."""
-        rows = self.metadata.get("ports") or []
-        return {row["excitation"]: row for row in rows if row.get("excitation")}
+        self.channel_ports = channel_ports(self.expressions)
+        self.channel_names = []
+        for rx_port, tx_port in self.channel_ports:
+            rx, tx = parse_port(rx_port), parse_port(tx_port)
+            if not rx or not tx or rx[0] != "Rx" or tx[0] != "Tx":
+                raise ValueError(f"Expected S(<Rx port>,<Tx port>): S({rx_port},{tx_port})")
+            self.channel_names.append(rx[1] + tx[1])
+
+        self.signs_corrected = False
+        if correct_signs:
+            self._correct_port_signs()
+        self.positions_known = True
+        self._port_positions = self._resolve_positions(positions)
+
+    # --- loading and raw data -----------------------------------------------------------------
+
+    @classmethod
+    def from_npz(cls, path, quad=None, positions=None, correct_signs=True):
+        """
+        Loads an `sbr_results` export. `quad` (a name from `available_quads`, or a dict of the
+        four ports) keeps only the four channels of one polarimetric quad; by default every
+        channel is kept.
+        """
+        data = np.load(path)
+        s = data["s"]
+        expressions = list(data["expressions"])
+        if quad is not None:
+            indices, _, _ = quad_channel_indices(expressions, quad)
+            keep = sorted(indices.ravel())
+            s = s[:, keep]
+            expressions = [expressions[i] for i in keep]
+        return cls(
+            s,
+            data["frequencies_hz"],
+            expressions,
+            data["sweep_values"],
+            json.loads(str(data["metadata"])),
+            positions=positions,
+            correct_signs=correct_signs,
+        )
 
     @classmethod
     def available_quads(cls, path):
@@ -381,158 +556,274 @@ class MimoPolarimetryProcessor:
         expressions = np.load(path)["expressions"]
         return list(polarimetric_quads([p for pair in channel_ports(expressions) for p in pair]))
 
-    @classmethod
-    def from_npz(cls, path, background_path=None, quad=None, correct_signs=True):
-        """
-        Loads an `sbr_results` export, optionally subtracting a background export coherently.
+    def raw(self):
+        """The exported data as loaded, untouched."""
+        return dict(self._raw)
 
-        `quad` selects the polarimetric quad (None: the only one; a name from `available_quads`;
-        or a dict of the four ports). With `correct_signs`, the builder's port field signs
-        (attached by `sbr_results`) are taken out, so that every channel refers to +x (H) and +y
-        (V); without a port table the channels are used as measured.
-        """
-        data = np.load(path)
-        s = data["s"]
-        if background_path:
-            background = np.load(background_path)
-            for key in ("frequencies_hz", "sweep_values", "expressions"):
-                if not np.array_equal(background[key], data[key]):
-                    raise ValueError(f"Background sweep differs from the target sweep in '{key}'")
-            s = s - background["s"]
-        indices, name, quad_ports = quad_channel_indices(data["expressions"], quad)
-        processor = cls(
-            np.moveaxis(np.asarray(s)[:, indices, :], -1, 1),
-            data["frequencies_hz"],
-            data["sweep_values"],
-            json.loads(str(data["metadata"])),
-            quad_ports=quad_ports,
-            quad_name=name,
-        )
-        if correct_signs:
-            processor.correct_port_signs()
-        return processor
+    @property
+    def port_table(self):
+        """Builder port table rows of the export ({excitation: row}); empty without one."""
+        rows = self.metadata.get("ports") or []
+        return {row["excitation"]: row for row in rows if row.get("excitation")}
 
-    def correct_port_signs(self):
+    def _correct_port_signs(self):
         """
-        Takes the builder's port field signs out of the quad (see `port_sign_matrix`). Returns
-        False, and changes nothing, when the export has no port table for all four ports.
+        Takes the builder's port field signs out of every channel (S_measured = s_rx s_tx S),
+        when the export's port table covers all ports.
         """
         table = self.port_table
-        if self.signs_corrected or not self.quad_ports:
-            return self.signs_corrected
-        if not all(table.get(port, {}).get("sign") for port in self.quad_ports.values()):
-            return False
-        signs = {port: table[port]["sign"] for port in self.quad_ports.values()}
-        self.scattering_matrices = self.scattering_matrices * port_sign_matrix(
-            self.quad_ports, signs
-        )
+        ports = {port for pair in self.channel_ports for port in pair}
+        if not ports or not all(table.get(port, {}).get("sign") for port in ports):
+            return
+        signs = np.array([table[rx]["sign"] * table[tx]["sign"] for rx, tx in self.channel_ports])
+        self.s = self.s * signs[None, :, None]
         self.signs_corrected = True
-        return True
 
-    def quad_positions(self):
-        """
-        Phase centres (metres, array coordinates = SBR+ AntennaCS) of the quad's ports from the
-        builder's port table, as {'TxH', 'TxV', 'RxH', 'RxV': xyz} for `compensate_geometry`.
-        They are the values at build time, so they do not follow a swept layout variable.
-        """
+    def _resolve_positions(self, positions):
+        """{port: (n_variations, 3) metres} for every port of the export."""
+        n_variations = self.s.shape[0]
         table = self.port_table
-        if not self.quad_ports or not all(p in table for p in self.quad_ports.values()):
-            raise ValueError("The export carries no builder port table for this quad.")
+        resolved = {}
+        for port in {port for pair in self.channel_ports for port in pair}:
+            value = None
+            if positions:
+                key = (
+                    port
+                    if port in positions
+                    else next(
+                        (k for k in positions if port.endswith(f"_{k}") or port.endswith(k)), None
+                    )
+                )
+                value = positions.get(key) if key is not None else None
+            if value is None and port in table and table[port].get("phase_centre_mm"):
+                value = np.asarray(table[port]["phase_centre_mm"], dtype=float) / 1000.0
+            if value is None:
+                self.positions_known = False
+                value = np.zeros(3)
+            resolved[port] = np.broadcast_to(np.asarray(value, dtype=float), (n_variations, 3))
+        return resolved
+
+    # --- channels and geometry ----------------------------------------------------------------
+
+    @property
+    def centre_frequency_hz(self):
+        return 0.5 * (self.frequencies_hz[0] + self.frequencies_hz[-1])
+
+    @property
+    def centre_wavenumber(self):
+        return 2 * np.pi * self.centre_frequency_hz / SPEED_OF_LIGHT
+
+    @property
+    def polarimetric_channels(self):
+        """{q: [channel indices]} for the polarimetric channels present (HH, HV, VH, VV)."""
+        groups = {}
+        for index, name in enumerate(self.channel_names):
+            groups.setdefault(name, []).append(index)
+        return {q: groups[q] for q in POLARIMETRIC_CHANNELS if q in groups}
+
+    def virtual_positions(self, q):
+        """Virtual channel positions v_p = p_tx + p_rx (n_variations, n_p, 3) of channel q."""
+        return np.stack(
+            [
+                self._port_positions[self.channel_ports[i][1]]
+                + self._port_positions[self.channel_ports[i][0]]
+                for i in self.polarimetric_channels[q]
+            ],
+            axis=1,
+        )
+
+    def spatial_weights(self, q, window=None):
+        """(d) Taper weights (n_variations, n_p) over the virtual aperture of channel q."""
+        return spatial_window(self.virtual_positions(q), window)
+
+    # --- (b), (c) range compression -----------------------------------------------------------
+
+    def frequency_window(self, window="hann"):
+        """(b) The taper applied over the frequency samples."""
+        return frequency_window(len(self.frequencies_hz), window)
+
+    def range_profiles(self, window="hann", oversampling=4):
+        """
+        (c) Range profiles of every channel: (range_m, profiles (n_variations, n_channels,
+        n_range)), with the phase referred to the centre frequency.
+        """
+        return range_compress(self.s, self.frequencies_hz, window, oversampling)
+
+    # --- (e), (f) beamforming -----------------------------------------------------------------
+
+    def beamform(self, values, azimuth_deg, elevation_deg, spatial_window=None, wavenumber=None):
+        """
+        (f) Beamforms channel data `values` (n_variations, n_channels, n_x) (range profiles, or
+        the frequency samples with `wavenumber` = their k) towards every (azimuth, elevation),
+        separately per polarimetric channel: {q: (n_variations, n_x, n_az, n_el)}.
+        """
+        k = self.centre_wavenumber if wavenumber is None else wavenumber
+        result = {}
+        for q, indices in self.polarimetric_channels.items():
+            steering = steering_vectors(self.virtual_positions(q), azimuth_deg, elevation_deg, k)
+            weights = self.spatial_weights(q, spatial_window)
+            result[q] = beamform(values[:, indices], steering, weights)
+        return result
+
+    # --- (g) maps ----------------------------------------------------------------------------
+
+    def range_azimuth_maps(
+        self,
+        azimuth_deg,
+        elevation_deg=0.0,
+        window="hann",
+        spatial_window=None,
+        oversampling=4,
+    ):
+        """
+        Range-azimuth maps at one elevation: {'range_m', 'azimuth_deg', 'channels': {q:
+        complex (n_variations, n_range, n_az)}}. Feed 'channels' to `total_power`,
+        `channel_powers` or `pauli_powers`.
+        """
+        range_m, profiles = self.range_profiles(window, oversampling)
+        beams = self.beamform(profiles, azimuth_deg, [elevation_deg], spatial_window)
         return {
-            key: np.asarray(table[port]["phase_centre_mm"], dtype=float) / 1000.0
-            for key, port in self.quad_ports.items()
+            "range_m": range_m,
+            "azimuth_deg": np.atleast_1d(azimuth_deg),
+            "elevation_deg": float(elevation_deg),
+            "channels": {q: b[..., 0] for q, b in beams.items()},
         }
 
-    def gate(self, centre_paths_m, half_width_m, window=("kaiser", 14), min_taper=0.5):
-        """
-        Range-gates every channel around one two-way path per variation (`time_gate`) and limits
-        `valid_band` to where the taper is at least `min_taper`. Only needed when the data still
-        hold other paths, e.g. direct coupling in a total-field export or several scatterers.
-        """
-        centre_paths_m = np.broadcast_to(centre_paths_m, self.sweep_values.shape)
-        for index, centre in enumerate(centre_paths_m):
-            channels = np.moveaxis(self.scattering_matrices[index], 0, -1)
-            gated = time_gate(channels, self.frequencies_hz, centre, half_width_m, window=window)
-            self.scattering_matrices[index] = np.moveaxis(gated, -1, 0)
-        self.valid_band &= gate_valid_band(self.frequencies_hz, window=window, min_taper=min_taper)
+    def peak_range_bins(self, profiles):
+        """Range bin (per variation) of the strongest return, summed incoherently over channels."""
+        return np.argmax(np.sum(np.abs(profiles) ** 2, axis=1), axis=-1)
 
-    def compensate_geometry(self, positions, focal_point):
+    def azimuth_elevation_maps(
+        self,
+        azimuth_deg,
+        elevation_deg,
+        range_m=None,
+        window="hann",
+        spatial_window=None,
+        oversampling=4,
+    ):
         """
-        Divides every channel by its spherical-wave phase to `focal_point` (`spherical_wave_phase`),
-        removing the linear and Fresnel terms of the bistatic geometry.
-
-        `positions` is one dict per variation with keys 'TxH', 'TxV', 'RxH', 'RxV' (metres), a
-        single dict used for all variations, or None for the port table's `quad_positions`.
+        Azimuth-elevation maps at one range: {'range_m' (per variation), 'azimuth_deg',
+        'elevation_deg', 'channels': {q: complex (n_variations, n_az, n_el)}}. The range is
+        `range_m`, or the strongest return of each variation (`peak_range_bins`).
         """
-        if positions is None:
-            positions = self.quad_positions()
-        if isinstance(positions, dict):
-            positions = [positions] * len(self.sweep_values)
-        names = "HV"
-        for index, element_positions in enumerate(positions):
-            for rx in (0, 1):
-                for tx in (0, 1):
-                    phase = spherical_wave_phase(
-                        self.frequencies_hz,
-                        element_positions[f"Tx{names[tx]}"],
-                        element_positions[f"Rx{names[rx]}"],
-                        focal_point,
-                    )
-                    self.scattering_matrices[index, :, rx, tx] /= phase
-
-    def calibrate_with_sphere(self, sphere):
-        """
-        Complex channel-imbalance calibration from a sphere measured with the same channels.
-
-        A sphere's ideal matrix is the identity, so the co-polar gains are g_HH = S_HH and
-        g_VV = S_VV of the sphere measurement (per variation and frequency). The cross-polar gains
-        cannot be observed on a sphere; with g_pq = r_p t_q only their product g_HV g_VH = g_HH g_VV
-        is known, so both are set to sqrt(g_HH g_VV). That is exact for a monostatic reciprocal
-        system and an assumption for separate Tx/Rx antennas; a depolarizing reference (e.g. a 45
-        deg dihedral) is needed to resolve it. Cross-polar leakage is not corrected.
-        """
-        g_hh = sphere.scattering_matrices[..., 0, 0]
-        g_vv = sphere.scattering_matrices[..., 1, 1]
-        g_cross = np.sqrt(g_hh * g_vv)
-        gains = assemble_scattering_matrix(g_hh, g_cross, g_cross, g_vv)
-        self.scattering_matrices = self.scattering_matrices / gains
+        ranges, profiles = self.range_profiles(window, oversampling)
+        if range_m is None:
+            bins = self.peak_range_bins(profiles)
+        else:
+            bins = np.full(profiles.shape[0], np.argmin(np.abs(ranges - range_m)))
+        selected = profiles[np.arange(profiles.shape[0]), :, bins][..., None]
+        beams = self.beamform(selected, azimuth_deg, elevation_deg, spatial_window)
+        return {
+            "range_m": ranges[bins],
+            "azimuth_deg": np.atleast_1d(azimuth_deg),
+            "elevation_deg": np.atleast_1d(elevation_deg),
+            "channels": {q: b[:, 0] for q, b in beams.items()},
+        }
 
     def inject_noise(self, signal_to_noise_ratio_db, rng=None):
         """Adds complex white Gaussian noise at the given SNR relative to the mean channel power."""
         rng = np.random.default_rng(rng)
-        signal_power = np.mean(np.abs(self.scattering_matrices) ** 2)
+        signal_power = np.mean(np.abs(self.s) ** 2)
         noise_std = np.sqrt(signal_power / 10 ** (signal_to_noise_ratio_db / 10) / 2)
-        shape = self.scattering_matrices.shape
-        self.scattering_matrices = self.scattering_matrices + noise_std * (
-            rng.standard_normal(shape) + 1j * rng.standard_normal(shape)
+        self.s = self.s + noise_std * (
+            rng.standard_normal(self.s.shape) + 1j * rng.standard_normal(self.s.shape)
         )
 
-    def signatures(self, reference=REFERENCE_SPHERE):
+
+class CanonicalTargetProcessor(MimoPolarimetryProcessor):
+    """
+    MIMO processing plus the polarimetric description of a single target (e.g. a canonical
+    scatterer): its 2x2 scattering matrix over frequency, beamformed towards its direction, and
+    target-agnostic signatures of that matrix. Nothing here assumes what the target is; a
+    reference target (`fidelity`) or a classification (`bounce_parity`) is an explicit opt-in.
+
+        processor = CanonicalTargetProcessor.from_npz("dihedral.npz")
+        matrices = processor.target_matrices()                   # (n_var, n_freq, 2, 2)
+        features = processor.signatures(matrices=matrices)
+    """
+
+    def target_matrices(self, azimuth_deg=0.0, elevation_deg=0.0, spatial_window=None):
         """
-        All signatures of the README table, per variation and frequency (arrays of shape
-        (n_variations, n_frequencies[, 4])), plus band-averaged entropy / mean alpha per variation
-        over `valid_band`. Ratios are linear complex values; *_db keys are in dB.
+        The target's scattering matrices S[rx, tx] (n_variations, n_frequencies, 2, 2): every
+        polarimetric channel beamformed towards (azimuth, elevation) in the frequency domain,
+        with the exact k of every frequency. With one virtual channel per polarimetric channel
+        (a cluster) this is the plane-wave compensation of each channel towards the target,
+        and at boresight the channels as exported.
         """
-        s = self.scattering_matrices
-        tx_h_leak, tx_v_leak = crosspolar_isolation(s)
-        in_band = s[:, self.valid_band]
-        entropy_bistatic, mean_alpha_bistatic = entropy_alpha(
-            coherency_matrix(pauli_vector(in_band, bistatic=True))
+        k = 2 * np.pi * self.frequencies_hz / SPEED_OF_LIGHT
+        beams = self.beamform(self.s, [azimuth_deg], [elevation_deg], spatial_window, k)
+        missing = [q for q in POLARIMETRIC_CHANNELS if q not in beams]
+        if missing:
+            raise ValueError(f"The export lacks the polarimetric channel(s) {', '.join(missing)}.")
+        return assemble_scattering_matrix(*(beams[q][..., 0, 0] for q in POLARIMETRIC_CHANNELS))
+
+    @staticmethod
+    def copol_crosspol_difference_db(matrices):
+        """
+        Co-polar minus cross-polar return per transmit polarization in dB,
+        (|S_HH| - |S_VH| for Tx H, |S_VV| - |S_HV| for Tx V).
+        """
+        cross_h, cross_v = crosspolar_isolation(matrices)
+        return -db20(cross_h), -db20(cross_v)
+
+    @staticmethod
+    def copol_phase_difference_deg(matrices):
+        """Co-polar phase difference arg(S_VV S_HH*) in degrees."""
+        return np.angle(copolar_ratio(matrices), deg=True)
+
+    @classmethod
+    def bounce_parity(cls, matrices):
+        """
+        Opt-in classification: 'odd' where |arg(S_VV S_HH*)| < 90 deg (sphere, trihedral, plate),
+        else 'even' (dihedral). It assumes a dominant single-, double- or triple-bounce target.
+        """
+        return np.where(np.abs(cls.copol_phase_difference_deg(matrices)) < 90.0, "odd", "even")
+
+    @staticmethod
+    def fidelity(matrices, reference_matrix):
+        """Opt-in comparison with a chosen reference matrix (`polarimetric_fidelity`)."""
+        return polarimetric_fidelity(matrices, reference_matrix)
+
+    def signatures(self, azimuth_deg=0.0, elevation_deg=0.0, matrices=None):
+        """
+        Target-agnostic signatures of `matrices` (or of the target matrices towards
+        (azimuth, elevation)), per variation and frequency unless noted:
+
+        * `power_<pq>_db`: |S_pq|^2 of every channel, and `span_db`: the total |S|_F^2;
+        * `copol_ratio_db`, `copol_phase_difference_deg`: |S_VV / S_HH|, arg(S_VV S_HH*);
+        * `co_minus_cross_tx<h|v>_db`: co- minus cross-polar return per transmit polarization;
+        * `reciprocity_db`, `reciprocity_phase_deg`, `asymmetry_db`: S_HV / S_VH and
+          |S_HV - S_VH| / |S|_F;
+        * `pauli_fractions_db`: the four bistatic Pauli power fractions;
+        * `alpha_deg`: the Pauli angle of the single matrix, cos a = |k_1| / |k|;
+        * `entropy`, `anisotropy`, `mean_alpha_deg` (per variation): Cloude-Pottier parameters
+          of the bistatic 4x4 coherency matrix averaged over the band.
+        """
+        s = self.target_matrices(azimuth_deg, elevation_deg) if matrices is None else matrices
+        co_minus_cross_h, co_minus_cross_v = self.copol_crosspol_difference_db(s)
+        entropy, anisotropy, mean_alpha = cloude_pottier(
+            coherency_matrix(pauli_vector(s, bistatic=True))
         )
-        entropy_monostatic, mean_alpha_monostatic = entropy_alpha(
-            coherency_matrix(pauli_vector(in_band, bistatic=False))
-        )
+        ratio = copolar_ratio(s)
+        reciprocity = reciprocity_ratio(s)
+        powers = {
+            f"power_{q.lower()}_db": db20(s[..., "HV".index(q[0]), "HV".index(q[1])])
+            for q in POLARIMETRIC_CHANNELS
+        }
         return {
-            "copol_ratio": copolar_ratio(s),
-            "xpol_txh": tx_h_leak,
-            "xpol_txv": tx_v_leak,
-            "reciprocity": reciprocity_ratio(s),
-            "asymmetry": normalized_asymmetry(s),
-            "pauli_fractions": pauli_power_fractions(s),
-            "infidelity": 1 - polarimetric_fidelity(s, reference),
+            **powers,
+            "span_db": db10(span(s)),
+            "copol_ratio_db": db20(ratio),
+            "copol_phase_difference_deg": np.angle(ratio, deg=True),
+            "co_minus_cross_txh_db": co_minus_cross_h,
+            "co_minus_cross_txv_db": co_minus_cross_v,
+            "reciprocity_db": db20(reciprocity),
+            "reciprocity_phase_deg": np.angle(reciprocity, deg=True),
+            "asymmetry_db": db20(normalized_asymmetry(s)),
+            "pauli_fractions_db": db10(pauli_power_fractions(s)),
             "alpha_deg": alpha_angle(s),
-            "entropy_bistatic": entropy_bistatic,
-            "mean_alpha_bistatic_deg": mean_alpha_bistatic,
-            "entropy_monostatic": entropy_monostatic,
-            "mean_alpha_monostatic_deg": mean_alpha_monostatic,
+            "entropy": entropy,
+            "anisotropy": anisotropy,
+            "mean_alpha_deg": mean_alpha,
         }
