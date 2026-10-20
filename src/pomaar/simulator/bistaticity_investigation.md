@@ -144,3 +144,13 @@ Working notes of the sandboxed investigation behind the task note "Bistaticity a
   It also exposed the sphere's faceting (T6 above), so the sphere runs at mesh slider 9.
   (Slider 10 is rejected by `InitialMeshSettings`.)
 * Production launched (`run_production.sh`).
+* Sphere done (64 solves, 23.8 min; 49 distinct bistatic angles 0 ... 16 deg after pooling;
+  equal-angle points agree to 3e-8). Co-pol invariant: |S_VV / S_HH| within -0.13 ... +0.11 dB
+  at 79 GHz (band -0.61 ... +0.66 dB), co-pol phase difference -4.1 ... +3.2 deg up to 16 deg;
+  H <= 0.006, mean alpha <= 0.5 deg. Cross-pol at the numerical floor (co/cross median 98 dB),
+  so every cross-pol quantity (co/cross ratio and phase, HV/VH, asymmetry, k3, k4) is noise and
+  its phase scatters at random: an erratic cross-pol phase means nothing while the cross-pol
+  sits at the floor. The span falls 0.4 dB by 16 deg with aimed receivers (the longer receive
+  path, R / cos 16 deg: 0.34 dB) and 1.2 dB on boresight (plus the 60 deg beams' roll-off);
+  rxAim changes no polarimetric quantity, so in this principal plane the parametric beams'
+  off-axis polarization definition adds no squint.
