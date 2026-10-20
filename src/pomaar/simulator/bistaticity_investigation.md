@@ -54,7 +54,7 @@ Working notes of the sandboxed investigation behind the task note "Bistaticity a
   - T5 the co-located monostatic receiver (Rx_0 on top of Tx) solves cleanly;
   - T4b symmetry: the trihedral's cross-pol in the bistatic plane vanishes when that plane is
     its mirror plane (targetRoll 90 deg) and may not otherwise (targetRoll 0).
-- [ ] M4 Production sweep (validated 2026-10-20, with a dihedral at 22.5 deg added):
+- [x] M4 Production sweep (validated 2026-10-20, with a dihedral at 22.5 deg added):
   - designs (all 40 mm across, at 4 m): `MultiRxSphere` (radius 20 mm, mesh slider 9, T6),
     `MultiRxTrihedral` at targetRoll 0 and 90 deg, `MultiRxDihedral` at targetRoll 0, 22.5,
     45, 67.5 and 90 deg (a linear roll sweep; 67.5 mirrors 22.5);
@@ -70,7 +70,10 @@ Working notes of the sandboxed investigation behind the task note "Bistaticity a
     0.18 dB / 1.7 deg at 4 deg bistatic; at slider 8 and 9: -113.1 dB against -113.3 dB,
     +-0.6 dB ripple, 0.027 dB / 0.43 deg at 4 deg (8 and 9 agree), cross-pol floor -90 / -95
     dB. The sphere runs at slider 9; the plate targets are not faceted by curvature.
-- [ ] M5 Summary of the action point into the task note (Findings, Log).
+  - [x] T7 symmetry in the sign of the bistatic angle (receivers mirrored to -y, 3 solves): a
+    target with C2 symmetry about the line of sight gives S(-beta) = S(beta), one with a
+    mirror plane x-z gives S(-beta) = M S(beta) M with M = diag(-1, 1) (H flips).
+- [x] M5 Summary of the action point for the task note (Findings, Log): see "Distillation".
 
 ### Extension action points (not in this round)
 
@@ -162,7 +165,7 @@ Working notes of the sandboxed investigation behind the task note "Bistaticity a
   | span (retro lobe) | -3 dB / -10 dB | 3.5 / 5.75 deg | 3.5 / 6.0 deg |
   | co-pol ratio abs(VV/HH) | 0.5 dB | 7.5 (6.75) deg | 6.25 (2.25) deg |
   | co-pol phase difference | 5 deg / 10 deg | 4.5 / 5.75 deg | 5.75 / 6.5 deg |
-  | co/cross per Tx pol | below 30 dB / 20 dB | 2.25 ... 2.5 / 7.0 ... 7.5 deg | 8.5 deg / never (floor) |
+  | co/cross per Tx pol | below 30 dB / 20 dB | 2.25 ... 2.5 / 7.0 ... 7.5 deg | 8.5 deg / never (floor) (superseded below) |
   | entropy H | 0.1 / 0.3 | 7.5 / 7.75 deg | 7.5 / 8.5 deg |
   | mean alpha | 10 deg / 20 deg | 6.5 / 7.25 deg | 6.75 / 7.5 deg |
 
@@ -183,3 +186,86 @@ Working notes of the sandboxed investigation behind the task note "Bistaticity a
 * So for a trihedral the order of breakdown is: cross-pol (if the bistatic plane is not a mirror
   plane) from about 1 deg, co-pol phase difference at about 4.5 deg, then co-pol ratio,
   entropy and alpha together at the edge of the main lobe (6.5 ... 7.5 deg).
+* Dihedral done (320 solves, 151 min; 10 exports). The departure table is now relative to each
+  target's own monostatic value. Its earlier absolute levels (co/cross below 30 dB, mean alpha
+  above 10 deg) assumed a co-pol-pure, odd-bounce target and fired at the first step for every
+  dihedral (mean alpha 90 deg; co/cross about 0 dB at roll 22.5 and 67.5 deg, -38.6 dB at 45 deg).
+  Kinds now: 'change' from the monostatic value; 'floor change' for co/cross (clipped to
+  +-50 dB, so a cross-pol rising out of the floor counts from there; 20 dB = the former
+  "below 30 dB"); 'absolute' / 'above' only for HV/VH and the asymmetry, which reciprocity
+  fixes monostatically. A descriptor whose monostatic value is a floor or a reciprocity zero is
+  'undefined' (and is left out of `summary_change_*.png` per design).
+* The floor masks are now absolute: each cross-pol (co-pol) channel must lie within 50 dB of
+  the target's monostatic span. The floor is fixed relative to that span, not to the local
+  co-pol: about -60 dB for the trihedral and -85 ... -100 dB for the sphere and the dihedral,
+  flat over 0 ... 16 deg (trihedral roll 90: HV -63.7 ... -59.4 dB, VH -63.7 ... -61.6 dB).
+  This removes the trihedral roll 90 caveat above: its late co/cross and HV/VH "departures" are
+  gone (undefined throughout), as they were a co-pol null falling onto a fixed floor.
+* Dihedral checks. Monostatic span -75.3 dB at every roll (spread 0.02 dB: roll-invariant),
+  35.0 dB above the sphere (theory 8 pi a^2 b^2 / lambda^2 against pi r^2: 35.5 dB) and 8.0 dB
+  above the trihedral (7.8 dB). Pauli fractions follow the roll: k2 = 0 dB at 0 and 90 deg;
+  k2 = k3 = -3.0 dB at 22.5 and 67.5 deg (co/cross +-0.14 dB, the expected mixed response);
+  k3 = 0 dB at 45 deg. k1 = -38.6 dB at every roll is the dihedral's own HH/VV imbalance
+  (|VV/HH| -0.19 dB, phase 179.5 deg, from edge diffraction); the trace is roll-invariant, so at
+  45 deg it is the residual co-pol (co/cross -38.6 dB, HH = VV in phase). 67.5 deg mirrors
+  22.5 deg monostatically (co/cross phase H -179.7 / V -0.3 deg against -0.3 / -179.7 deg).
+  Mean alpha 89.6 deg at every roll.
+* Dihedral lobes. First null 5.75 deg at roll 0 (seam along H, in the bistatic plane: the
+  dihedral is a mirror along its seam, lambda / L = 5.44 deg for L = 40 mm) and 4.0 deg at roll
+  90 (seam across the bistatic plane: retro-reflecting, lambda / (2 x 40 mm cos 45 deg) = 3.85
+  deg); 6.0, 5.5 and 4.25 deg at 22.5, 45 and 67.5 deg. So bistatically 67.5 deg does not mirror
+  22.5 deg: the lobe width follows the seam's orientation to the bistatic plane.
+* rxAim (all dihedrals, as for the sphere and the trihedral) changes the span only (up to
+  +0.85 dB at 16 deg: the 60 deg beams' gain) and no polarimetric quantity outside nulls.
+* Departures, all targets (receivers aimed; first bistatic angle at 79 GHz, in units of the
+  first null beta_0 in brackets; '-' never up to 16 deg, 'undef.' monostatic value a floor):
+
+  | Descriptor (level) | D 0 | D 22.5 | D 45 | D 67.5 | D 90 | T 0 | T 90 |
+  | --- | --- | --- | --- | --- | --- | --- | --- |
+  | first null beta_0 | 5.75 | 6.0 | 5.5 | 4.25 | 4.0 | 7.8 | 8.5 |
+  | span (-3 dB) | 2.75 (0.48) | 2.5 (0.42) | 2.25 (0.41) | 2.0 (0.47) | 2.0 (0.50) | 3.5 (0.45) | 3.5 (0.41) |
+  | co-pol ratio (0.5 dB) | 5.25 (0.91) | 5.5 (0.92) | 1.0 (0.18) | 2.75 (0.65) | 2.75 (0.69) | 7.5 (0.96) | 6.25 (0.74) |
+  | co-pol phase (5 deg) | 4.75 (0.83) | 4.75 (0.79) | 1.25 (0.23) | 4.0 (0.94) | 4.0 (1.0) | 4.5 (0.58) | 5.75 (0.68) |
+  | co/cross, Tx H / V (3 dB) | - | 6.25 / 6.0 (1.0) | 2.25 / 1.5 (0.27 ... 0.41) | 4.25 (1.0) | - | 0.5 (0.06) | - |
+  | co/cross, Tx H / V (20 dB) | - | - | 5.25 (0.95) | - | - | 2.5 / 2.25 (0.29 ... 0.32) | - |
+  | co/cross phase, Tx H / V (5 deg) | undef. | 4.75 / 5.25 (0.79 ... 0.88) | 1.25 / 2.0 (0.23 ... 0.36) | 3.5 / 4.0 (0.82 ... 0.94) | undef. | undef. | undef. |
+  | HV/VH (1 dB) | - | 5.75 (0.96) | 5.25 (0.95) | 4.25 (1.0) | - | 0.5 (0.06) | - |
+  | asymmetry (-30 dB) | - | 4.5 (0.75) | 3.5 (0.64) | 3.5 (0.82) | - | 7.5 (0.96) | - |
+  | entropy H (0.1) | - | 6.0 (1.0) | 5.25 (0.95) | 4.25 (1.0) | 3.75 (0.94) | 7.5 (0.96) | 7.5 (0.88) |
+  | mean alpha (10 deg) | 5.75 (1.0) | 13.0 (2.2) | 5.25 (0.95) | 4.25 (1.0) | 3.75 (0.94) | 6.5 (0.83) | 6.75 (0.79) |
+
+  The sphere departs nowhere (co-pol ratio 0.5 dB only somewhere in the band at 14 deg).
+  The trihedral roll 0 HV/VH crosses 1 dB at 0.5 deg, where its cross-pol is only about 16 dB
+  above the trihedral's floor; the 3 dB level is crossed at 5.25 deg.
+* Two regimes. (1) Descriptors built from channels that are strong monostatically hold to
+  0.6 ... 1.0 beta_0 (0.5 dB, 5 deg, 3 dB co/cross with mixed co and cross at 22.5 / 67.5 deg,
+  entropy 0.1, alpha 10 deg), well beyond the span's -3 dB point at 0.41 ... 0.50 beta_0; they
+  go together at the first null. (2) Channels that are zero or weak monostatically move first:
+  the trihedral's cross-pol at roll 0 (co/cross 3 dB down at 0.06 beta_0, 20 dB down at 0.3
+  beta_0) and the 45 deg dihedral's residual co-pol (0.5 dB / 5 deg at 0.18 ... 0.23 beta_0).
+  Where the bistatic plane is a mirror plane of the target (trihedral 90, dihedral 0 and 90,
+  sphere), cross-pol never appears.
+* Order of the emerging channels in beta (fit over 0.25 ... 1.5 deg, 79 GHz): the trihedral's
+  cross-pol at roll 0 grows 17 dB per decade (-49 / -44 / -39 / -34 dB re the monostatic span
+  at 0.25 / 0.5 / 1 / 2 deg): field proportional to beta. The rolled dihedrals' emerging
+  channels grow 40 ... 47 dB per decade: k2 at 45 deg (-82 / -68 / -55 dB at 0.5 / 1 / 2 deg)
+  and k4 at 22.5 and 45 deg: field proportional to beta^2. The trihedral's k4 stays at its floor
+  (-60 dB) below 2 deg: its first-order cross-pol is symmetric (HV = VH).
+* T7 (why the order differs): turning the scene by 180 deg about the Tx-target line maps the
+  receiver at +beta to -beta and (H, V) to (-H, -V), which leaves every S_pq unchanged. A target
+  with that C2 symmetry (any dihedral, plate or sphere at boresight) therefore has
+  S(-beta) = S(beta): even in beta, with no linear term. A mirror plane x-z instead gives
+  S(-beta) = M S(beta) M, M = diag(-1, 1): co-pol even, cross-pol odd, so a linear cross-pol
+  is allowed. The C3 trihedral at roll 0 has that mirror plane but no C2. Solved with the
+  receivers mirrored to -y (bistaticAngle -2 deg, rxAim 1; exports `mirror_*`):
+  dihedral 22.5 deg: S(-beta) / S(beta) = 0.000 dB, 0.00 deg on every channel (bit-identical
+  ray tracing); dihedral 45 deg: within 0.03 dB / 0.2 deg (the -45 dB weak co-pol channels);
+  trihedral 0 deg: co-pol within 0.03 dB / 0.15 deg, cross-pol sign-flipped (177.7 ... 179.9
+  deg), residuals S(-beta) -+ S(beta) at -50 ... -68 dB re peak, the trihedral's floor. Pass.
+  (These solves left the designs' nominal values at bistaticAngle -2 deg, rxAim 1.)
+* Earlier note findings, explained: the erratic cross-pol phase (progress meeting) belongs to
+  cross-pol at the numerical floor (sphere; any target whose mirror plane is the bistatic
+  plane); a genuine bistatic cross-pol has a deterministic phase (trihedral roll 0: about +135
+  deg, flat over the band; rolled dihedrals: 0 / 180 deg). Cloude-Pottier's stability holds
+  (H and alpha move only at 0.8 ... 1.0 beta_0) but is partly blindness: at roll 0 the
+  trihedral's co/cross had fallen 20 dB by 2.5 deg while H and alpha stayed put to 6.5 deg.

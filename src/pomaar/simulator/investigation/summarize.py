@@ -10,17 +10,18 @@ band over the sweep:
 Figures (in <sandbox>/summary/):
 * `summary_signatures_aim<a>.png`: selected signatures against the bistatic angle, one series
   per design and roll;
-* `summary_change_aim<a>.png`: the signatures that are well defined at the monostatic point
-  (not set by the numerical cross-pol floor) minus their monostatic value, i.e. the change that
-  the bistatic geometry alone causes, per target;
+* `summary_change_aim<a>.png`: each signature minus its monostatic value, i.e. the change that
+  the bistatic geometry alone causes, drawn per design only where that monostatic value is the
+  target's own (not a numerical floor or a reciprocity zero, `monostatic_defined`);
 * `summary_aim_difference.png`: rxAim 1 minus rxAim 0 (receivers aimed at the target against
   receivers on boresight), i.e. the antenna-pattern and geometric-squint part;
 * `summary_aim<a>.csv`: the centre-frequency values and band limits behind the figures;
 * `summary_departures_aim<a>.csv`: per design, the first bistatic angle at which each
   descriptor departs from its monostatic value by the levels of `DEPARTURES`, at the centre
-  frequency and anywhere in the band; cross-pol descriptors count only where both cross-pol
-  channels stand clear of the numerical floor (`CROSS_POL_DEFINED_DB`). The levels are an
-  interpretation (how much change counts) and appear only in this table, never in the figures.
+  frequency and anywhere in the band ('undefined' where the monostatic value is a floor);
+  cross-pol (co-pol) descriptors count only where both cross-pol (co-pol) channels stand clear of
+  the numerical floor (`CROSS_POL_DEFINED_DB`). The levels are an interpretation (how much change
+  counts) and appear only in this table, never in the figures.
 """
 
 import argparse
@@ -102,19 +103,7 @@ def draw(ax, x, values, centre, colour, label, circular):
     ax.plot(x, line, color=colour, lw=1.6, marker="o", markersize=2.5, label=label)
 
 
-# Signatures whose monostatic value is set by the target, not by a numerical cross-pol floor;
-# only their change from the monostatic value is meaningful
-MONOSTATIC_DEFINED = {
-    "span_db",
-    "copol_ratio_db",
-    "copol_phase_difference_deg",
-    ("pauli_fractions_db", 0),
-    "entropy",
-    "mean_alpha_deg",
-}
-
-
-def figure(pooled, centre, transform, title, path, panels=PANELS):
+def figure(pooled, centre, transform, title, path, panels=PANELS, keep=None):
     columns = 4
     rows = -(-len(panels) // columns)
     fig, axes = plt.subplots(
@@ -122,6 +111,8 @@ def figure(pooled, centre, transform, title, path, panels=PANELS):
     )
     for ax, (panel, unit, key, circular, domain) in zip(axes.ravel(), panels):
         for colour, (stem, (features, angles)) in zip(COLOURS, pooled.items()):
+            if keep is not None and not keep(features, key):
+                continue
             values = transform(values_of(features, key), circular)
             draw(ax, angles, values, centre, colour, label_of(stem), circular)
         style_axis(ax, panel, unit)
@@ -140,32 +131,89 @@ def figure(pooled, centre, transform, title, path, panels=PANELS):
     print(f"Wrote {path}")
 
 
-# (descriptor, feature key, kind, levels): 'change' is |value - monostatic value| (wrapped for
-# phases), 'below' a value that falls under the level, 'above' one that rises over it
+# (descriptor, feature key, kind, levels), each relative to the target's own monostatic value
+# or to reciprocity, never to a target model: 'change' is |value - monostatic value| (wrapped for
+# phases), 'floor change' the same with the value clipped to the numerical floor
+# (+-CROSS_POL_DEFINED_DB, so a cross-pol channel emerging from the floor counts from there),
+# 'drop' a fall below the monostatic value, 'absolute' and 'above' bounds on quantities that
+# reciprocity fixes monostatically (HV = VH)
 DEPARTURES = [
     ("span (lobe)", "span_db", "drop", (3.0, 10.0)),
     ("co-pol ratio |VV/HH| (dB)", "copol_ratio_db", "change", (0.5, 1.0)),
     ("co-pol phase difference (deg)", "copol_phase_difference_deg", "change", (5.0, 10.0)),
-    ("co/cross Tx H |HH/VH| (dB)", "co_minus_cross_txh_db", "below", (30.0, 20.0)),
-    ("co/cross Tx V |VV/HV| (dB)", "co_minus_cross_txv_db", "below", (30.0, 20.0)),
+    ("co/cross Tx H |HH/VH| (dB)", "co_minus_cross_txh_db", "floor change", (3.0, 10.0, 20.0)),
+    ("co/cross Tx V |VV/HV| (dB)", "co_minus_cross_txv_db", "floor change", (3.0, 10.0, 20.0)),
+    ("co/cross phase Tx H (deg)", "co_cross_phase_txh_deg", "change", (5.0, 10.0)),
+    ("co/cross phase Tx V (deg)", "co_cross_phase_txv_deg", "change", (5.0, 10.0)),
     ("cross-pol ratio |HV/VH| (dB)", "reciprocity_db", "absolute", (1.0, 3.0)),
-    ("entropy H", "entropy", "above", (0.1, 0.3)),
-    ("mean alpha (deg)", "mean_alpha_deg", "above", (10.0, 20.0)),
+    ("normalized asymmetry (dB)", "asymmetry_db", "above", (-30.0, -20.0)),
+    ("entropy H", "entropy", "change", (0.1, 0.3)),
+    ("mean alpha (deg)", "mean_alpha_deg", "change", (10.0, 20.0)),
 ]
 
 
 # Cross-pol descriptors are only defined where both cross-pol channels stand clear of the
-# numerical cross-pol floor (about 60 dB below co-pol at 4 rays per wavelength, trust check T4)
+# numerical cross-pol floor, co-pol descriptors only where both co-pol channels do. The floor is
+# fixed relative to the target's monostatic span, not to the local co-pol (at 4 rays per
+# wavelength about -60 dB for the trihedral and -85 ... -100 dB for the sphere and the dihedral,
+# at every bistatic angle, trust check T4), so a co-pol null over a floor-level cross-pol is no
+# cross-pol departure
 CROSS_POL_DEFINED_DB = 50.0
-CROSS_POL_KEYS = {"reciprocity_db", "reciprocity_phase_deg", "asymmetry_db"}
+CROSS_POL_KEYS = {
+    "co_minus_cross_txh_db",
+    "co_minus_cross_txv_db",
+    "co_cross_phase_txh_deg",
+    "co_cross_phase_txv_deg",
+    "reciprocity_db",
+    "reciprocity_phase_deg",
+    "asymmetry_db",
+}
+CO_POL_KEYS = {"copol_ratio_db", "copol_phase_difference_deg"}
+# zero monostatically by reciprocity, so their change from there is no defined quantity
+RECIPROCITY_ZEROS = {"asymmetry_db", ("pauli_fractions_db", 3)}
+
+
+def above_floor(features, channels, index=None):
+    """Mask of the angles where all `channels` lie within CROSS_POL_DEFINED_DB of the monostatic
+    span (per frequency, or at frequency `index`)."""
+    span = features["span_db"][:1]
+    masks = []
+    for channel in channels:
+        power = features[f"power_{channel}_db"]
+        masks.append(power - span > -CROSS_POL_DEFINED_DB)
+    mask = np.logical_and.reduce(masks)
+    return mask if index is None else mask[:, index]
 
 
 def cross_pol_defined(features, index=None):
-    """Mask of the angles where both co/cross ratios are below CROSS_POL_DEFINED_DB."""
-    h, v = features["co_minus_cross_txh_db"], features["co_minus_cross_txv_db"]
-    if index is not None:
-        h, v = h[:, index], v[:, index]
-    return (h < CROSS_POL_DEFINED_DB) & (v < CROSS_POL_DEFINED_DB)
+    return above_floor(features, ("hv", "vh"), index)
+
+
+def co_pol_defined(features, index=None):
+    return above_floor(features, ("hh", "vv"), index)
+
+
+def defined_mask(features, key, index=None):
+    """Where `key` is not set by a numerical floor (None: everywhere)."""
+    if key in CROSS_POL_KEYS:
+        return cross_pol_defined(features, index)
+    if key in CO_POL_KEYS:
+        return co_pol_defined(features, index)
+    return None
+
+
+def monostatic_defined(features, key, centre):
+    """
+    Whether the target's monostatic value of the panel `key` is its own (at the centre
+    frequency), so that its change from there means something: not a reciprocity zero, not a
+    numerical floor, and for a Pauli fraction not below -CROSS_POL_DEFINED_DB.
+    """
+    if key in RECIPROCITY_ZEROS:
+        return False
+    if isinstance(key, tuple):
+        return bool(values_of(features, key)[0, centre] > -CROSS_POL_DEFINED_DB)
+    mask = defined_mask(features, key, centre)
+    return True if mask is None else bool(mask[0])
 
 
 def first_departure(angles, values, kind, level, circular, defined=None):
@@ -173,6 +221,9 @@ def first_departure(angles, values, kind, level, circular, defined=None):
     First bistatic angle at which `values` (per angle) departs by `level`, among the angles
     where `defined` is true (all by default); None if never.
     """
+    if kind == "floor change":
+        values = np.clip(values, -CROSS_POL_DEFINED_DB, CROSS_POL_DEFINED_DB)
+        kind = "change"
     if kind == "change":
         deviation = values - values[0]
         exceeded = np.abs(wrap_deg(deviation) if circular else deviation) > level
@@ -200,13 +251,14 @@ def write_departures(pooled, centre, path):
             for descriptor, key, kind, levels in DEPARTURES:
                 values = features[key]
                 circular = "phase" in key
-                cross = key in CROSS_POL_KEYS
 
                 def mask(index):
-                    return cross_pol_defined(features, index) if cross else None
+                    return defined_mask(features, key, index)
 
                 for level in levels:
-                    if values.ndim == 1:
+                    if kind == "change" and not monostatic_defined(features, key, centre):
+                        at_f0 = in_band = "undefined"
+                    elif values.ndim == 1:
                         at_f0 = in_band = first_departure(angles, values, kind, level, circular)
                     else:
                         at_f0 = first_departure(
@@ -283,10 +335,12 @@ def main(argv=None):
         pooled,
         centre,
         change_from_monostatic,
-        f"Change from the monostatic value, receivers {aim} ({band}; phases wrapped; only "
-        "signatures whose monostatic value is not a numerical cross-pol floor)",
+        f"Change from the monostatic value, receivers {aim} ({band}; phases wrapped; per "
+        "design only the signatures whose monostatic value is the target's own, not a numerical "
+        "floor or a reciprocity zero)",
         out / f"summary_change_aim{args.aim}.png",
-        [p for p in PANELS if p[2] in MONOSTATIC_DEFINED],
+        [p for p in PANELS if any(monostatic_defined(f, p[2], centre) for f, _ in pooled.values())],
+        keep=lambda features, key: monostatic_defined(features, key, centre),
     )
     write_csv(pooled, centre, out / f"summary_aim{args.aim}.csv")
     write_departures(pooled, centre, out / f"summary_departures_aim{args.aim}.csv")
