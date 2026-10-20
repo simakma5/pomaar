@@ -74,9 +74,13 @@ Working notes of the sandboxed investigation behind the task note "Bistaticity a
     target with C2 symmetry about the line of sight gives S(-beta) = S(beta), one with a
     mirror plane x-z gives S(-beta) = M S(beta) M with M = diag(-1, 1) (H flips).
 - [x] M5 Summary of the action point for the task note (Findings, Log): see "Distillation".
+- [x] M6 Size and range scaling (user request after M5): trihedral 40 / 80 / 160 mm at 1 / 4 /
+  16 m, dihedral 160 mm; T8 edge-diffraction model (PO, PTD, PTD + UTD).
 
 ### Extension action points (not in this round)
 
+- [ ] Full-wave check of the trihedral's bistatic cross-pol (HFSS IE / MoM, 40 mm edges at
+  79 GHz, about 10 lambda): PO, PTD and UTD differ by 10 dB.
 - [ ] Vertical receiver displacement (bistatic plane x-z, along V), next to the horizontal
   one (x-y, along H) studied here: the trihedral's and dihedral's symmetry planes swap roles.
 
@@ -269,6 +273,44 @@ Working notes of the sandboxed investigation behind the task note "Bistaticity a
   deg, flat over the band; rolled dihedrals: 0 / 180 deg). Cloude-Pottier's stability holds
   (H and alpha move only at 0.8 ... 1.0 beta_0) but is partly blindness: at roll 0 the
   trihedral's co/cross had fallen 20 dB by 2.5 deg while H and alpha stayed put to 6.5 deg.
+* Scaling check (user: "Run it"; `run_scaling.sh`, 60 solves, 92 min, log `scaling.log`;
+  analysis `scaling.py` -> `<sandbox>/scaling/scaling.png`, `scaling.csv`). Trihedral at roll 0:
+  40 mm at 1 m (the 4 m run exists), 80 mm at 4 m and 16 m, 160 mm at 4 m; dihedral at roll 90
+  (retro plane): 160 mm at 4 m. bistaticAngle grids scaled with the expected first null; rxAim 1.
+  Far-field distance 2 (sqrt 2 a)^2 / lambda: 1.7 m (40 mm), 6.7 m (80 mm), 27 m (160 mm).
+* First null: beta_0 = 8.03 / 7.79 deg (40 mm at 1 / 4 m), 3.95 / 3.97 deg (80 mm at 4 / 16 m),
+  1.99 deg (160 mm): proportional to 1 / a within 2 %, independent of range, also inside the
+  target's far-field distance. The span collapses onto one curve against beta / beta_0 out to
+  the first null (beyond it the 160 mm trihedral departs).
+* Strong-channel departures in beta_0 units hold across sizes and ranges: span -3 dB at
+  0.44 ... 0.50, co-pol ratio 0.5 dB at 0.62 ... 1.0, co-pol phase 5 deg at 0.56 ... 0.70 (160 mm:
+  3.0), entropy 0.1 at 0.96 ... 1.0, mean alpha 10 deg at 0.83 ... 1.0. So the lobe rule stands:
+  the co-pol signature is preserved while beta < about 0.5 beta_0, i.e. d < 0.5 R lambda / D.
+* Trihedral cross-pol (re monostatic span, 79 GHz), the hypothesis "a function of beta / beta_0"
+  is falsified. It is a function of beta alone at a given size: 40 mm at 1 m against 4 m
+  -44.3 / -44.0 dB at 0.5 deg, -38.6 / -38.8 dB at 1 deg, -34.0 / -34.3 dB at 2 deg; 80 mm at 4 m
+  against 16 m within 0.5 dB. It falls with size: at 1 deg -38.8 / -42.7 / -57.2 dB (HV) for
+  40 / 80 / 160 mm, peak inside the lobe -33.2 / -41.3 / about -52 dB, about -9 dB per doubling.
+  Its shape against beta / beta_0 is common (rising about 14 ... 18 dB per decade, peak near
+  0.4 beta_0); only the level moves.
+* T8 edge diffraction (`TrustTrihedralEdges`, 40 mm at roll 0, bistaticAngle 1 deg; exports
+  `t8_*`): HV re span at 1 / 2 deg -49.4 / -44.8 dB with physical optics only, -41.7 / -37.2 dB
+  with PTD, -38.8 / -34.3 dB with PTD + UTD rays (production). The bistatic cross-pol exists in
+  physical optics, but edge diffraction adds about 10 dB, so its level is model-dependent
+  (consistent with its fall with size, edges against aperture). The monostatic cross-pol is
+  -142 dB without UTD rays and -63.7 dB with them: the trihedral's "floor" is UTD-ray noise
+  (which is why it fell with ray density in T4). Co-pol within 0.3 dB in all three models.
+* Dihedral 160 mm at 4 m (27 m far-field distance): no lobe and no null in 0 ... 6 deg. The span
+  rises +3.1 / +5.4 dB at 0.5 / 1 deg and stays within +-3 dB of monostatic up to 2.5 deg (a
+  Fresnel ripple over the geometric footprint of the retro-reflected beam, half-angle about
+  atan(226 mm / 4 m) = 3.2 deg), then falls (-9 dB at 4 deg). Its polarimetric ratios stay put:
+  |VV/HH| within -0.23 ... +0.43 dB and the co-pol phase within 180 +- 4.4 deg up to 4 deg. Its
+  cross-pol stays at the floor (symmetric orientation). Near-field: the power varies across an
+  array, the polarization ratios do not.
+* Correction of my earlier extrapolation to the user: "-28 dB for a 15 cm calibration trihedral
+  at 3 m" assumed the beta / beta_0 scaling and is wrong. Interpolated between 80 and 160 mm, a
+  15 cm trihedral's bistatic cross-pol at 1 deg is about -55 dB re span (PTD + UTD; about
+  10 dB lower in physical optics), well below a real antenna's cross-pol.
 
 ## Distillation (for the task note)
 
@@ -303,16 +345,25 @@ horizontal displacement only; sphere, trihedral (roll 0, 90 deg) and dihedral (r
   2.5° while H and $\bar\alpha$ stayed put to 6.5°.
 - Aiming the receivers at the target changes the span (beam gain) but no polarimetric quantity:
   with ideal beams there is no geometric squint in the principal plane.
-- Implication for type 1 vs type 2 (hypothesis, to be tested with target size and range): an
-  array-scale displacement $d$ of a few λ at metres puts $\beta/\beta_0 \approx dD/(R\lambda)$ near
-  $10^{-2}$, where strong channels are untouched and a trihedral's bistatic cross-pol is about
-  −60 dB re span. It grows 20 dB per decade of $dD/(R\lambda)$, so it matters for large or
-  close targets and for weak-channel descriptors first.
+- Size and range (trihedral 40–160 mm at 1–16 m, dihedral 160 mm at 4 m): $\beta_0 \propto
+  \lambda/D$ within 2 %, independent of range. The co-pol rule above holds in $\beta/\beta_0$ at
+  every size and range, so the co-pol signature survives an array baseline $d$ while
+  $d \lesssim 0.5\,R\lambda/D$ (at 79 GHz and 10 m with $d$ = 50 mm: targets below about 0.4 m).
+- A trihedral's bistatic cross-pol depends on $\beta$, not on range, and falls about 9 dB per
+  doubling of size: at 1° −39 / −43 / −57 dB re span for 40 / 80 / 160 mm. A calibration-size
+  trihedral (≥ 10 cm) at array-scale angles stays near −50 dB, below real antenna cross-pol.
+  Edge diffraction makes up most of it (physical optics alone: 10 dB lower), so the level needs
+  a full-wave check.
+- Large targets in their near field (160 mm dihedral at 4 m, far field at 27 m) have no lobe:
+  the power ripples by ±3 dB across the retro-reflected footprint (+5 dB at 1°) while the
+  co-pol ratio stays within 0.4 dB and the phase within 4°.
 
 ### Log entry
 
 - 2026-10-20: Multi-receiver sweep done (sandbox branch `sandbox/bistaticity`, plan and log in
   `src/pomaar/simulator/bistaticity_investigation.md`): sphere, trihedral (2 rolls), dihedral
   (5 rolls) at 4 m, bistatic angles 0 ... 16°; six trust checks plus a β-sign symmetry check
-  pass. Departure table and summaries in `data/interim/sandbox/bistaticity/summary/`.
+  pass. Departure table and summaries in `data/interim/sandbox/bistaticity/summary/`; size and
+  range scaling (trihedral 40–160 mm, 1–16 m) in `…/scaling/`; edge-diffraction check (PO, PTD,
+  UTD).
   Extension noted: vertical receiver displacement.

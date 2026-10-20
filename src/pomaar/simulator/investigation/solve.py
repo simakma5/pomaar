@@ -5,6 +5,7 @@ and exports its scattered solution to <sandbox>/exports/<name>.npz:
 
     ansys-vnc exec python src/pomaar/simulator/investigation/solve.py MultiRxTrihedral \
         --export trihedral_nominal [--set bistaticAngle=10deg ...] [--ray-density 8] \
+        [--ptd-utd None] \
         [--parametric NAME --sweep-variable VAR]
 """
 
@@ -21,6 +22,12 @@ def main(argv=None):
     parser.add_argument("--export", required=True, help="Export name (no extension)")
     parser.add_argument("--set", nargs="*", default=[], metavar="VAR=VALUE")
     parser.add_argument("--ray-density", type=float, default=None)
+    parser.add_argument(
+        "--ptd-utd",
+        choices=("None", "PTD Correction", "PTD Correction + UTD Rays"),
+        default=None,
+        help="Edge-diffraction model of the setup (PTDUTDSimulationSettings)",
+    )
     parser.add_argument("--parametric", default=None, help="Optimetrics setup to solve instead")
     parser.add_argument("--sweep-variable", default=None)
     parser.add_argument("--no-solve", action="store_true", help="Only export")
@@ -38,6 +45,11 @@ def main(argv=None):
             setup.props["RayDensityPerWavelength"] = args.ray_density
             setup.update()
             print(f"Ray density {args.ray_density} per wavelength")
+        if args.ptd_utd is not None:
+            setup = app.get_setup(setup_name)
+            setup.props["PTDUTDSimulationSettings"] = args.ptd_utd
+            setup.update()
+            print(f"Edge diffraction: {args.ptd_utd}")
         if not args.no_solve:
             start = time.time()
             if args.parametric:
@@ -45,7 +57,8 @@ def main(argv=None):
             else:
                 app.analyze_setup(setup_name)
             print(f"Solved in {time.time() - start:.0f} s")
-        if args.set or args.ray_density is not None or not args.no_solve:
+        changed = args.ray_density is not None or args.ptd_utd is not None
+        if args.set or changed or not args.no_solve:
             app.save_project()
         exports = SANDBOX_DIR / "exports"
         exports.mkdir(exist_ok=True)
