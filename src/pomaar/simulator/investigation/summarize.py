@@ -15,7 +15,12 @@ Figures (in <sandbox>/summary/):
   the bistatic geometry alone causes, per target;
 * `summary_aim_difference.png`: rxAim 1 minus rxAim 0 (receivers aimed at the target against
   receivers on boresight), i.e. the antenna-pattern and geometric-squint part;
-* `summary_aim<a>.csv`: the centre-frequency values and band limits behind the figures.
+* `summary_aim<a>.csv`: the centre-frequency values and band limits behind the figures;
+* `summary_departures_aim<a>.csv`: per design, the first bistatic angle at which each
+  descriptor departs from its monostatic value by the levels of `DEPARTURES`, at the centre
+  frequency and anywhere in the band; cross-pol descriptors count only where both cross-pol
+  channels stand clear of the numerical floor (`CROSS_POL_DEFINED_DB`). The levels are an
+  interpretation (how much change counts) and appear only in this table, never in the figures.
 """
 
 import argparse
@@ -135,6 +140,89 @@ def figure(pooled, centre, transform, title, path, panels=PANELS):
     print(f"Wrote {path}")
 
 
+# (descriptor, feature key, kind, levels): 'change' is |value - monostatic value| (wrapped for
+# phases), 'below' a value that falls under the level, 'above' one that rises over it
+DEPARTURES = [
+    ("span (lobe)", "span_db", "drop", (3.0, 10.0)),
+    ("co-pol ratio |VV/HH| (dB)", "copol_ratio_db", "change", (0.5, 1.0)),
+    ("co-pol phase difference (deg)", "copol_phase_difference_deg", "change", (5.0, 10.0)),
+    ("co/cross Tx H |HH/VH| (dB)", "co_minus_cross_txh_db", "below", (30.0, 20.0)),
+    ("co/cross Tx V |VV/HV| (dB)", "co_minus_cross_txv_db", "below", (30.0, 20.0)),
+    ("cross-pol ratio |HV/VH| (dB)", "reciprocity_db", "absolute", (1.0, 3.0)),
+    ("entropy H", "entropy", "above", (0.1, 0.3)),
+    ("mean alpha (deg)", "mean_alpha_deg", "above", (10.0, 20.0)),
+]
+
+
+# Cross-pol descriptors are only defined where both cross-pol channels stand clear of the
+# numerical cross-pol floor (about 60 dB below co-pol at 4 rays per wavelength, trust check T4)
+CROSS_POL_DEFINED_DB = 50.0
+CROSS_POL_KEYS = {"reciprocity_db", "reciprocity_phase_deg", "asymmetry_db"}
+
+
+def cross_pol_defined(features, index=None):
+    """Mask of the angles where both co/cross ratios are below CROSS_POL_DEFINED_DB."""
+    h, v = features["co_minus_cross_txh_db"], features["co_minus_cross_txv_db"]
+    if index is not None:
+        h, v = h[:, index], v[:, index]
+    return (h < CROSS_POL_DEFINED_DB) & (v < CROSS_POL_DEFINED_DB)
+
+
+def first_departure(angles, values, kind, level, circular, defined=None):
+    """
+    First bistatic angle at which `values` (per angle) departs by `level`, among the angles
+    where `defined` is true (all by default); None if never.
+    """
+    if kind == "change":
+        deviation = values - values[0]
+        exceeded = np.abs(wrap_deg(deviation) if circular else deviation) > level
+    elif kind == "drop":
+        exceeded = values[0] - values > level
+    elif kind == "below":
+        exceeded = values < level
+    elif kind == "absolute":
+        exceeded = np.abs(values) > level
+    else:
+        exceeded = values > level
+    exceeded[0] = False
+    if defined is not None:
+        exceeded &= defined
+    return round(float(angles[np.argmax(exceeded)]), 2) if exceeded.any() else None
+
+
+def write_departures(pooled, centre, path):
+    with open(path, "w", newline="") as handle:
+        writer = csv.writer(handle)
+        writer.writerow(
+            ["design", "descriptor", "level", "first_angle_f0_deg", "first_angle_band_deg"]
+        )
+        for stem, (features, angles) in pooled.items():
+            for descriptor, key, kind, levels in DEPARTURES:
+                values = features[key]
+                circular = "phase" in key
+                cross = key in CROSS_POL_KEYS
+
+                def mask(index):
+                    return cross_pol_defined(features, index) if cross else None
+
+                for level in levels:
+                    if values.ndim == 1:
+                        at_f0 = in_band = first_departure(angles, values, kind, level, circular)
+                    else:
+                        at_f0 = first_departure(
+                            angles, values[:, centre], kind, level, circular, mask(centre)
+                        )
+                        # anywhere in the band: the earliest angle over all frequencies
+                        firsts = [
+                            first_departure(angles, values[:, i], kind, level, circular, mask(i))
+                            for i in range(values.shape[1])
+                        ]
+                        firsts = [f for f in firsts if f is not None]
+                        in_band = min(firsts) if firsts else None
+                    writer.writerow([label_of(stem), descriptor, level, at_f0, in_band])
+    print(f"Wrote {path}")
+
+
 def identity(values, circular):
     return values
 
@@ -201,6 +289,7 @@ def main(argv=None):
         [p for p in PANELS if p[2] in MONOSTATIC_DEFINED],
     )
     write_csv(pooled, centre, out / f"summary_aim{args.aim}.csv")
+    write_departures(pooled, centre, out / f"summary_departures_aim{args.aim}.csv")
 
     pairs = [
         (s, s.replace("rxAim1", "rxAim0"))

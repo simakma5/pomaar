@@ -154,3 +154,32 @@ Working notes of the sandboxed investigation behind the task note "Bistaticity a
   path, R / cos 16 deg: 0.34 dB) and 1.2 dB on boresight (plus the 60 deg beams' roll-off);
   rxAim changes no polarimetric quantity, so in this principal plane the parametric beams'
   off-axis polarization definition adds no squint.
+* Trihedral done (128 solves, 62 min). Departure angles from `summary_departures_aim1.csv`
+  (receivers aimed; first bistatic angle, at 79 GHz / anywhere in the band):
+
+  | Descriptor | Level | Roll 0 (mirror plane vertical) | Roll 90 (mirror plane = bistatic plane) |
+  | --- | --- | --- | --- |
+  | span (retro lobe) | -3 dB / -10 dB | 3.5 / 5.75 deg | 3.5 / 6.0 deg |
+  | co-pol ratio abs(VV/HH) | 0.5 dB | 7.5 (6.75) deg | 6.25 (2.25) deg |
+  | co-pol phase difference | 5 deg / 10 deg | 4.5 / 5.75 deg | 5.75 / 6.5 deg |
+  | co/cross per Tx pol | below 30 dB / 20 dB | 2.25 ... 2.5 / 7.0 ... 7.5 deg | 8.5 deg / never (floor) |
+  | entropy H | 0.1 / 0.3 | 7.5 / 7.75 deg | 7.5 / 8.5 deg |
+  | mean alpha | 10 deg / 20 deg | 6.5 / 7.25 deg | 6.75 / 7.5 deg |
+
+  The first null of the bistatic pattern lies at 7.8 deg (roll 0) and 8.5 deg (roll 90; the
+  triangular aperture is wider in that plane); lambda / D = 7.8 deg gives an effective
+  aperture D = 28 mm. Inside the main lobe (below about 6 deg) the co-pol descriptors and
+  Cloude-Pottier stay put; they all break down together at the null, where the triple bounce
+  vanishes and edge and single/double-bounce contributions compete (H = 0.48, mean alpha
+  43 deg at roll 0).
+* Trihedral cross-pol: at roll 0 it rises out of the floor at once and is the first
+  descriptor to move: co/cross falls below 30 dB by 2.25 deg, i.e. inside the -3 dB retro lobe,
+  with a deterministic co/cross phase (about +135 deg for both Tx polarizations, flat over the
+  band and over 0.25 ... 6 deg) and HV = VH within 1 dB up to about 4 deg (reciprocity holds; the
+  asymmetry and k4 grow from there). At roll 90 the cross-pol stays at the numerical floor
+  (about -145 dB absolute) at every angle; its co/cross and HV/VH "departures" near 7.5 ... 9
+  deg are the co-pol null falling onto that floor, not a cross-pol: the 50 dB co/cross guard of
+  the departure table is relative to co-pol and cannot tell the two apart near a null.
+* So for a trihedral the order of breakdown is: cross-pol (if the bistatic plane is not a mirror
+  plane) from about 1 deg, co-pol phase difference at about 4.5 deg, then co-pol ratio,
+  entropy and alpha together at the edge of the main lobe (6.5 ... 7.5 deg).
