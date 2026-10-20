@@ -269,3 +269,50 @@ Working notes of the sandboxed investigation behind the task note "Bistaticity a
   deg, flat over the band; rolled dihedrals: 0 / 180 deg). Cloude-Pottier's stability holds
   (H and alpha move only at 0.8 ... 1.0 beta_0) but is partly blindness: at roll 0 the
   trihedral's co/cross had fallen 20 dB by 2.5 deg while H and alpha stayed put to 6.5 deg.
+
+## Distillation (for the task note)
+
+### Findings: multiple receivers, boresight canonical targets at 4 m (2026-10-20)
+
+Scene: ideal parametric beams (60 deg, type 2: H and V share each site), one Tx and three Rx
+sites at bistatic angles 0, beta, 2 beta (beta = 0.25 ... 8 deg, so 0 ... 16 deg in all),
+horizontal displacement only; sphere, trihedral (roll 0, 90 deg) and dihedral (roll 0, 22.5,
+45, 67.5, 90 deg), all 40 mm across. 512 SBR+ solves, sandbox branch `sandbox/bistaticity`.
+
+- Strong-channel descriptors are lobe-limited, not displacement-limited. In units of the first
+  null $\beta_0$ of the bistatic pattern (4 ... 8.5 deg here, about $\lambda/D$), the co-pol ratio
+  and phase, a mixed co/cross response, entropy and $\bar\alpha$ hold to $0.6\ldots1.0\,\beta_0$
+  (0.5 dB, 5°, 3 dB, 0.1, 10°), beyond the span's −3 dB point at $0.41\ldots0.50\,\beta_0$, and break
+  down together at the null. The sphere does not depart anywhere up to 16°.
+- Weak or monostatically zero channels move first: the trihedral's cross-pol when the
+  bistatic plane is not its mirror plane (co/cross 3 dB down at $0.06\,\beta_0$, 20 dB at
+  $0.3\,\beta_0$), and the residual co-pol of a 45° dihedral ($0.2\,\beta_0$). LDR-type descriptors
+  are the sensitive ones.
+- Symmetry decides whether and how fast. If the bistatic plane is a mirror plane of the target
+  (sphere, trihedral roll 90°, dihedral 0°/90°), cross-pol never appears. A target with C2
+  symmetry about the line of sight (any dihedral or plate) has $S(-\beta) = S(\beta)$, so its
+  polarimetric change is second order (field $\propto\beta^2$, 40 dB/decade). The trihedral (C3, no
+  C2) has an odd cross-pol, first order (field $\propto\beta$, 20 dB/decade: −49 / −39 / −34 dB re
+  span at 0.25 / 1 / 2°). Checked with mirrored receivers (dihedral bit-identical; trihedral
+  cross-pol sign-flipped to within its floor).
+- The erratic cross-pol phase is the numerical floor: genuine bistatic cross-pol has a
+  deterministic phase (trihedral about +135°, flat over the band; rolled dihedrals 0/180°).
+  The SBR+ floor is fixed relative to the monostatic span (−60 dB trihedral, −85 ... −100 dB
+  sphere and dihedral at 4 rays/λ), so cross-pol is only defined well above it.
+- Cloude–Pottier's stability is partly blindness: the trihedral's co/cross had fallen 20 dB by
+  2.5° while H and $\bar\alpha$ stayed put to 6.5°.
+- Aiming the receivers at the target changes the span (beam gain) but no polarimetric quantity:
+  with ideal beams there is no geometric squint in the principal plane.
+- Implication for type 1 vs type 2 (hypothesis, to be tested with target size and range): an
+  array-scale displacement $d$ of a few λ at metres puts $\beta/\beta_0 \approx dD/(R\lambda)$ near
+  $10^{-2}$, where strong channels are untouched and a trihedral's bistatic cross-pol is about
+  −60 dB re span. It grows 20 dB per decade of $dD/(R\lambda)$, so it matters for large or
+  close targets and for weak-channel descriptors first.
+
+### Log entry
+
+- 2026-10-20: Multi-receiver sweep done (sandbox branch `sandbox/bistaticity`, plan and log in
+  `src/pomaar/simulator/bistaticity_investigation.md`): sphere, trihedral (2 rolls), dihedral
+  (5 rolls) at 4 m, bistatic angles 0 ... 16°; six trust checks plus a β-sign symmetry check
+  pass. Departure table and summaries in `data/interim/sandbox/bistaticity/summary/`.
+  Extension noted: vertical receiver displacement.
