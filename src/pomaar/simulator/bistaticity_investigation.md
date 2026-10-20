@@ -27,7 +27,8 @@ Working notes of the sandboxed investigation behind the task note "Bistaticity a
   target, its bistatic angle is exactly k bistaticAngle (0 = monostatic, co-located with Tx).
   One solve gives the three receivers; sweeping `bistaticAngle` scans "reasonably bistatic".
   Receivers with equal k bistaticAngle from different solves (e.g. Rx_2 at 1 deg and Rx_1 at
-  2 deg) must agree: a built-in consistency check.
+  2 deg) sit at the same position (y depends on k bistaticAngle only), so their agreement only
+  checks the bookkeeping of the export and the pooling, not the physics.
 * `rxAim` (0 or 1) turns each receiver towards the target (yaw -k bistaticAngle), so that the
   antenna pattern and its off-axis polarization definition drop out (1), or keeps every
   antenna on boresight like a real array (0). The difference separates the geometric
@@ -53,17 +54,28 @@ Working notes of the sandboxed investigation behind the task note "Bistaticity a
   - T5 the co-located monostatic receiver (Rx_0 on top of Tx) solves cleanly;
   - T4b symmetry: the trihedral's cross-pol in the bistatic plane vanishes when that plane is
     its mirror plane (targetRoll 90 deg) and may not otherwise (targetRoll 0).
-- [ ] M4 Production sweep (after validation), proposed:
-  - designs: sphere (radius 20 mm), trihedral at targetRoll 0 and 90 deg (bistatic plane off
-    and on its mirror plane), dihedral at targetRoll 0, 45 and 90 deg; all 40 mm at 4 m;
+- [ ] M4 Production sweep (validated 2026-10-20, with a dihedral at 22.5 deg added):
+  - designs (all 40 mm across, at 4 m): `MultiRxSphere` (radius 20 mm, mesh slider 9, T6),
+    `MultiRxTrihedral` at targetRoll 0 and 90 deg, `MultiRxDihedral` at targetRoll 0, 22.5,
+    45, 67.5 and 90 deg (a linear roll sweep; 67.5 mirrors 22.5);
   - `bistaticAngle` 0.25 ... 8 deg in 0.25 deg steps (32 values; with Rx_2 the bistatic
-    angles reach 16 deg), each with rxAim 1 and 0: 64 solves of about 25 s per design, under
-    half an hour each;
-  - analysis: a per-receiver mode for `bistaticity_analysis` that pools every (variation,
-    receiver) into signatures against the bistatic angle k bistaticAngle, the co/cross-pol
-    signatures (Z_DR, LDR analogues) included; equal angles from different receivers as the
-    consistency check; rxAim 1 against 0 for the geometric squint.
+    angles reach 16 deg), each with rxAim 0 and 1: 512 solves, about 3.5 h
+    (`investigation/run_production.sh`, log `production.log` in the sandbox data folder);
+  - exports: one per (design, rxAim, targetRoll) over `bistaticAngle`, with the scene
+    geometry (`positions_m`, `target_m`) in the metadata (`export_sweep.py`);
+  - analysis: `bistaticity_analysis --per-receiver` pools every (receiver, variation) by its
+    bistatic angle (`pool_receivers`); a summary script compares targets and rxAim.
+  - [x] T6 sphere faceting: at the default mesh (slider 5) the 20 mm sphere was 2.4 dB above
+    the radar equation with +-2.5 dB ripple over the band, and its co-pol ratio drifted
+    0.18 dB / 1.7 deg at 4 deg bistatic; at slider 8 and 9: -113.1 dB against -113.3 dB,
+    +-0.6 dB ripple, 0.027 dB / 0.43 deg at 4 deg (8 and 9 agree), cross-pol floor -90 / -95
+    dB. The sphere runs at slider 9; the plate targets are not faceted by curvature.
 - [ ] M5 Summary of the action point into the task note (Findings, Log).
+
+### Extension action points (not in this round)
+
+- [ ] Vertical receiver displacement (bistatic plane x-z, along V), next to the horizontal
+  one (x-y, along H) studied here: the trihedral's and dihedral's symmetry planes swap roles.
 
 ## Log
 
@@ -123,3 +135,12 @@ Working notes of the sandboxed investigation behind the task note "Bistaticity a
 * Trust checks done (all pass); stopped for validation before the production sweep. The
   sandbox designs: `MultiRxTrihedral` (reset to targetRoll 0), `TrustStrip`, `TrustDihedral`;
   exports `t1_*`, `t2_*`, `t4_*`, `t4b_*` in the sandbox `exports/`.
+* Validation (user): production approved with a dihedral at 22.5 deg added; sphere 40 mm across
+  (radius 20 mm) like the other targets; per-receiver analysis mode approved; horizontal
+  displacement only, vertical noted as an extension action point.
+* Mini sweep (`MultiRxSphere`, bistaticAngle 1 and 2 deg x rxAim 0 and 1; 4 solves in 1.1 min)
+  checked the sweep -> export -> pooling chain: rxAim changes |S| by at most 0.05 dB at 4 deg
+  (the 60 deg beams' roll-off), and Rx_1 at 2 deg equals Rx_2 at 1 deg to 7e-9 (same position).
+  It also exposed the sphere's faceting (T6 above), so the sphere runs at mesh slider 9.
+  (Slider 10 is rejected by `InitialMeshSettings`.)
+* Production launched (`run_production.sh`).
