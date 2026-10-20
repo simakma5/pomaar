@@ -253,13 +253,22 @@ def cs_name_for_port(port):
     return f"CS_{port[len('Port_') :]}" if port.startswith("Port_") else f"CS_{port}"
 
 
+# AEDT names the port of an SBR+ native antenna (parametric beam, dipole, ...) '<instance>_p<N>',
+# where the instance is the component name plus an index ('Rx_1_H' -> 'Rx_1_H1'), and PyAEDT
+# lists excitations with a mode suffix (':1')
+NATIVE_ANTENNA_PORT_SUFFIX = r"\d*_p\d+(?::\d+)?$"
+
+
 def parse_port(port_name):
     """
     Classifies a port name as (role, polarization, element key), e.g. 'TxH' -> ('Tx', 'H', 'Tx')
     and 'Port_Tx_1_H' -> ('Tx', 'H', 'Port_Tx_1_'); None if it is neither (e.g. a '_Load' port).
     The element key pairs the H and V ports of one dual-polarized element. Excitation names of a
-    linked antenna ('<instance>_Port_Tx_1_H') parse the same way.
+    linked antenna ('<instance>_Port_Tx_1_H') parse the same way, and so do the ports of SBR+
+    native antennas such as parametric beams, which AEDT names '<component><index>_p<N>'
+    ('Rx_1_H1_p1' -> ('Rx', 'H', 'Rx_1_'), 'TxV1_p1' -> ('Tx', 'V', 'Tx')).
     """
+    port_name = re.sub(NATIVE_ANTENNA_PORT_SUFFIX, "", port_name)
     roles = re.findall(r"Tx|Rx", port_name)
     pol = re.search(r"([HV])$", port_name)
     if not roles or not pol:
