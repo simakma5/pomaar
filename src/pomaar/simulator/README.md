@@ -236,10 +236,12 @@ bistaticity_analysis data/interim/bistaticity/horn_cluster_sphere_boresight_3m.n
 ```
 
 `bistaticity_analysis` options: `--azimuth`/`--elevation` (deg; azimuth from boresight towards H,
-elevation towards V) steer towards an off-boresight target; `--quad` keeps one polarimetric quad
-(default: every channel); `--window` is the frequency window of the range profiles; `--out` is the
-parent output folder (default: the project's `data/processed/bistaticity`, whatever the current
-directory). Every export gets its own subfolder named after the `.npz` file, created if needed, so
+elevation towards V) steer towards an off-boresight target, by default towards the export's
+`target_steering_deg` when it is the same at every variation (else boresight; the script prints
+which it used), so a z-boresight scene's spherical angles never reach the processor; `--quad`
+keeps one polarimetric quad (default: every channel); `--window` is the frequency window of the
+range profiles; `--out` is the parent output folder (default: the project's
+`data/processed/bistaticity`, whatever the current directory). Every export gets its own subfolder named after the `.npz` file, created if needed, so
 analysing other data sets never overwrites earlier results (re-running the same export does). Its
 outputs make no assumption about the target or the scene: no reference target, no thresholds or
 "ideal" lines, no classification. It writes:

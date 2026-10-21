@@ -7,8 +7,9 @@ Tx-Rx spacing), from an SBR+ sweep exported by `sbr_results` (scattered solution
         [--out <folder>] [--azimuth DEG] [--elevation DEG] [--quad NAME]
 
 All processing is `CanonicalTargetProcessor`'s: the target's scattering matrices beamformed
-towards (azimuth, elevation) (boresight by default, where no geometry is needed), range profiles
-and, for arrays with several virtual channels per polarization, azimuth-elevation maps. The
+towards (azimuth, elevation) (by default the target's direction recorded in the export, else
+boresight, where no geometry is needed), range profiles and, for arrays with several virtual
+channels per polarization, azimuth-elevation maps. The
 azimuth runs from boresight towards H and the elevation towards V, so the angles mean the same
 in the ISO scene frame (the processor's default) and in the HFSS array frame. This script only
 combines and plots them, and shows only target-agnostic quantities: no reference target, no
@@ -513,6 +514,27 @@ def pool_receivers(path, azimuth=0.0, elevation=0.0, tolerance_deg=1e-6):
     )
 
 
+def steering_direction(metadata, azimuth=None, elevation=None):
+    """
+    The (azimuth, elevation) in deg to steer at, and where they come from: the given angles, else
+    the target's direction recorded by `sbr_results` (`target_steering_deg`, the processor's
+    angles in either scene frame) when it is the same at every variation, else boresight. An
+    angle that is given overrides only itself.
+    """
+    recorded = np.asarray(metadata.get("target_steering_deg") or [], dtype=float).reshape(-1, 2)
+    if len(recorded) and np.allclose(recorded, recorded[0], atol=1e-9):
+        default, source = recorded[0], "the export's target direction"
+    else:
+        default, source = (0.0, 0.0), "boresight"
+        if len(recorded):
+            source += " (the target moves across the sweep; pass --azimuth/--elevation)"
+    if azimuth is not None or elevation is not None:
+        source = "the given angles" if None not in (azimuth, elevation) else f"given and {source}"
+    azimuth = float(default[0]) if azimuth is None else azimuth
+    elevation = float(default[1]) if elevation is None else elevation
+    return azimuth, elevation, source
+
+
 def main(argv=None):
     parser = argparse.ArgumentParser(description=__doc__.split("\n\n")[0])
     parser.add_argument("sweep", help=".npz written by pomaar.simulator.sbr_results")
@@ -527,14 +549,20 @@ def main(argv=None):
     parser.add_argument(
         "--azimuth",
         type=float,
-        default=0.0,
-        help="Steering azimuth (deg, from boresight towards H: ISO +y; default: 0)",
+        default=None,
+        help=(
+            "Steering azimuth (deg, from boresight towards H: ISO +y; default: the export's "
+            "target direction when it is fixed, else 0)"
+        ),
     )
     parser.add_argument(
         "--elevation",
         type=float,
-        default=0.0,
-        help="Steering elevation (deg, towards V: ISO +z; default: 0)",
+        default=None,
+        help=(
+            "Steering elevation (deg, towards V: ISO +z; default: the export's target "
+            "direction when it is fixed, else 0)"
+        ),
     )
     parser.add_argument(
         "--quad", default=None, help="Keep one polarimetric quad (e.g. 'Rx_1/Tx'); default all"
@@ -586,6 +614,10 @@ def main(argv=None):
         "virtual channels "
         + ", ".join(f"{q} {len(i)}" for q, i in processor.polarimetric_channels.items())
     )
+    args.azimuth, args.elevation, source = steering_direction(
+        processor.metadata, args.azimuth, args.elevation
+    )
+    print(f"Steering to ({args.azimuth:g}°, {args.elevation:g}°): {source}.")
     off_boresight = args.azimuth != 0.0 or args.elevation != 0.0
     if off_boresight and not processor.positions_known:
         print(

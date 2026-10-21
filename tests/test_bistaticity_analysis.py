@@ -5,7 +5,7 @@ import json
 import numpy as np
 import pytest
 
-from pomaar.simulator.bistaticity_analysis import pool_receivers
+from pomaar.simulator.bistaticity_analysis import pool_receivers, steering_direction
 
 FREQUENCIES = np.linspace(74e9, 84e9, 11)
 SITES = ("Rx_0", "Rx_1", "Rx_2")
@@ -54,3 +54,17 @@ def test_pool_receivers_sorts_by_bistatic_angle_and_keeps_equal_angles_once(tmp_
     assert features["ldr_txh_db"].shape == (4, len(FREQUENCIES))
     np.testing.assert_allclose(features["ldr_txh_db"], -80.0)
     assert values[1] == pytest.approx(1.0)
+
+
+def test_steering_direction_defaults_to_a_fixed_target_direction():
+    fixed = {"target_steering_deg": [[10.0, 5.0], [10.0, 5.0]]}
+    assert steering_direction(fixed)[:2] == (10.0, 5.0)
+    assert steering_direction(fixed, azimuth=0.0)[:2] == (0.0, 5.0)
+    assert steering_direction(fixed, 1.0, 2.0)[:2] == (1.0, 2.0)
+
+
+def test_steering_direction_falls_back_to_boresight():
+    assert steering_direction({})[:2] == (0.0, 0.0)
+    moving = {"target_steering_deg": [[0.0, 0.0], [10.0, 0.0]]}
+    azimuth, elevation, source = steering_direction(moving)
+    assert (azimuth, elevation) == (0.0, 0.0) and "moves" in source
