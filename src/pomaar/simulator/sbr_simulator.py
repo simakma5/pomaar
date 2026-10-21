@@ -42,6 +42,13 @@ from pomaar.simulator.hfss_array_builder import (
     connect_live_session,
     saved_setups,
 )
+from pomaar.simulator.scene_frames import (
+    ANTENNA_CS_ANGLES,
+    BORESIGHT_AXES,
+    DEFAULT_BORESIGHT,
+    check_boresight,
+    target_cs,
+)
 
 # 'none' builds the same scene without a target; its solve is the background (direct Tx -> Rx
 # coupling between the proxy ports) to subtract coherently from target runs
@@ -53,11 +60,6 @@ FIELD_TYPES = ("farfield", "nearfield")
 # and a*sqrt(2)), so a 4 m range keeps it in its own far field.
 DEFAULT_TARGET_RANGE = "4m"
 DEFAULT_TARGET_SIZE = "40mm"
-
-# Antenna boresight in the SBR+ scene: 'x' (ISO 8855 radar convention, the default: x forward,
-# y left, z up) or 'z' (the HFSS antenna frame, the earlier default)
-BORESIGHT_AXES = ("x", "z")
-DEFAULT_BORESIGHT = "x"
 
 ANTENNA_CS = "AntennaCS"
 TARGET_CS = "TargetCS"
@@ -145,8 +147,7 @@ class SbrSimulationManager:
     def __init__(
         self, project_path, source_design_name, sbr_design_name=None, boresight=DEFAULT_BORESIGHT
     ):
-        if boresight not in BORESIGHT_AXES:
-            raise ValueError(f"boresight must be one of {BORESIGHT_AXES}, not '{boresight}'")
+        check_boresight(boresight)
         self.project_path = os.path.abspath(project_path)
         self.source_design_name = source_design_name
         self.sbr_design_name = sbr_design_name if sbr_design_name else f"Linked{source_design_name}"
@@ -393,27 +394,11 @@ class SbrSimulationManager:
         editor = app.modeler.oeditor
         # CreateRelativeCS references the working CS
         app.modeler.set_working_coordinate_system("Global")
-        if self.boresight == "x":
-            # Rz(0) Ry(90) Rz(90): antenna frame x (H) -> y, y (V) -> z, z (boresight) -> x
-            antenna_angles = ["0deg", "90deg", "90deg"]
-            target_origin = [
-                "targetRange*cos(targetElevation)*cos(targetAzimuth)",
-                "targetRange*cos(targetElevation)*sin(targetAzimuth)",
-                "targetRange*sin(targetElevation)",
-            ]
-            # Rz(az) Ry(90 - el) Rz(90 + roll): local z radially outward, local x along H
-            target_angles = ["targetAzimuth", "90deg-targetElevation", "90deg+targetRoll"]
-            target_reference = "Global"
-        else:
-            antenna_angles = ["0deg", "0deg", "0deg"]
-            target_origin = [
-                "targetRange*cos(targetAzimuth)*sin(targetElevation)",
-                "targetRange*sin(targetAzimuth)*sin(targetElevation)",
-                "targetRange*cos(targetElevation)",
-            ]
-            # Rz(az) Ry(el) Rz(roll - az): local z radially outward, no twist at roll = 0
-            target_angles = ["targetAzimuth", "targetElevation", "targetRoll - targetAzimuth"]
-            target_reference = ANTENNA_CS
+        # x: Rz(0) Ry(90) Rz(90) turns the antenna frame's x (H) to y, y (V) to z and z
+        # (boresight) to x; TargetCS has its local z radially outward, local x along H
+        antenna_angles = list(ANTENNA_CS_ANGLES[self.boresight])
+        target_origin, target_angles, in_antenna_cs = target_cs(self.boresight)
+        target_reference = ANTENNA_CS if in_antenna_cs else "Global"
 
         if create_antenna_cs:
             print(f"Creating {ANTENNA_CS} at the global origin (boresight +{self.boresight})...")

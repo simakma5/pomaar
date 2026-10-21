@@ -18,8 +18,8 @@ The chain, one method each:
 (b) `frequency_window`: taper over the frequency samples.
 (c) `range_profiles`: IFFT of the windowed sweep, with its phase referred to the centre frequency.
 (d) `spatial_weights`: optional taper over each polarimetric channel's virtual aperture.
-(e) Directions (azimuth, elevation), given by the caller; the virtual channel positions come from
-    the export's builder port table (or `positions`).
+(e) Directions (azimuth, elevation), given by the caller, in the scene frame (`boresight`); the
+    virtual channel positions come from the export's builder port table (or `positions`).
 (f) `beamform`: b_q = sum_p w_p x_q[p] conj(a_p(az, el)) / sum_p w_p.
 (g) `range_azimuth_maps`, `azimuth_elevation_maps` and the map quantities `total_power`,
     `channel_powers` and `pauli_powers`.
@@ -32,8 +32,12 @@ Conventions
 * Scattering matrices have shape (..., 2, 2) and are indexed S[..., rx, tx] with 0 = H and 1 = V,
   so S = [[S_HH, S_HV], [S_VH, S_VV]] and S_HV is the H-receive, V-transmit channel (AEDT's
   S(RxH,TxV)). The polarimetric channel q of S(Rx p, Tx q') is the string p + q', e.g. 'HV'.
-* The array frame is the builder's global frame (= SBR+ AntennaCS): boresight +z, x horizontal
-  (H), y vertical (V). A direction (az, el) is r = (cos el sin az, sin el, cos el cos az).
+* Directions and positions are in the scene frame of `scene_frames`, ISO 8855 by default
+  (`boresight='x'`: x forward, y left = H, z up = V), where a direction (az, el) is
+  r = (cos el cos az, cos el sin az, sin el); `boresight='z'` keeps the HFSS array frame
+  (boresight +z, x = H, y = V), with r = (cos el sin az, sin el, cos el cos az). The azimuth
+  runs from boresight towards H and the elevation towards V in both, and the port table's
+  phase centres (array frame) are turned into the scene frame, so both give the same products.
 * AEDT's time convention is e^{+j w t}, so a path L contributes exp(-j k L). A Tx at p_t and an
   Rx at p_r see a far-field target in direction r with exp(+j k v . r) times common terms, where
   v = p_t + p_r is the virtual channel position. Hence the steering vector a_p = exp(+j k0 v_p . r)
@@ -55,6 +59,13 @@ from pomaar.simulator.array_templates import (
     polarimetric_quads,
     s_parameter_ports,
     select_quad,
+)
+from pomaar.simulator.scene_frames import (
+    DEFAULT_BORESIGHT,
+    aperture_axes,
+    array_to_scene,
+    check_boresight,
+    direction_vectors,
 )
 
 SPEED_OF_LIGHT = 299792458.0
@@ -271,33 +282,27 @@ def range_compress(s, frequencies_hz, window="hann", oversampling=4):
     return range_axis(frequencies_hz, n_range), profile
 
 
-def direction_vectors(azimuth_deg, elevation_deg):
-    """Unit vectors (n_az, n_el, 3) of the direction grid; boresight +z, azimuth towards +x."""
-    az = np.radians(np.atleast_1d(np.asarray(azimuth_deg, dtype=float)))[:, None]
-    el = np.radians(np.atleast_1d(np.asarray(elevation_deg, dtype=float)))[None, :]
-    return np.stack(
-        np.broadcast_arrays(np.cos(el) * np.sin(az), np.sin(el), np.cos(el) * np.cos(az)), axis=-1
-    )
-
-
-def steering_vectors(virtual_positions, azimuth_deg, elevation_deg, wavenumber):
+def steering_vectors(
+    virtual_positions, azimuth_deg, elevation_deg, wavenumber, boresight=DEFAULT_BORESIGHT
+):
     """
     a_p(az, el) = exp(+j k v_p . r) for virtual positions (..., n_p, 3) in metres, as an array
     (..., n_p, n_az, n_el) for a scalar k, or (..., n_p, n_k, n_az, n_el) for an array of k.
+    Positions and directions are in the scene frame of `boresight` (`direction_vectors`).
     """
-    projection = np.einsum(
-        "...pi,aei->...pae", virtual_positions, direction_vectors(azimuth_deg, elevation_deg)
-    )
+    directions = direction_vectors(azimuth_deg, elevation_deg, boresight)
+    projection = np.einsum("...pi,aei->...pae", virtual_positions, directions)
     k = np.asarray(wavenumber, dtype=float)
     if k.ndim == 0:
         return np.exp(1j * k * projection)
     return np.exp(1j * k[:, None, None] * projection[..., None, :, :])
 
 
-def spatial_window(virtual_positions, window=None):
+def spatial_window(virtual_positions, window=None, boresight=DEFAULT_BORESIGHT):
     """
     Weights (..., n_p) of a separable taper over the virtual aperture: the window function of
-    each in-plane coordinate (x, y), evaluated over the aperture extent widened by one mean
+    each aperture coordinate (H and V: y and z for an x boresight, x and y for a z boresight),
+    evaluated over the aperture extent widened by one mean
     element spacing so that the edge channels keep a non-zero weight. None is uniform; 'hann',
     'hamming' and 'blackman' are available for arbitrary (sparse, 2D) virtual arrays.
     """
@@ -312,7 +317,7 @@ def spatial_window(virtual_positions, window=None):
     }
     if window not in shapes:
         raise ValueError(f"Unknown spatial window '{window}' (use {', '.join(shapes)} or None).")
-    for axis in (0, 1):
+    for axis in aperture_axes(boresight):
         coordinate = positions[..., axis]
         low = coordinate.min(axis=-1, keepdims=True)
         high = coordinate.max(axis=-1, keepdims=True)
@@ -578,14 +583,18 @@ class MimoPolarimetryProcessor:
         metadata=None,
         positions=None,
         correct_signs=True,
+        boresight=DEFAULT_BORESIGHT,
     ):
         """
         `s` is (n_variations, n_expressions, n_frequencies) complex and `expressions` its AEDT
         names S(<Rx port>,<Tx port>). `positions` maps port (excitation) names, or their
-        suffixes such as 'TxH', to phase-centre positions in metres, (3,) or per variation
-        (n_variations, 3); without it the export's builder port table is used, and channels
-        without either get position 0 (no steering phase, exact only at boresight).
+        suffixes such as 'TxH', to phase-centre positions in metres in the scene frame, (3,) or
+        per variation (n_variations, 3); without it the export's builder port table is used
+        (turned from the array frame into the scene frame), and channels without either get
+        position 0 (no steering phase, exact only at boresight). `boresight` sets the scene
+        frame of positions and directions: 'x' (ISO 8855, default) or 'z' (the array frame).
         """
+        self.boresight = check_boresight(boresight)
         self.s = np.asarray(s, dtype=complex)
         self.frequencies_hz = np.asarray(frequencies_hz, dtype=float)
         self.expressions = [str(e) for e in expressions]
@@ -624,7 +633,9 @@ class MimoPolarimetryProcessor:
     # --- loading and raw data -----------------------------------------------------------------
 
     @classmethod
-    def from_npz(cls, path, quad=None, positions=None, correct_signs=True):
+    def from_npz(
+        cls, path, quad=None, positions=None, correct_signs=True, boresight=DEFAULT_BORESIGHT
+    ):
         """
         Loads an `sbr_results` export. `quad` (a name from `available_quads`, or a dict of the
         four ports) keeps only the four channels of one polarimetric quad; by default every
@@ -646,6 +657,7 @@ class MimoPolarimetryProcessor:
             json.loads(str(data["metadata"])),
             positions=positions,
             correct_signs=correct_signs,
+            boresight=boresight,
         )
 
     @classmethod
@@ -678,7 +690,7 @@ class MimoPolarimetryProcessor:
         self.signs_corrected = True
 
     def _resolve_positions(self, positions):
-        """{port: (n_variations, 3) metres} for every port of the export."""
+        """{port: (n_variations, 3) metres, scene frame} for every port of the export."""
         n_variations = self.s.shape[0]
         table = self.port_table
         resolved = {}
@@ -694,7 +706,8 @@ class MimoPolarimetryProcessor:
                 )
                 value = positions.get(key) if key is not None else None
             if value is None and port in table and table[port].get("phase_centre_mm"):
-                value = np.asarray(table[port]["phase_centre_mm"], dtype=float) / 1000.0
+                phase_centre = np.asarray(table[port]["phase_centre_mm"], dtype=float) / 1000.0
+                value = array_to_scene(phase_centre, self.boresight)
             if value is None:
                 self.positions_known = False
                 value = np.zeros(3)
@@ -720,7 +733,7 @@ class MimoPolarimetryProcessor:
         return {q: groups[q] for q in POLARIMETRIC_CHANNELS if q in groups}
 
     def virtual_positions(self, q):
-        """Virtual channel positions v_p = p_tx + p_rx (n_variations, n_p, 3) of channel q."""
+        """Virtual positions v_p = p_tx + p_rx (n_variations, n_p, 3, scene frame) of channel q."""
         return np.stack(
             [
                 self._port_positions[self.channel_ports[i][1]]
@@ -732,7 +745,7 @@ class MimoPolarimetryProcessor:
 
     def spatial_weights(self, q, window=None):
         """(d) Taper weights (n_variations, n_p) over the virtual aperture of channel q."""
-        return spatial_window(self.virtual_positions(q), window)
+        return spatial_window(self.virtual_positions(q), window, self.boresight)
 
     # --- (b), (c) range compression -----------------------------------------------------------
 
@@ -753,12 +766,15 @@ class MimoPolarimetryProcessor:
         """
         (f) Beamforms channel data `values` (n_variations, n_channels, n_x) (range profiles, or
         the frequency samples with `wavenumber` = their k) towards every (azimuth, elevation),
-        separately per polarimetric channel: {q: (n_variations, n_x, n_az, n_el)}.
+        separately per polarimetric channel: {q: (n_variations, n_x, n_az, n_el)}. The azimuth
+        runs from boresight towards H and the elevation towards V.
         """
         k = self.centre_wavenumber if wavenumber is None else wavenumber
         result = {}
         for q, indices in self.polarimetric_channels.items():
-            steering = steering_vectors(self.virtual_positions(q), azimuth_deg, elevation_deg, k)
+            steering = steering_vectors(
+                self.virtual_positions(q), azimuth_deg, elevation_deg, k, self.boresight
+            )
             weights = self.spatial_weights(q, spatial_window)
             result[q] = beamform(values[:, indices], steering, weights)
         return result

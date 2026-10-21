@@ -8,10 +8,12 @@ Tx-Rx spacing), from an SBR+ sweep exported by `sbr_results` (scattered solution
 
 All processing is `CanonicalTargetProcessor`'s: the target's scattering matrices beamformed
 towards (azimuth, elevation) (boresight by default, where no geometry is needed), range profiles
-and, for arrays with several virtual channels per polarization, azimuth-elevation maps. This
-script only combines and plots them, and shows only target-agnostic quantities: no reference
-target, no thresholds, no classification. The signatures are plotted twice: against the swept
-variable (a line at the centre frequency and a min-max band over the sweep) and as frequency x
+and, for arrays with several virtual channels per polarization, azimuth-elevation maps. The
+azimuth runs from boresight towards H and the elevation towards V, so the angles mean the same
+in the ISO scene frame (the processor's default) and in the HFSS array frame. This script only
+combines and plots them, and shows only target-agnostic quantities: no reference target, no
+thresholds, no classification. The signatures are plotted twice: against the swept variable (a
+line at the centre frequency and a min-max band over the sweep) and as frequency x
 swept-variable maps, which show where in the band the spread lies. Figures and a CSV land in
 <out>/<sweep>/, one folder per export (named after the .npz file, created if needed), with <out>
 defaulting to the project's data/processed/bistaticity; the README ("Bistaticity study")
@@ -468,10 +470,16 @@ def main(argv=None):
         ),
     )
     parser.add_argument(
-        "--azimuth", type=float, default=0.0, help="Steering azimuth (deg, towards +x)"
+        "--azimuth",
+        type=float,
+        default=0.0,
+        help="Steering azimuth (deg, from boresight towards H: ISO +y; default: 0)",
     )
     parser.add_argument(
-        "--elevation", type=float, default=0.0, help="Steering elevation (deg, towards +y)"
+        "--elevation",
+        type=float,
+        default=0.0,
+        help="Steering elevation (deg, towards V: ISO +z; default: 0)",
     )
     parser.add_argument(
         "--quad", default=None, help="Keep one polarimetric quad (e.g. 'Rx_1/Tx'); default all"

@@ -35,6 +35,7 @@ from pomaar.simulator.polarimetry_processor import (
     to_scattering_matrices,
     total_power,
 )
+from pomaar.simulator.scene_frames import array_to_scene
 
 EXPRESSIONS = [
     "S(HornCluster1_RxH,HornCluster1_TxH)",
@@ -177,12 +178,13 @@ def test_range_profile_peak_and_centre_frequency_phase():
 # --- (d)-(g) beamforming and maps ---------------------------------------------------------------
 
 
-def mimo_export(direction_deg, target_range=1.5, scattering=REFERENCE_SPHERE):
+def mimo_export(direction_deg, target_range=1.5, scattering=REFERENCE_SPHERE, boresight="x"):
     """
     A synthetic 2D MIMO array observing one point target with scattering matrix `scattering`
-    at (azimuth, elevation) `direction_deg`: 4 Rx H/V pairs at x = 0..3 d and 4 Tx H/V pairs at
-    (0 | 4 d, 0 | d), d = lambda0 / 2, i.e. a filled 8 x 2 virtual array of 16 channels per
-    polarimetric channel (no grating lobes).
+    at (azimuth, elevation) `direction_deg`: 4 Rx H/V pairs at H = 0..3 d and 4 Tx H/V pairs at
+    (H, V) = (0 | 4 d, 0 | d), d = lambda0 / 2, i.e. a filled 8 x 2 virtual array of 16 channels
+    per polarimetric channel (no grating lobes). Built in the array frame (H = x, V = y); the
+    positions are returned in the scene frame of `boresight`.
     """
     frequencies = np.linspace(77e9, 81e9, 81)
     k = 2 * np.pi * frequencies / SPEED_OF_LIGHT
@@ -203,12 +205,16 @@ def mimo_export(direction_deg, target_range=1.5, scattering=REFERENCE_SPHERE):
                     path = 2 * target_range - (p_tx + p_rx) @ r
                     channels.append(value * np.exp(-1j * k * path))
     s = np.array(channels)[None]
+    positions = {port: array_to_scene(p, boresight) for port, p in positions.items()}
     return s, frequencies, expressions, positions
 
 
-def test_beamforming_peaks_at_the_target_direction():
-    s, frequencies, expressions, positions = mimo_export((12.0, -6.0))
-    processor = MimoPolarimetryProcessor(s, frequencies, expressions, positions=positions)
+@pytest.mark.parametrize("boresight", ["x", "z"])
+def test_beamforming_peaks_at_the_target_direction(boresight):
+    s, frequencies, expressions, positions = mimo_export((12.0, -6.0), boresight=boresight)
+    processor = MimoPolarimetryProcessor(
+        s, frequencies, expressions, positions=positions, boresight=boresight
+    )
     assert processor.positions_known
     assert {q: len(i) for q, i in processor.polarimetric_channels.items()} == {
         q: 16 for q in POLARIMETRIC_CHANNELS
@@ -229,6 +235,22 @@ def test_beamforming_peaks_at_the_target_direction():
     assert azimuth[a_bin] == 12.0 and ra["range_m"][r_bin] == pytest.approx(1.5, abs=0.02)
 
 
+def test_beamforming_is_the_same_in_both_frames():
+    # The same export, with positions in either frame, gives the same maps and spatial weights
+    maps = {}
+    for boresight in ("x", "z"):
+        s, frequencies, expressions, positions = mimo_export((7.0, 4.0), boresight=boresight)
+        processor = MimoPolarimetryProcessor(
+            s, frequencies, expressions, positions=positions, boresight=boresight
+        )
+        maps[boresight] = processor.azimuth_elevation_maps(
+            np.arange(-20, 21, 2.0), np.arange(-10, 11, 2.0), spatial_window="hann"
+        )
+        assert processor.spatial_weights("HH", "hann").std() > 0  # a taper over both aperture axes
+    for q in POLARIMETRIC_CHANNELS:
+        np.testing.assert_allclose(maps["x"]["channels"][q], maps["z"]["channels"][q])
+
+
 def test_map_quantities_of_a_dihedral():
     s, frequencies, expressions, positions = mimo_export((0.0, 0.0), scattering=REFERENCE_DIHEDRAL)
     processor = MimoPolarimetryProcessor(s, frequencies, expressions, positions=positions)
@@ -240,13 +262,18 @@ def test_map_quantities_of_a_dihedral():
     assert pauli[1] / pauli.sum() == pytest.approx(1.0)  # all power in HH - VV
 
 
-def test_spatial_window_tapers_the_aperture_edges():
-    positions = np.array([[[x, 0.0, 0.0] for x in range(5)]], dtype=float)
-    weights = spatial_window(positions, "hann")[0]
+@pytest.mark.parametrize("boresight", ["x", "z"])
+def test_spatial_window_tapers_the_aperture_edges(boresight):
+    # Five channels along H (array frame x), in the scene frame
+    positions = array_to_scene([[[h, 0.0, 0.0] for h in range(5)]], boresight)
+    weights = spatial_window(positions, "hann", boresight)[0]
     assert np.all(weights > 0) and weights[2] == pytest.approx(1.0)
     np.testing.assert_allclose(weights, weights[::-1])
     assert weights[0] < weights[1] < weights[2]
-    np.testing.assert_allclose(spatial_window(positions, None), 1.0)
+    np.testing.assert_allclose(spatial_window(positions, None, boresight), 1.0)
+    # Spread along boresight instead, the channels are not tapered
+    along_boresight = array_to_scene([[[0.0, 0.0, z] for z in range(5)]], boresight)
+    np.testing.assert_allclose(spatial_window(along_boresight, "hann", boresight), 1.0)
 
 
 def test_raw_forwards_the_export_untouched():
@@ -267,11 +294,14 @@ def test_target_matrices_at_boresight_are_the_exported_quad():
     np.testing.assert_allclose(processor.target_matrices(), matrices)
 
 
-def test_target_matrices_compensate_the_linear_term_off_boresight():
+@pytest.mark.parametrize("boresight", ["x", "z"])
+def test_target_matrices_compensate_the_linear_term_off_boresight(boresight):
     s, frequencies, expressions, positions = mimo_export(
-        (8.0, 3.0), scattering=reference_dihedral(30)
+        (8.0, 3.0), scattering=reference_dihedral(30), boresight=boresight
     )
-    processor = CanonicalTargetProcessor(s, frequencies, expressions, positions=positions)
+    processor = CanonicalTargetProcessor(
+        s, frequencies, expressions, positions=positions, boresight=boresight
+    )
     matrices = processor.target_matrices(8.0, 3.0)
     expected = (
         reference_dihedral(30)
@@ -423,8 +453,11 @@ def test_port_table_signs_and_positions(tmp_path):
     np.testing.assert_allclose(processor.target_matrices(), truth)
     raw = CanonicalTargetProcessor.from_npz(path, correct_signs=False)
     np.testing.assert_allclose(raw.target_matrices(), measured)
-    # Virtual position of HV = TxV (3 mm, 2 mm) + RxH (0, 2 mm)
-    np.testing.assert_allclose(processor.virtual_positions("HV")[0, 0], [0.003, 0.004, 0.0])
+    # Virtual position of HV = TxV (3 mm, 2 mm) + RxH (0, 2 mm) in the array frame (H, V,
+    # boresight), i.e. (boresight, H, V) in the default ISO frame
+    np.testing.assert_allclose(processor.virtual_positions("HV")[0, 0], [0.0, 0.003, 0.004])
+    in_array_frame = CanonicalTargetProcessor.from_npz(path, boresight="z")
+    np.testing.assert_allclose(in_array_frame.virtual_positions("HV")[0, 0], [0.003, 0.004, 0.0])
     # Without a port table there is nothing to correct or place
     bare = MimoPolarimetryProcessor.from_npz(builder_export(tmp_path, measured, CLUSTER_PORTS))
     assert not bare.signs_corrected and not bare.positions_known

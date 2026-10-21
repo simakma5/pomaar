@@ -235,14 +235,14 @@ sbr_results mimo_polarimetry \
 bistaticity_analysis data/interim/bistaticity/horn_cluster_sphere_boresight_3m.npz
 ```
 
-`bistaticity_analysis` options: `--azimuth`/`--elevation` (deg) steer towards an off-boresight
-target; `--quad` keeps one polarimetric quad (default: every channel); `--window` is the frequency
-window of the range profiles; `--out` is the parent output folder (default: the project's
-`data/processed/bistaticity`, whatever the current directory). Every export gets its own
-subfolder named after the `.npz` file, created if needed, so analysing other data sets never
-overwrites earlier results (re-running the same export does). Its outputs make no assumption about
-the target or the scene: no reference target, no thresholds or "ideal" lines, no classification.
-It writes:
+`bistaticity_analysis` options: `--azimuth`/`--elevation` (deg; azimuth from boresight towards H,
+elevation towards V) steer towards an off-boresight target; `--quad` keeps one polarimetric quad
+(default: every channel); `--window` is the frequency window of the range profiles; `--out` is the
+parent output folder (default: the project's `data/processed/bistaticity`, whatever the current
+directory). Every export gets its own subfolder named after the `.npz` file, created if needed, so
+analysing other data sets never overwrites earlier results (re-running the same export does). Its
+outputs make no assumption about the target or the scene: no reference target, no thresholds or
+"ideal" lines, no classification. It writes:
 
 * `signatures_vs_sweep.png` and `signatures_vs_sweep.csv`: the signatures of §4.5 against the
   swept variable; per-frequency quantities as a line at the centre frequency with a band spanning
@@ -268,7 +268,9 @@ re-created from scratch fixed one such case); the data are still written and ana
 
 Off boresight, the steering needs the virtual channel positions; they come from the builder's port
 table in the export (a hand-built design such as the horn cluster has none, so it is analysed at
-boresight, where every steering vector is 1).
+boresight, where every steering vector is 1). The port table holds them in the array frame
+(boresight +z, H along x, V along y), and the processor turns them into its scene frame (§4.3),
+so the steering angles mean the same whatever the frame.
 
 ### 4.3 The processing chain
 
@@ -283,7 +285,7 @@ untouched.
 | (b) | `frequency_window` | Taper w_n over the frequency samples (Hann by default). |
 | (c) | `range_profiles` | x_c[m] = IFFT(w_n S_c(f_n)) / Σw, zero-padded (4× by default), so a point target of amplitude A peaks at \|A\| at its range. Range bins are c·m/(2 N Δf), up to c/(2Δf). The phase refers to the centre frequency. |
 | (d) | `spatial_weights` | Optional separable taper (`hann`, `hamming`, `blackman`) over each polarimetric channel's virtual aperture, for sidelobe control in real MIMO arrays; off by default, and pointless with one virtual channel per polarization. |
-| (e) | caller | Azimuth/elevation grids. r = (cos ε sin α, sin ε, cos ε cos α) in the array frame: boresight +z, azimuth towards +x (H), elevation towards +y (V). |
+| (e) | caller | Azimuth/elevation grids, azimuth α from boresight towards H and elevation ε towards V. In the default ISO 8855 scene frame (`boresight="x"`: x forward, y left = H, z up = V), r = (cos ε cos α, cos ε sin α, sin ε); `boresight="z"` keeps the HFSS array frame (boresight +z, x = H, y = V), r = (cos ε sin α, sin ε, cos ε cos α). Positions are in the same frame: the port table's (array frame) are turned into it, while `positions=` are taken as given. Both frames give the same products. |
 | (f) | `beamform` | b_q(m, α, ε) = Σ_p w_p x_q[m, p] a_p*(α, ε) / Σ_p w_p with a_p = e^{+j k₀ v_p·r} and the virtual position v_p = p_Tx + p_Rx. |
 | (g) | `range_azimuth_maps`, `azimuth_elevation_maps`; `total_power`, `channel_powers`, `pauli_powers` | Maps of the mean power over the polarimetric channels, of every channel's power relative to one common reference (the total-power peak), and of the Pauli powers \|k_i\|². |
 
@@ -318,9 +320,11 @@ range_m, profiles = processor.range_profiles()                 # raw channel ran
 and `quad=` (a name from `available_quads(path)`, e.g. `Rx_1/Tx`, or a dict of four ports) keeps
 one quad. For an array built by `hfss_array_builder`, `sbr_results` attaches the builder's port
 table; the processor then removes the port field signs (`correct_signs=False` keeps them), so that
-every channel refers to +x (H) and +y (V), and takes the virtual positions from the port phase
-centres. Those are build-time values, so a sweep of a layout variable still needs `positions=` per
-variation. `positions` (port name or suffix → metres) also places hand-built designs.
+every channel refers to H and V (the array frame's +x and +y), and takes the virtual positions
+from the port phase centres, turned into its scene frame. Those are build-time values, so a sweep
+of a layout variable still needs `positions=` per variation. `positions` (port name or suffix →
+metres, in the scene frame: ISO by default, the array frame with `boresight="z"`) also places
+hand-built designs.
 
 `sbr_results.export_sbr_parametric_sweep` stores the following in the `.npz`:
 

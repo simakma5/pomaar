@@ -17,8 +17,8 @@ is gitignored except for its folder structure.
 * `uvx ruff check src` and `uvx ruff format src` lint and format (line length 100, isort with
   `force-sort-within-sections`). `hfss_array_builder.py` has 14 pre-existing E501 warnings and
   is not ruff-formatted; don't add new ones and don't reformat it wholesale.
-* `uv run --with pytest python -m pytest tests` runs the pure-NumPy processor, template-planning,
-  setup/sweep-helper and layout-generator tests. Nothing that talks to AEDT has tests; verify it against a running AEDT (below).
+* `uv run --with pytest python -m pytest tests` runs the pure-NumPy processor, scene-frame,
+  template-planning, setup/sweep-helper and layout-generator tests. Nothing that talks to AEDT has tests; verify it against a running AEDT (below).
 * `python src/pomaar/simulator/layouts/generate_<topology>.py --unit-cell <Design> [--help]`
   writes `<Design>_<topology>.yaml` next to the script (`-o` elsewhere). The shipped YAMLs are
   bound to `ApertureCoupledPatch`; the simulator README lists the exact commands.
@@ -67,7 +67,9 @@ There are three stages, each a class re-exported by `pomaar.simulator`:
    `<setup> : <sweep>_Scattered`. The scene's boresight is +x by default (ISO 8855: x forward,
    y left, z up; H along y, V along z), with `AntennaCS` turning the linked antenna's +z
    boresight onto +x; `--boresight z` keeps the HFSS frame. `TargetCS` takes `targetRange`,
-   `targetAzimuth`, `targetElevation` and `targetRoll`. `--scene-only` rebuilds just
+   `targetAzimuth`, `targetElevation` and `targetRoll`. Both frames, the `AntennaCS` angles and
+   the `TargetCS` expressions live in the pure `scene_frames.py` (tested in
+   `tests/test_scene_frames.py`), which the processor shares. `--scene-only` rebuilds just
    `TargetCS` and the target of an existing SBR+ design (e.g. parametric-beam antennas). Setup
    and sweep names are read back from the design (`analysis_solution`), never assumed, since
    AEDT de-duplicates them (`Setup1`).
@@ -77,7 +79,11 @@ There are three stages, each a class re-exported by `pomaar.simulator`:
    (phase referred to the centre frequency), optional spatial window, beamforming with steering
    vectors a_p = e^{+jk₀ v_p·r} (applied conjugated; v_p = p_Tx + p_Rx; AEDT's e^{+jωt}), and
    range–azimuth / azimuth–elevation maps of total power, channel powers and Pauli powers.
-   `raw()` forwards the export. No gating and no Doppler (static frequency sweeps).
+   `raw()` forwards the export. No gating and no Doppler (static frequency sweeps). Directions
+   and positions are in the scene frame, ISO by default (`boresight="z"`: the HFSS array frame);
+   the azimuth runs towards H and the elevation towards V in both, and the port table's phase
+   centres (array frame) are turned into the scene frame, so both frames give identical products
+   (`positions=` are taken as given, in the scene frame).
    `CanonicalTargetProcessor` adds `target_matrices` (frequency-domain beamforming towards the
    target) and target-agnostic `signatures` (channel powers, span, co-pol ratio/phase difference,
    co/cross ratio and phase per Tx polarization, cross-pol ratio, asymmetry, bistatic Pauli
