@@ -370,6 +370,15 @@ class SbrSimulationManager:
                 self.sbr_design_name, retired_name
             )
             oproject.DeleteDesign(retired_name)
+            # The deleted design's result files stay open until the project is closed: re-using
+            # its name before that blocks AEDT on a modal 'file ... is in use' dialog
+            print("Saving, closing and reopening the project to release its result files...")
+            project_name, project_file = self.source_app.project_name, self.source_app.project_file
+            oproject.Save()
+            self.desktop_session.odesktop.CloseProject(project_name)
+            self.desktop_session.odesktop.OpenProject(project_file)
+            self.source_app = None
+            self.open_source_design()
 
         # Native calls: PyAEDT's insert_design/delete_design re-point source_app to another design
         print(f"Creating SBR+ design '{self.sbr_design_name}'...")
