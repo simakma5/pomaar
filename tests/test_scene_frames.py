@@ -13,6 +13,7 @@ from pomaar.simulator.scene_frames import (
     direction_vectors,
     euler_zyz,
     target_cs,
+    target_steering_angles,
 )
 
 H, V, BORESIGHT = np.eye(3)  # array-frame axes
@@ -106,3 +107,18 @@ def test_directions_agree_between_frames():
         np.testing.assert_allclose(
             direction_vectors(0.0, 90.0, boresight)[0, 0], scene[1], atol=1e-12
         )
+
+
+@pytest.mark.parametrize("boresight", ["x", "z"])
+@pytest.mark.parametrize("azimuth, elevation", [(0, 0), (20, 5), (-35, 10), (90, 10), (150, 30)])
+def test_steering_angles_point_at_the_target(boresight, azimuth, elevation):
+    # The processor steered to these angles looks exactly at TargetCS's origin
+    origin, _ = target_frame(boresight, azimuth, elevation)
+    steer = target_steering_angles(azimuth, elevation, boresight)
+    np.testing.assert_allclose(direction_vectors(*steer, boresight)[0, 0], origin / 4.0, atol=1e-12)
+
+
+def test_z_scene_angles_are_spherical():
+    assert target_steering_angles(90.0, 10.0, "z") == pytest.approx((0.0, 10.0))
+    assert target_steering_angles(0.0, 10.0, "z") == pytest.approx((10.0, 0.0))
+    assert target_steering_angles(26.7402, 11.169, "z") == pytest.approx((10.0, 5.0), abs=1e-3)

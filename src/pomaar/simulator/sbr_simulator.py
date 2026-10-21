@@ -285,6 +285,14 @@ class SbrSimulationManager:
         if app.solution_type != "SBR+":
             raise ValueError(f"'{self.sbr_design_name}' is not an SBR+ design.")
 
+        # The new TargetCS must follow the antenna's boresight (parametric-beam scenes have no
+        # AntennaCS and take --boresight as given)
+        boresight = antenna_cs_boresight(app)
+        if boresight and boresight != self.boresight:
+            raise ValueError(
+                f"'{self.sbr_design_name}' has a +{boresight} boresight ({ANTENNA_CS}); rebuild "
+                f"its scene with --boresight {boresight}."
+            )
         modeler = app.modeler
         objects = [name for name in TARGET_OBJECTS.values() if name in modeler.object_names]
         has_cs = TARGET_CS in [cs.name for cs in modeler.coordinate_systems]
@@ -941,6 +949,25 @@ def _with_unit(value, unit):
         return f"{value}{unit}"
     text = str(value).strip()
     return f"{text}{unit}" if re.fullmatch(r"[-+]?[\d.]+(?:[eE][-+]?\d+)?", text) else text
+
+
+def _degrees(value):
+    """'10deg' or '10' -> 10.0; None for anything else (an expression, another unit)."""
+    match = re.fullmatch(r"\s*([-+]?[\d.]+(?:[eE][-+]?\d+)?)\s*(deg)?\s*", str(value))
+    return float(match[1]) if match else None
+
+
+def antenna_cs_boresight(app):
+    """The scene's boresight read from AntennaCS ('x' or 'z'); None without a known one."""
+    systems = {cs.name: cs for cs in app.modeler.coordinate_systems}
+    if ANTENNA_CS not in systems:
+        return None
+    props = dict(systems[ANTENNA_CS].props)
+    angles = [_degrees(props.get(key)) for key in ("Phi", "Theta", "Psi")]
+    for axis, expected in ANTENNA_CS_ANGLES.items():
+        if angles == [_degrees(a) for a in expected]:
+            return axis
+    return None
 
 
 def _euler_zyz_cs_args(origin, angles):

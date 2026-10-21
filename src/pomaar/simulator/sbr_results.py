@@ -35,6 +35,8 @@ from pomaar.simulator.polarimetry_processor import (
     check_complete_sweep,
     identical_variations,
 )
+from pomaar.simulator.sbr_simulator import _degrees, antenna_cs_boresight
+from pomaar.simulator.scene_frames import target_steering_angles
 
 SCATTERED_SUFFIX = "_Scattered"
 
@@ -101,6 +103,32 @@ def find_port_table(expressions, search_dir, ports_path=None):
     return None, None
 
 
+def scene_target(app, sweep_variable=None, sweep_values=None):
+    """
+    {'boresight', 'target_steering_deg'} of an `sbr_simulator` scene: the boresight read from
+    AntennaCS (`sbr_simulator.antenna_cs_boresight`) and the processor's (azimuth, elevation) of
+    the target per variation (`scene_frames.target_steering_angles`), so that an analysis can
+    steer at the target in either frame. Empty for scenes without AntennaCS or target angles.
+    """
+    boresight = antenna_cs_boresight(app)
+    nominal = app.available_variations.nominal_values
+    if boresight is None or not {"targetAzimuth", "targetElevation"} <= set(nominal):
+        return {}
+    angles = []
+    for value in sweep_values if sweep_variable else [None]:
+        variables = dict(nominal)
+        if sweep_variable in ("targetAzimuth", "targetElevation"):
+            variables[sweep_variable] = value
+        azimuth, elevation = (
+            _degrees(variables["targetAzimuth"]),
+            _degrees(variables["targetElevation"]),
+        )
+        if azimuth is None or elevation is None:
+            return {"boresight": boresight}
+        angles.append(list(target_steering_angles(azimuth, elevation, boresight)))
+    return {"boresight": boresight, "target_steering_deg": angles}
+
+
 def export_sbr_parametric_sweep(
     app, output_path, setup_sweep=None, sweep_variable=None, ports_path=None
 ):
@@ -118,7 +146,9 @@ def export_sbr_parametric_sweep(
     The .npz holds `s` (n_variations, n_expressions, n_frequencies) complex, `frequencies_hz`,
     `sweep_values`, `expressions` (AEDT names, e.g. 'S(HornCluster1_RxH,HornCluster1_TxV)', i.e.
     S(receive, transmit)), and `metadata` (JSON: project, design, setup, sweep variable and the
-    nominal design variables). Without a sweep variable only the nominal variation is written.
+    nominal design variables; for an `sbr_simulator` scene also its boresight and the target's
+    steering angles per variation, `scene_target`). Without a sweep variable only the nominal
+    variation is written.
     When the linked antenna was built by `hfss_array_builder`, its port table (`ports_path`, or
     found next to the project) is added to the metadata as 'ports': per excitation the builder
     port, role, polarization, field sign and phase centre (mm, at build time), which
@@ -178,6 +208,7 @@ def export_sbr_parametric_sweep(
         "setup_sweep": setup_sweep,
         "sweep_variable": sweep_variable,
         "nominal_variables": app.available_variations.nominal_values,
+        **scene_target(app, sweep_variable, sweep_values),
     }
     rows, table_path = find_port_table(expressions, app.project_path, ports_path)
     if rows:

@@ -14,6 +14,8 @@ and `polarimetry_processor`:
 
 `target_cs` holds the TargetCS definition of the scene: its spherical origin and Euler angles as
 AEDT expressions in the variables targetRange, targetAzimuth, targetElevation and targetRoll.
+With an x boresight targetAzimuth and targetElevation are the processor's steering angles; with
+a z boresight they are spherical angles, which `target_steering_angles` converts.
 """
 
 import numpy as np
@@ -87,6 +89,20 @@ def target_cs(boresight=DEFAULT_BORESIGHT):
     ]
     angles = ["targetAzimuth", "targetElevation", "targetRoll - targetAzimuth"]
     return origin, angles, True
+
+
+def target_steering_angles(azimuth_deg, elevation_deg, boresight=DEFAULT_BORESIGHT):
+    """
+    The processor's (azimuth, elevation) in deg (towards H, towards V) of a target placed by the
+    scene's targetAzimuth and targetElevation (`target_cs`). With an x boresight they are the
+    same angles; with a z boresight the scene's are spherical (azimuth about boresight, polar
+    angle off it), e.g. (90, 10) is the processor's (0, 10).
+    """
+    az, el = np.radians(azimuth_deg), np.radians(elevation_deg)
+    if check_boresight(boresight) == "x":
+        return float(azimuth_deg), float(elevation_deg)
+    h, v, along = np.cos(az) * np.sin(el), np.sin(az) * np.sin(el), np.cos(el)
+    return float(np.degrees(np.arctan2(h, along))), float(np.degrees(np.arcsin(v)))
 
 
 def euler_zyz(phi_deg, theta_deg, psi_deg):
