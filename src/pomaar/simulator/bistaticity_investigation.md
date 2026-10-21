@@ -7,7 +7,7 @@ Working notes of the sandboxed investigation behind the task note "Bistaticity a
 
 | What | Where |
 | --- | --- |
-| Branch | `sandbox/bistaticity`, worked in a git worktree `~/Repositories/pomaar-sandbox` (`main` and its working tree untouched); merged into `main` and the worktree removed on 2026-10-21 |
+| Branch | `sandbox/bistaticity`, worked in a git worktree `~/Repositories/pomaar-sandbox` (`main` and its working tree untouched); merged into `main` and the worktree removed on 2026-10-21. Since then on `main`, one topical commit per step (user: "work in the main branch, committing everything in a structured manner") |
 | Baseline | the uncommitted simulator state of `main` on 2026-10-20, first one commit (`9dfe44b`), then split into six topical commits on `main` (`d1af11f` ... `7ac4186`) onto which the branch was rebased |
 | AEDT project | `~/Repositories/pomaar/data/interim/sandbox/bistaticity/bistaticity_sandbox.aedt`, a copy of `~/Projects/AEDT/bistaticity-analysis/bistaticity_analysis.aedt` (12:21), open in the GUI session next to the original |
 | Scripts | `src/pomaar/simulator/investigation/` (run with `ansys-vnc exec python ...` from the repository root); they refuse any project but the sandbox copy |
@@ -76,6 +76,13 @@ Working notes of the sandboxed investigation behind the task note "Bistaticity a
 - [x] M5 Summary of the action point for the task note (Findings, Log): see "Distillation".
 - [x] M6 Size and range scaling (user request after M5): trihedral 40 / 80 / 160 mm at 1 / 4 /
   16 m, dihedral 160 mm; T8 edge-diffraction model (PO, PTD, PTD + UTD).
+- [x] M7 Pipeline validation (user batch of 2026-10-21, task 1): builder -> SBR+ -> export ->
+  analysis on a copy of `mimo_polarimetry.aedt`, 16 cases, 6 bugs fixed; plan and results in
+  `investigation/validation/README.md`.
+- [x] M8 Supervisor's suggestions (task 2): LDR and cross-co phase in radar conventions, more
+  reflectors (slant trihedral at roll 45, flat plate), and Z_DR from split antenna pairs
+  (`build_scene --layout pairs`, `pairs.py`); figures split by signature group.
+- [x] M9 Consolidation (task 3): decisions, take-aways and limitations, glossary (below).
 
 ### Extension action points (not in this round)
 
@@ -83,6 +90,13 @@ Working notes of the sandboxed investigation behind the task note "Bistaticity a
   79 GHz, about 10 lambda): PO, PTD and UTD differ by 10 dB.
 - [ ] Vertical receiver displacement (bistatic plane x-z, along V), next to the horizontal
   one (x-y, along H) studied here: the trihedral's and dihedral's symmetry planes swap roles.
+- [ ] Real antenna patterns instead of parametric beams (the array builder's linked far fields):
+  E/H-plane gain difference, pattern cross-pol and basis rotation off the principal planes,
+  i.e. the receive polarization matrix P_Rx(beta) that the ideal beams leave out.
+- [ ] Split pairs with real, non-identical H and V antennas and a per-pair calibration, the case
+  where the split might matter in practice (the ideal beams cancel by mirror symmetry).
+- [ ] Further reflectors if needed: a cylinder (singly curved, like a pole) and a thin wire or
+  dipole (strongly polarizing, cross-pol at 45 deg); not run.
 
 ## Log
 
@@ -346,6 +360,92 @@ Working notes of the sandboxed investigation behind the task note "Bistaticity a
   The "co/cross" levels quoted in this log (e.g. "co/cross falls below 30 dB") read as
   LDR above -30 dB in the new convention. The analysis figures are now split by group (powers,
   copolar, crosspolar, pauli, cloude_pottier) with mathtext labels.
+* Labels (user: "'Tx H: |S_HH| - |S_VV|' is mathematically unclear"): power ratios are written
+  as ratios on a dB axis (`LDR_H = |S_VH|^2/|S_HH|^2`, axis in dB), never as differences of
+  magnitudes; phases as the argument of a product (`arg(S_VH S_HH*)`). The shared labels are
+  `bistaticity_analysis.LABELS`, used by `summarize.py` and `scaling.py`.
+* M7 validation (`investigation/validation/README.md`, all on a copy of the project). Bugs fixed:
+  PyAEDT creating an empty design for a missing name (builder, `sbr_simulator`, `sbr_results`);
+  `--target none` unsolvable (SBR+ needs a model object; now a vacuum placeholder); failed solves
+  exiting with 0 (now exit code 3); `--overwrite` hanging on the 'asol_priv in use' modal (now
+  save, close and reopen); invalid `--map-variables` caught only after building; `--scene-only`
+  building an x-style TargetCS in a z-boresight design.
+* The z-boresight quirk, measured (S3/S4: dihedral at roll 45 deg, 10 deg in azimuth and 5 deg
+  in elevation, x and z scenes). In a z scene `targetAzimuth`/`targetElevation` are spherical
+  angles (about and off boresight; here 26.74 / 11.17 deg), while the processor's angles run
+  towards H and towards V (10 / 5 deg). Steered at the right direction, both scenes give the same
+  cross-pol phase arg(S_HV S_VH*): +3.7 / +3.6 deg (from -17.9 deg at boresight; the 21.7 deg
+  removed equals the prediction from the virtual positions). Steered with the scene's spherical
+  angles: +44.4 deg. It only mattered off boresight, in z scenes, when the scene's angles were
+  passed to the processor. Exports now carry `target_steering_deg` (processor angles) and
+  `boresight`, and `bistaticity_analysis` steers towards it by default. All bistaticity scenes
+  here are x-boresight with the target on boresight, so no earlier result is affected.
+* Summary bug: `summarize.figure` paired series with colours by `zip`, so it silently dropped
+  every series after the eighth. The earlier `summary_signatures_aim1.png` and
+  `summary_change_aim1.png` (13 designs) lacked the trihedral rolls 0 / 90 and TrihedralS160;
+  the CSVs and the departure tables (and so every number in this log) were complete. The
+  figures are now one per target family (`summary_*_<family>_aim<a>.png`, at most eight series,
+  more raise an error).
+* M8 extension run (`run_extension.sh`, log `extension.log`, 74 min; 20 exports):
+  `MultiRxTrihedral` at targetRoll 45 (slant), `MultiRxPlate` (40 mm square PEC plate, normal
+  to boresight), and the split-pair scenes `PairsSphere`, `PairsTrihedral` (roll 0, 90),
+  `PairsDihedral` (roll 0, 22.5), pairAngle 0.5 ... 6 deg, gapRatio 0 and 2, all at 4 m.
+* Slant trihedral (roll 45; departures from `summary_departures_aim1.csv`, 79 GHz / band):
+  - span: as roll 0 (-3 dB at 3.5 deg, -10 dB at 5.75 deg): the lobe follows the aperture,
+    whose width hardly changes with roll;
+  - cross-pol: rises at once like roll 0, first order (LDR_H -51 / -45 / -39 / -33 dB at
+    0.25 / 0.5 / 1 / 2 deg; roll 0: -50 / -43 / -36.5 / -31 dB), 1 ... 2.5 dB lower;
+  - co-pol: unlike roll 0, it changes to first order too (arg(S_HH S_VV*) -0.5 / -1.2 / -2.6 deg
+    at 0.5 / 1 / 2 deg, Z_DR -0.1 / -0.2 / -0.3 dB), so Z_DR departs 0.5 dB at 3.5 deg against
+    7.5 deg at roll 0, and the co-pol phase 5 deg at 3.5 against 4.5 deg;
+  - entropy and mean alpha: as roll 0 (0.1 at 7.0 deg; 10 deg at 6.25 deg).
+* That completes the symmetry picture (T7): with the displacement along H, a mirror plane x-z
+  (perpendicular to the displacement) makes co-pol even in beta (second order) and cross-pol
+  odd; a mirror plane x-y (the bistatic plane) forbids cross-pol but leaves the co-pol free to
+  change linearly; neither (slant trihedral) leaves both linear. Trihedral roll 0 (x-z):
+  co-pol phase -0.2 / -0.8 / -3.9 deg at 1 / 2 / 4 deg (quadratic); roll 90 (x-y): +0.3 / +0.6 /
+  +1.1 / +1.6 deg at 0.25 / 0.5 / 1 / 2 deg and Z_DR +0.1 / +0.2 / +0.3 dB at 0.5 / 1 / 2 deg
+  (linear), no cross-pol; roll 45: both linear.
+* Flat plate (40 mm, normal to boresight): monostatic span -77.7 dB, 2.4 dB below the 40 mm
+  dihedral (PO: 4 pi A^2 / lambda^2 against 8 pi a^2 b^2 / lambda^2, 3 dB). Its bistatic
+  pattern is the plate's sinc^2 with the first null near lambda / L = 5.4 deg (span -10 dB at
+  4.25 deg, -20 dB by 6 deg), like the dihedral at roll 0, whose aperture along H is the same
+  40 mm. Departures likewise close to that dihedral: Z_DR 0.5 dB at 4.75 deg (dihedral 5.25),
+  co-pol phase 5 deg at 4.0 deg (4.75), mean alpha 10 deg at 5.25 deg (5.75). Its cross-pol is
+  exactly zero in physical optics (LDR -150 ... -360 dB, never defined): a flat PEC plate in a
+  principal plane does not depolarize.
+* Split-pair Z_DR (`pairs.py` -> `<sandbox>/pairs/pairs_zdr.png`, `pairs_zdr.csv`). The
+  supervisor's layout TxV -[b]- RxV -[g]- TxH -[b]- RxH: VV and HH each from a pair of base b
+  (pair bistatic angle beta), the pairs g apart, so their bisectors lie (b + g) / R apart
+  (beta and 3 beta for g = 0 and 2 b). Reference: a co-located dual-polarized pair of the same
+  base (bisector on boresight). Split minus reference, at 79 GHz (band max |.| in brackets):
+
+  | Target | g | 1 deg | 2 deg | 3 deg | 6 deg |
+  | --- | --- | --- | --- | --- | --- |
+  | sphere | 0 / 2b | 0.01 / 0.00 dB | 0.12 / 0.10 dB | 0.13 / -0.02 dB | -0.04 / -0.09 dB (0.12) |
+  | trihedral roll 0 | 0 / 2b | -0.03 / 0.00 dB | -0.05 / -0.04 dB | -0.02 / -0.03 dB | 0.72 (0.94) / 0.18 (1.46) dB |
+  | trihedral roll 90 | 0 / 2b | 0.03 / 0.11 dB | -0.05 / -0.18 dB | -0.10 (0.54) / -1.26 (1.40) dB | -2.54 (6.25) / -7.55 (12.6) dB |
+  | dihedral roll 0 | 0 / 2b | 0.05 / -0.01 dB | 0.01 / 2.0 (8.6) dB | -0.02 / 0.22 dB | 3.0 (12.2) / 3.7 (4.0) dB |
+  | dihedral roll 22.5 | 0 / 2b | 0.05 / -0.14 dB | -0.05 / 4.5 (15.5) dB | -0.17 / -0.34 (1.39) dB | 0.76 (47.9) / 3.2 (6.3) dB |
+
+  The HH and VV pair angles match exactly (mirror images). The co-pol phase difference
+  arg(S_HH S_VV*) changes by at most 0.7 deg up to 2 deg with g = 0 and 2.4 deg at 1 deg with
+  g = 2b; the dihedral at 22.5 deg reaches -47 deg at 2 deg with g = 2b and -61 deg at 6 deg
+  with g = 0.
+* Reading of the split pairs. The VV pair is the HH pair mirrored about x-z, so the split Z_DR
+  compares the target seen from two mirrored aspects, (b + g) / R apart. For a target with a
+  mirror plane x-z or C2 symmetry about the line of sight (sphere, trihedral roll 0, dihedrals)
+  the two aspects are equivalent and the split error reduces to the change of Z_DR with the
+  bisector's offset, which is even (second order). The trihedral at roll 90 has neither and gives
+  the largest, steadily growing error: -1.3 dB at 3 deg and -7.6 dB at 6 deg with g = 2b,
+  against a reference pair that changes by only 0.3 / 1.4 dB. The dihedrals' large values with
+  g = 2b at 2 and 4 deg are isolated spikes: there the pairs' bisectors sit +-3 / +-6 deg off
+  boresight, near the 40 mm aperture's monostatic aspect nulls (lambda / (2 L) = 2.7 deg and its
+  multiples), where both co-pol channels are small and their ratio is ill-conditioned. Below
+  2 deg with g = 0 (bisectors under 2 deg apart) every target stays within 0.2 dB (band) and
+  0.7 deg of the co-located pair: at automotive geometry (b of a few cm at a few metres,
+  beta below 1 deg) the split costs nothing with these ideal beams. The order of growth below
+  2 deg is not resolvable: the differences there sit at the ~0.05 dB level of the band spread.
 
 ## Distillation (for the task note)
 
@@ -393,6 +493,73 @@ horizontal displacement only; sphere, trihedral (roll 0, 90 deg) and dihedral (r
   the power ripples by ±3 dB across the retro-reflected footprint (+5 dB at 1°) while the
   co-pol ratio stays within 0.4 dB and the phase within 4°.
 
+### Findings: supervisor's suggestions, more reflectors, split pairs (2026-10-21)
+
+Same scene and conventions (now radar ones: LDR = cross-polar power over the co-polar power of
+the same Tx polarization, Z_DR = |S_HH|²/|S_VV|²); "co/cross 3 dB down" above reads as LDR
+3 dB up. Added: a slant trihedral (roll 45°), a 40 mm flat plate, and split antenna pairs.
+
+- LDR is the most sensitive descriptor, but only where symmetry allows cross-pol: the
+  trihedral at roll 0° and 45° (LDR −37 / −39 dB at 1°, rising 6 dB per doubling of β), never the
+  sphere, the plate, the trihedral at roll 90° or the dihedral at 0°/90°. With real antennas
+  (pattern cross-pol typically −20 … −30 dB) these bistatic levels would sit under the
+  antenna's own LDR floor, except for small calibration-size trihedrals.
+- The cross–co phase ∠(S_VH S_HH*) is deterministic wherever the cross-pol is genuine (trihedral
+  about +135°, flat over the band); where it scatters, the cross-pol is at the numerical floor.
+- Symmetry sets the order of every change (receivers displaced along H). A mirror plane x–z
+  (perpendicular to the displacement) or C2 symmetry about the line of sight: co-pol changes to
+  second order, cross-pol odd. A mirror plane in the bistatic plane: no cross-pol, but the
+  co-pol may change linearly (trihedral roll 90°: Z_DR +0.2 dB, ∠(S_HH S_VV*) +1.1° at 1°).
+  Neither (slant trihedral): both linear, so its Z_DR departs 0.5 dB at 3.5° against 7.5° at
+  roll 0°.
+- The flat plate behaves like the dihedral at roll 0° (same 40 mm aperture along H): first
+  null near λ/L = 5.4°, Z_DR 0.5 dB at 4.75°, and no cross-pol at all (physical optics).
+- Z_DR from split pairs (TxV –b– RxV –g– TxH –b– RxH, both co-pol pairs with the same pair
+  angle β) agrees with a co-located dual-polarized pair to within 0.2 dB and 0.7° for β ≤ 2°
+  with g = 0, for every target: at automotive geometry the split costs nothing with ideal
+  beams. It departs at larger β and gaps, most for the target without a mirror plane x–z or C2
+  (trihedral roll 90°: −1.3 dB at 3° and −7.6 dB at 6° with g = 2b), and in spikes where the
+  pairs' bisectors fall onto the target's monostatic aspect nulls (dihedral, g = 2b).
+- Aiming the receivers changes only the span (a scalar gain fit leaves at most −48 dB inside
+  the lobe), for ideal identical beams in a principal plane.
+
+### Limitations (apply to every finding above)
+
+- **Ideal antennas.** Parametric beams with identical H and V patterns, no pattern cross-pol,
+  no phase-centre wander, no coupling, one phase centre per site. Every "aiming does not matter"
+  and "the split does not matter" statement holds only for them: real patterns add the receive
+  polarization matrix P_Rx(β) (E/H-plane gain ratio, pattern cross-pol, basis rotation off the
+  principal planes), which affects monostatic off-boresight targets as much as bistatic ones.
+- **Geometry.** Horizontal displacement only (bistatic plane x–y), targets on boresight at
+  4 m (1–16 m for the trihedral scaling), canonical PEC targets 40 mm across (up to 160 mm),
+  free space: no ground, multipath or clutter. Vertical displacement swaps the targets'
+  symmetry roles and is not run.
+- **Solver.** SBR+ is asymptotic (PO with PTD/UTD edges). Edge-dominated quantities, above all
+  the trihedral's bistatic cross-pol, are model-dependent by about 10 dB (PO against PTD + UTD)
+  and need a full-wave check. Cross-pol is defined only well above the numerical floor (about
+  −60 dB re span for the trihedral, −85 … −100 dB otherwise, at 4 rays/λ).
+- **Target near field.** The lobe rules need the target's far field (R > 2D²/λ); the 160 mm
+  dihedral at 4 m has no lobe at all.
+- **Processing.** Static frequency sweeps (74–84 GHz), frequency-domain beamforming towards a
+  known target, no range gating, no Doppler, no calibration errors.
+
+### Decisions (with their reasons)
+
+| Date | Decision | Reason |
+| --- | --- | --- |
+| 2026-10-20 | Parametric beams, not the full-wave array, for the bistatic scenes | Isolate the target's bistatic physics from antenna effects; real patterns are a separate, one-way question |
+| 2026-10-20 | Receivers on a ladder y_k = R tan(kβ), pooled by β from the exported positions | One solve gives three bistatic angles; β is never taken from a formula |
+| 2026-10-20 | 4 rays per wavelength, sphere at mesh slider 9 | T4: converged above −55 dB re co-pol; T6: faceting at slider 5 |
+| 2026-10-20 | Sphere, trihedral (0°, 90°), dihedral (0 … 90° in 22.5° steps) | User validation; 22.5° added for a mixed co/cross response |
+| 2026-10-20 | Departure levels relative to each target's monostatic value, floors masked at 50 dB below the span, levels only in CSVs | Absolute levels assumed an odd-bounce target; figures stay unbiased |
+| 2026-10-20 | Horizontal displacement only | Vertical noted as an extension |
+| 2026-10-21 | Receiver aiming closed by the scalar fit (`reference/rx_aim/`) | User: sufficient proof; scope limited to ideal beams |
+| 2026-10-21 | Scene frame ISO 8855 (x boresight) by default, `--boresight z` kept; exports record `target_steering_deg`, the analysis steers towards it | Consistency with the signal processing; the z scene's angles are spherical |
+| 2026-10-21 | Radar conventions (Z_DR, LDR, ∠(S_HH S_VV*), ∠(S_cross S_co*)) under new keys | Supervisor's suggestion; new keys so that no old name changes meaning |
+| 2026-10-21 | Figures split by signature group, labels in mathtext with power ratios as ratios on dB axes; summaries one figure per target family | User: the big figure was too big and "|S_HH| − |S_VV|" unclear; the old summary dropped series |
+| 2026-10-21 | Slant trihedral (roll 45°) and flat plate added; slant dihedrals already covered | Supervisor: more reflectors |
+| 2026-10-21 | Split pairs as mirror images about x–z, gap 0 and 2b, against a co-located pair of the same base | Supervisor's Z_DR layout; equal pair angles and gains isolate the split itself |
+
 ### Log entry
 
 - 2026-10-20: Multi-receiver sweep done (sandbox branch `sandbox/bistaticity`, plan and log in
@@ -402,3 +569,126 @@ horizontal displacement only; sphere, trihedral (roll 0, 90 deg) and dihedral (r
   range scaling (trihedral 40–160 mm, 1–16 m) in `…/scaling/`; edge-diffraction check (PO, PTD,
   UTD).
   Extension noted: vertical receiver displacement.
+- 2026-10-21: Pipeline validated end to end on a copy of the project (16 cases, 6 bugs fixed;
+  `src/pomaar/simulator/investigation/validation/README.md`). Signatures switched to radar
+  conventions (Z_DR, LDR, cross–co phase), figures split by group with clearer labels. Supervisor's
+  suggestions run: slant trihedral, flat plate, and Z_DR from split antenna pairs
+  (`…/pairs/pairs_zdr.png`): the split agrees with a co-located pair to 0.2 dB for β ≤ 2° with
+  ideal beams. Limitations and a glossary of the aperture-physics terms in the log file.
+
+## Glossary: geometry, aperture physics and descriptors
+
+### Geometry
+
+* **Bistatic angle β.** The angle at the target between the directions to the Tx and to the Rx
+  (`bistatic_angle_deg`); monostatic: β = 0. For a Tx and Rx at ±d/2 about a centre and a
+  target at range R on the perpendicular bisector, tan(β/2) = d/(2R). In the multi-receiver
+  ladder the range is measured from the Tx, and Rx k sits at y = R tan(kβ), so tan(kβ) = y/R
+  exactly; both are β ≈ d/R to first order. The analysis always takes β from the exported
+  positions, never from a formula.
+* **Bistatic plane.** The plane through Tx, Rx and target: x–y for the horizontal displacement
+  studied here, x–z for a vertical one.
+* **Bistatic bisector.** The direction halfway between the Tx and Rx directions, seen from the
+  target. For small β and smooth, perfectly conducting targets, a bistatic measurement behaves
+  like a monostatic one along the bisector at the frequency scaled by cos(β/2) (the
+  monostatic–bistatic equivalence theorem). Multiple bounces, shadowing and edges break it,
+  which is why the trihedral and dihedral depart from their monostatic signatures at all.
+* **Split pairs.** Two separate bistatic pairs, one per co-pol channel (TxV–RxV and TxH–RxH,
+  base b each, gap g between them). Their bisectors lie (b + g)/R apart, so the two channels see
+  the target from slightly different aspects.
+* **Mirror plane and C2 symmetry (of a target).** A mirror plane is a plane whose reflection
+  leaves the target unchanged; C2 is a 180° rotation about the line of sight that does so. Both
+  belong to the target, not to the geometry. With M = diag(−1, 1) (H flips, V stays) and the
+  receivers displaced along H:
+  - a mirror plane x–z gives S(−β) = M S(β) M: co-pol even in β (second order), cross-pol odd;
+  - a mirror plane in the bistatic plane (x–y) forces the cross-pol to zero at every β, but
+    leaves the co-pol free to change linearly;
+  - C2 gives S(−β) = S(β): everything even, so all changes are second order.
+* **Principal plane.** A plane containing the boresight and the H or V axis (x–y or x–z here).
+  In it, the antennas' H/V basis is not rotated relative to the scattering basis.
+* **Polarization basis.** H along y and V along z (ISO 8855 scene frame). S[rx, tx] with 0 = H
+  and 1 = V (back-scatter alignment), so S_HV is H-receive, V-transmit.
+
+### Aperture physics
+
+* **Bistatic pattern.** A target's scattering as a function of the receive direction for a
+  fixed transmit direction: the bistatic RCS σ(β). It is a property of the target, not of the
+  antennas.
+* **Why the plotted span is the bistatic pattern.** The span ‖S‖² = Σ|S_pq|² is the
+  polarization-summed received power. With the receivers aimed at the target (rxAim 1), the
+  antenna gains are the same at every β, and the paths change by only R/cos(kβ) (0.34 dB at
+  16°). So the span against β is the bistatic pattern up to a constant (the radar equation's
+  gains and ranges), summed over the polarizations. With the receivers on boresight (rxAim 0),
+  the receive beam's roll-off is added on top: 3(β/30°)² dB for the 60° beams.
+* **Why it has lobes.** A flat or corner reflector re-radiates like an aperture antenna. In
+  physical optics (PO), the incident field induces surface currents J = 2 n̂ × H_inc on the lit
+  faces. Their phases make them add up in the retro (or specular) direction. Moving the receiver
+  by β adds a path difference that grows linearly across the aperture, so
+  σ(β) ∝ |∫_A e^{jk(r̂_inc + r̂_s)·r′} dA|², a Fourier transform of the effective aperture. That
+  gives a sinc-like **main (retro) lobe** around the monostatic direction, then **nulls** and
+  **sidelobes**.
+* **First null β₀ ≈ λ/D**, D the effective aperture along the bistatic plane:
+  - trihedral, 40 mm edges: 7.8° (D ≈ 28 mm);
+  - plate, and dihedral at roll 0 (40 mm along H): λ/L = 5.4°, seen at 5.75°;
+  - dihedral at roll 90 (retro-reflecting across the seam, D = 2L cos 45°): 3.85°, seen at
+    4.0°.
+
+  β₀ scales as 1/D and does not depend on range (checked over 40–160 mm and 1–16 m). The
+  span's −3 dB point lies at 0.41–0.50 β₀.
+* **Monostatic aspect pattern.** The monostatic RCS against the target's aspect angle θ. Its
+  phase gradient is twice the bistatic one (2k sin θ across the aperture), so its first null
+  lies at λ/(2D), half of β₀ (2.7° for 40 mm). It matters for the split pairs, whose bisectors
+  sit off boresight.
+* **Lobe-limited.** Descriptors of strong channels (Z_DR, co-pol phase, H, ᾱ) hold to
+  0.6–1.0 β₀ and change together near the first null, where the dominant mechanism vanishes and
+  weaker ones (edges, single or double bounces) compete. In displacement terms, d ≲ 0.5 Rλ/D.
+* **Far field of the target.** The lobe structure needs R > 2D²/λ (1.7 m for a 40 mm trihedral,
+  27 m for a 160 mm dihedral at 79 GHz). Closer in, the retro-reflected beam has a geometric
+  footprint with Fresnel ripple instead of a lobe.
+* **Sphere.** Smooth and doubly curved: σ ≈ πa² for small β and no lobe. The reference for a
+  bistatically invariant target.
+* **Edge diffraction (PTD/UTD).** PO alone ignores the edges. PTD (physical theory of
+  diffraction) adds edge currents, and UTD (uniform theory of diffraction) adds diffracted
+  rays. About 10 dB of the trihedral's bistatic cross-pol comes from edges (PO −49 dB against
+  PTD + UTD −39 dB re span at 1°). Its −64 dB monostatic "floor" is UTD-ray noise.
+* **Numerical floor.** The level below which SBR+ output is ray-sampling noise. It is fixed
+  relative to the monostatic span (−60 dB trihedral, −85 … −100 dB sphere and dihedral, at
+  4 rays/λ), and it falls with ray density. Below it, ratios are meaningless and phases random.
+
+### Descriptors (power ratios in dB, phases in deg)
+
+* **Span** ‖S‖² = Σ|S_pq|²: with aimed receivers, the bistatic pattern.
+* **Differential reflectivity** Z_DR = |S_HH|²/|S_VV|² and the **co-pol phase difference**
+  ∠(S_HH S_VV*):
+  - 0 dB and 0° for odd bounces (sphere, trihedral, plate);
+  - 0 dB and 180° for a dihedral at roll 0.
+* **Linear depolarization ratio** LDR_H = |S_VH|²/|S_HH|² (Tx H) and LDR_V = |S_HV|²/|S_VV|²:
+  the cross-polar power normalized to the co-polar power of the same transmit polarization.
+* **Cross–co phase** ∠(S_VH S_HH*) and ∠(S_HV S_VV*): meaningful only where the cross-pol stands
+  above its floor.
+* **Cross-pol ratio** |S_HV|²/|S_VH|² and the **cross-pol phase difference** ∠(S_HV S_VH*).
+  The **normalized asymmetry** is |S_HV − S_VH|²/‖S‖². Monostatically, reciprocity fixes these
+  to 0 dB, 0° and zero; bistatically they measure how far S departs from symmetry.
+* **Bistatic Pauli fractions** |k_i|²/‖k‖², with k = (HH+VV, HH−VV, HV+VH, j(HV−VH))/√2:
+  - k1: odd bounce;
+  - k2: even bounce;
+  - k3: 45°-rotated even bounce;
+  - k4: the antisymmetric part, which only a bistatic geometry (or a non-reciprocal medium)
+    produces.
+* **Cloude–Pottier H, A, ᾱ** of the 4×4 band-averaged coherency matrix:
+  - entropy H: 0 = one mechanism;
+  - anisotropy A;
+  - mean alpha ᾱ: 0° odd bounce, 45° dipole, 90° even bounce.
+
+  They summarize, and so they can be blind to changes in weak channels: the trihedral's LDR rose
+  20 dB while H and ᾱ stayed put.
+* **Departure angle.** The first β at which a descriptor moves from its monostatic value by a
+  stated level (`summary_departures_aim<a>.csv`). It is an interpretation, so it appears only in
+  CSVs, never in figures.
+* **Scale invariance.** Every descriptor except the span is a ratio, a phase difference or a
+  span-normalized quantity, so S → gS (one complex scalar) leaves it unchanged. That is why
+  receiver aiming, a common gain with ideal beams, changes only the span.
+* **Type 1 / type 2 (array topology).** Type 1 interleaves separate single-polarized H and V
+  elements, so the polarization channels have different phase centres. Type 2 uses
+  dual-polarized elements, so they share one (`spacingHV` = 0 here). The split pairs are the
+  bistatic analogue of type 1.
