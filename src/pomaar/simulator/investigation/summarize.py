@@ -51,11 +51,11 @@ EXPORTS = SANDBOX_DIR / "exports"
 PANELS = (
     [
         ("Span ‖S‖²", "dB", "span_db", False, None),
-        ("Co-pol ratio |S_VV / S_HH|", "dB", "copol_ratio_db", False, None),
-        ("Co-pol phase difference ∠(S_VV S_HH*)", "deg", "copol_phase_difference_deg", True, None),
-        ("Co/cross ratio, Tx H: |S_HH / S_VH|", "dB", "co_minus_cross_txh_db", False, None),
-        ("Co/cross phase, Tx H: ∠(S_HH S_VH*)", "deg", "co_cross_phase_txh_deg", True, None),
-        ("Co/cross ratio, Tx V: |S_VV / S_HV|", "dB", "co_minus_cross_txv_db", False, None),
+        ("Z_DR = |S_HH|² / |S_VV|²", "dB", "zdr_db", False, None),
+        ("Co-pol phase difference ∠(S_HH S_VV*)", "deg", "hh_vv_phase_deg", True, None),
+        ("LDR, Tx H: |S_VH|² / |S_HH|²", "dB", "ldr_txh_db", False, None),
+        ("Cross-co phase, Tx H: ∠(S_VH S_HH*)", "deg", "cross_co_phase_txh_deg", True, None),
+        ("LDR, Tx V: |S_HV|² / |S_VV|²", "dB", "ldr_txv_db", False, None),
         ("Cross-pol ratio |S_HV / S_VH|", "dB", "reciprocity_db", False, None),
         ("Normalized asymmetry |S_HV − S_VH| / ‖S‖", "dB", "asymmetry_db", False, None),
     ]
@@ -139,13 +139,13 @@ def figure(pooled, centre, transform, title, path, panels=PANELS, keep=None):
 # reciprocity fixes monostatically (HV = VH)
 DEPARTURES = [
     ("span (lobe)", "span_db", "drop", (3.0, 10.0)),
-    ("co-pol ratio |VV/HH| (dB)", "copol_ratio_db", "change", (0.5, 1.0)),
-    ("co-pol phase difference (deg)", "copol_phase_difference_deg", "change", (5.0, 10.0)),
-    ("co/cross Tx H |HH/VH| (dB)", "co_minus_cross_txh_db", "floor change", (3.0, 10.0, 20.0)),
-    ("co/cross Tx V |VV/HV| (dB)", "co_minus_cross_txv_db", "floor change", (3.0, 10.0, 20.0)),
-    ("co/cross phase Tx H (deg)", "co_cross_phase_txh_deg", "change", (5.0, 10.0)),
-    ("co/cross phase Tx V (deg)", "co_cross_phase_txv_deg", "change", (5.0, 10.0)),
-    ("cross-pol ratio |HV/VH| (dB)", "reciprocity_db", "absolute", (1.0, 3.0)),
+    ("Z_DR = |HH|^2/|VV|^2 (dB)", "zdr_db", "change", (0.5, 1.0)),
+    ("co-pol phase arg(HH VV*) (deg)", "hh_vv_phase_deg", "change", (5.0, 10.0)),
+    ("LDR Tx H |VH|^2/|HH|^2 (dB)", "ldr_txh_db", "floor change", (3.0, 10.0, 20.0)),
+    ("LDR Tx V |HV|^2/|VV|^2 (dB)", "ldr_txv_db", "floor change", (3.0, 10.0, 20.0)),
+    ("cross-co phase Tx H arg(VH HH*) (deg)", "cross_co_phase_txh_deg", "change", (5.0, 10.0)),
+    ("cross-co phase Tx V arg(HV VV*) (deg)", "cross_co_phase_txv_deg", "change", (5.0, 10.0)),
+    ("cross-pol ratio |HV|^2/|VH|^2 (dB)", "reciprocity_db", "absolute", (1.0, 3.0)),
     ("normalized asymmetry (dB)", "asymmetry_db", "above", (-30.0, -20.0)),
     ("entropy H", "entropy", "change", (0.1, 0.3)),
     ("mean alpha (deg)", "mean_alpha_deg", "change", (10.0, 20.0)),
@@ -160,15 +160,15 @@ DEPARTURES = [
 # cross-pol departure
 CROSS_POL_DEFINED_DB = 50.0
 CROSS_POL_KEYS = {
-    "co_minus_cross_txh_db",
-    "co_minus_cross_txv_db",
-    "co_cross_phase_txh_deg",
-    "co_cross_phase_txv_deg",
+    "ldr_txh_db",
+    "ldr_txv_db",
+    "cross_co_phase_txh_deg",
+    "cross_co_phase_txv_deg",
     "reciprocity_db",
     "reciprocity_phase_deg",
     "asymmetry_db",
 }
-CO_POL_KEYS = {"copol_ratio_db", "copol_phase_difference_deg"}
+CO_POL_KEYS = {"zdr_db", "hh_vv_phase_deg"}
 # zero monostatically by reciprocity, so their change from there is no defined quantity
 RECIPROCITY_ZEROS = {"asymmetry_db", ("pauli_fractions_db", 3)}
 

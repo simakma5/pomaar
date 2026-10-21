@@ -8,7 +8,7 @@ beta / beta_0, beta_0 being the first null of its span at the centre frequency:
         MultiRxTrihedralS80_rxAim1 ... [--out <folder>]
 
 Outputs (in <sandbox>/scaling/):
-* `scaling.png`: span, co-pol ratio and phase, and each cross-pol channel relative to the
+* `scaling.png`: span, Z_DR and co-pol phase difference, and each cross-pol channel relative to the
   monostatic span (where it stands EMERGED_DB above its monostatic value, which is the
   numerical floor for these targets), against beta (log axis for the cross-pol) and against
   beta / beta_0;
@@ -152,8 +152,8 @@ def main(argv=None):
 
     panels = [
         ("Span ‖S‖² minus monostatic", "dB", "span"),
-        ("Co-pol ratio |S_VV / S_HH|", "dB", "copol_ratio_db"),
-        ("Co-pol phase difference ∠(S_VV S_HH*)", "deg", "copol_phase_difference_deg"),
+        ("Z_DR = |S_HH|² / |S_VV|²", "dB", "zdr_db"),
+        ("Co-pol phase difference ∠(S_HH S_VV*)", "deg", "hh_vv_phase_deg"),
         ("|S_HV|² minus monostatic span", "dB", "power_hv_db"),
         ("|S_VH|² minus monostatic span", "dB", "power_vh_db"),
     ]

@@ -7,7 +7,8 @@ frequency, for every value of a swept design variable. `MimoPolarimetryProcessor
 MIMO radar chain on them and returns general products (range profiles, beamformed maps of total
 power, polarimetric channel powers and Pauli features); `CanonicalTargetProcessor` adds a
 single target's scattering matrix over frequency and its target-agnostic signatures (channel
-powers, co-pol ratio and phase difference, co- minus cross-pol, reciprocity, Pauli, Cloude-Pottier).
+powers, differential reflectivity Z_DR and co-pol phase difference, linear depolarization ratio
+LDR and cross-co phase, reciprocity, Pauli, Cloude-Pottier).
 Studies such as `bistaticity_analysis` combine these products; they do no signal processing of
 their own.
 
@@ -873,26 +874,32 @@ class CanonicalTargetProcessor(MimoPolarimetryProcessor):
         return assemble_scattering_matrix(*(beams[q][..., 0, 0] for q in POLARIMETRIC_CHANNELS))
 
     @staticmethod
-    def copol_crosspol_difference_db(matrices):
-        """
-        Co-polar minus cross-polar return per transmit polarization in dB,
-        (|S_HH| - |S_VH| for Tx H, |S_VV| - |S_HV| for Tx V).
-        """
-        cross_h, cross_v = crosspolar_isolation(matrices)
-        return -db20(cross_h), -db20(cross_v)
+    def zdr_db(matrices):
+        """Differential reflectivity Z_DR = |S_HH|^2 / |S_VV|^2 in dB."""
+        return -db20(copolar_ratio(matrices))
 
     @staticmethod
-    def copol_phase_difference_deg(matrices):
-        """Co-polar phase difference arg(S_VV S_HH*) in degrees."""
-        return np.angle(copolar_ratio(matrices), deg=True)
+    def hh_vv_phase_deg(matrices):
+        """Co-polar phase difference arg(S_HH S_VV*) = phi_HH - phi_VV in degrees."""
+        return np.angle(matrices[..., 0, 0] * np.conj(matrices[..., 1, 1]), deg=True)
+
+    @staticmethod
+    def ldr_db(matrices):
+        """
+        Linear depolarization ratio per transmit polarization in dB: the cross-polar power
+        normalized to the co-polar power of the same transmission, (|S_VH|^2 / |S_HH|^2 for
+        Tx H, |S_HV|^2 / |S_VV|^2 for Tx V).
+        """
+        cross_h, cross_v = crosspolar_isolation(matrices)
+        return db20(cross_h), db20(cross_v)
 
     @classmethod
     def bounce_parity(cls, matrices):
         """
-        Opt-in classification: 'odd' where |arg(S_VV S_HH*)| < 90 deg (sphere, trihedral, plate),
+        Opt-in classification: 'odd' where |arg(S_HH S_VV*)| < 90 deg (sphere, trihedral, plate),
         else 'even' (dihedral). It assumes a dominant single-, double- or triple-bounce target.
         """
-        return np.where(np.abs(cls.copol_phase_difference_deg(matrices)) < 90.0, "odd", "even")
+        return np.where(np.abs(cls.hh_vv_phase_deg(matrices)) < 90.0, "odd", "even")
 
     @staticmethod
     def fidelity(matrices, reference_matrix):
@@ -905,10 +912,12 @@ class CanonicalTargetProcessor(MimoPolarimetryProcessor):
         (azimuth, elevation)), per variation and frequency unless noted:
 
         * `power_<pq>_db`: |S_pq|^2 of every channel, and `span_db`: the total |S|_F^2;
-        * `copol_ratio_db`, `copol_phase_difference_deg`: |S_VV / S_HH|, arg(S_VV S_HH*);
-        * `co_minus_cross_tx<h|v>_db`, `co_cross_phase_tx<h|v>_deg`: co- to cross-polar ratio
-          per transmit polarization (the two receivers of one transmission, as in a weather
-          radar's linear depolarization ratio), |S_co / S_cross| and arg(S_co S_cross*);
+        * `zdr_db`, `hh_vv_phase_deg`: the differential reflectivity |S_HH|^2 / |S_VV|^2 and
+          the co-polar phase difference arg(S_HH S_VV*) = phi_HH - phi_VV;
+        * `ldr_tx<h|v>_db`, `cross_co_phase_tx<h|v>_deg`: the linear depolarization ratio per
+          transmit polarization (the two receivers of one transmission), |S_cross|^2 / |S_co|^2,
+          and the cross- relative to the co-polar phase, arg(S_cross S_co*), with
+          (co, cross) = (S_HH, S_VH) for Tx H and (S_VV, S_HV) for Tx V;
         * `reciprocity_db`, `reciprocity_phase_deg`, `asymmetry_db`: S_HV / S_VH and
           |S_HV - S_VH| / |S|_F;
         * `pauli_fractions_db`: the four bistatic Pauli power fractions;
@@ -917,13 +926,12 @@ class CanonicalTargetProcessor(MimoPolarimetryProcessor):
           of the bistatic 4x4 coherency matrix averaged over the band.
         """
         s = self.target_matrices(azimuth_deg, elevation_deg) if matrices is None else matrices
-        co_minus_cross_h, co_minus_cross_v = self.copol_crosspol_difference_db(s)
-        # arg(S_co S_cross*) = -arg(S_cross / S_co)
+        ldr_h, ldr_v = self.ldr_db(s)
+        # arg(S_cross S_co*) = arg(S_cross / S_co)
         cross_h, cross_v = crosspolar_isolation(s)
         entropy, anisotropy, mean_alpha = cloude_pottier(
             coherency_matrix(pauli_vector(s, bistatic=True))
         )
-        ratio = copolar_ratio(s)
         reciprocity = reciprocity_ratio(s)
         powers = {
             f"power_{q.lower()}_db": db20(s[..., "HV".index(q[0]), "HV".index(q[1])])
@@ -932,12 +940,12 @@ class CanonicalTargetProcessor(MimoPolarimetryProcessor):
         return {
             **powers,
             "span_db": db10(span(s)),
-            "copol_ratio_db": db20(ratio),
-            "copol_phase_difference_deg": np.angle(ratio, deg=True),
-            "co_minus_cross_txh_db": co_minus_cross_h,
-            "co_cross_phase_txh_deg": -np.angle(cross_h, deg=True),
-            "co_minus_cross_txv_db": co_minus_cross_v,
-            "co_cross_phase_txv_deg": -np.angle(cross_v, deg=True),
+            "zdr_db": self.zdr_db(s),
+            "hh_vv_phase_deg": self.hh_vv_phase_deg(s),
+            "ldr_txh_db": ldr_h,
+            "cross_co_phase_txh_deg": np.angle(cross_h, deg=True),
+            "ldr_txv_db": ldr_v,
+            "cross_co_phase_txv_deg": np.angle(cross_v, deg=True),
             "reciprocity_db": db20(reciprocity),
             "reciprocity_phase_deg": np.angle(reciprocity, deg=True),
             "asymmetry_db": db20(normalized_asymmetry(s)),

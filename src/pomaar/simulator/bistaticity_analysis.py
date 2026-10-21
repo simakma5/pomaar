@@ -52,9 +52,9 @@ INK, MUTED, GRID = "#222222", "#6b6b6b", "#e4e4e4"
 PAULI_NAMES = ["k₁ ∝ HH+VV", "k₂ ∝ HH−VV", "k₃ ∝ HV+VH", "k₄ ∝ j(HV−VH)"]
 # Phase differences (deg) are circular: their bands are taken around the centre-frequency value
 PHASE_KEYS = {
-    "copol_phase_difference_deg",
-    "co_cross_phase_txh_deg",
-    "co_cross_phase_txv_deg",
+    "hh_vv_phase_deg",
+    "cross_co_phase_txh_deg",
+    "cross_co_phase_txv_deg",
     "reciprocity_phase_deg",
 }
 # Bounded quantities are shown over their whole domain, so that noise is not magnified
@@ -196,26 +196,26 @@ def plot_signatures(
             [(f"power_{q.lower()}_db", f"|S_{q}|²") for q in POLARIMETRIC_CHANNELS],
         ),
         ("(2) Span ‖S‖²", "dB", [("span_db", None)]),
-        ("(3) Co-pol ratio |S_VV / S_HH|", "dB", [("copol_ratio_db", None)]),
+        ("(3) Differential reflectivity |S_HH|² / |S_VV|²", "dB", [("zdr_db", None)]),
         (
-            "(4) Co-pol phase difference ∠(S_VV S_HH*)",
+            "(4) Co-pol phase difference ∠(S_HH S_VV*)",
             "deg",
-            [("copol_phase_difference_deg", None)],
+            [("hh_vv_phase_deg", None)],
         ),
         (
-            "(5) Co- to cross-pol ratio per Tx polarization",
+            "(5) Linear depolarization ratio per Tx polarization",
             "dB",
             [
-                ("co_minus_cross_txh_db", "Tx H: |S_HH / S_VH|"),
-                ("co_minus_cross_txv_db", "Tx V: |S_VV / S_HV|"),
+                ("ldr_txh_db", "Tx H: |S_VH|² / |S_HH|²"),
+                ("ldr_txv_db", "Tx V: |S_HV|² / |S_VV|²"),
             ],
         ),
         (
-            "(6) Co- to cross-pol phase difference per Tx polarization",
+            "(6) Cross- relative to co-pol phase per Tx polarization",
             "deg",
             [
-                ("co_cross_phase_txh_deg", "Tx H: ∠(S_HH S_VH*)"),
-                ("co_cross_phase_txv_deg", "Tx V: ∠(S_VV S_HV*)"),
+                ("cross_co_phase_txh_deg", "Tx H: ∠(S_VH S_HH*)"),
+                ("cross_co_phase_txv_deg", "Tx V: ∠(S_HV S_VV*)"),
             ],
         ),
         ("(7) Cross-pol ratio |S_HV / S_VH|", "dB", [("reciprocity_db", None)]),
@@ -302,12 +302,12 @@ def plot_signature_maps(
         channels
         + [
             ("span_db", "Span ‖S‖² (dB)", None),
-            ("copol_ratio_db", "Co-pol ratio |S_VV / S_HH| (dB)", "ratio"),
-            ("copol_phase_difference_deg", "Co-pol phase difference ∠(S_VV S_HH*) (deg)", "phase"),
-            ("co_minus_cross_txh_db", "Tx H: |S_HH / S_VH| (dB)", None),
-            ("co_cross_phase_txh_deg", "Tx H: ∠(S_HH S_VH*) (deg)", "phase"),
-            ("co_minus_cross_txv_db", "Tx V: |S_VV / S_HV| (dB)", None),
-            ("co_cross_phase_txv_deg", "Tx V: ∠(S_VV S_HV*) (deg)", "phase"),
+            ("zdr_db", "Differential reflectivity |S_HH|² / |S_VV|² (dB)", "ratio"),
+            ("hh_vv_phase_deg", "Co-pol phase difference ∠(S_HH S_VV*) (deg)", "phase"),
+            ("ldr_txh_db", "LDR Tx H: |S_VH|² / |S_HH|² (dB)", None),
+            ("cross_co_phase_txh_deg", "Tx H: ∠(S_VH S_HH*) (deg)", "phase"),
+            ("ldr_txv_db", "LDR Tx V: |S_HV|² / |S_VV|² (dB)", None),
+            ("cross_co_phase_txv_deg", "Tx V: ∠(S_HV S_VV*) (deg)", "phase"),
             ("reciprocity_db", "Cross-pol ratio |S_HV / S_VH| (dB)", "ratio"),
             ("reciprocity_phase_deg", "Cross-pol phase difference ∠(S_HV S_VH*) (deg)", "phase"),
             ("asymmetry_db", "Normalized asymmetry |S_HV − S_VH| / ‖S‖ (dB)", None),

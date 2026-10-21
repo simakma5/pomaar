@@ -330,6 +330,22 @@ Working notes of the sandboxed investigation behind the task note "Bistaticity a
     changes the one-way receive polarization matrix P_Rx(beta): the E/H-plane gain ratio, the
     pattern cross-pol and, off the principal planes, the basis rotation. That comes from the
     far-field patterns, not from SBR+.
+* Signature conventions switched to the radar ones, under new keys so that no old name changes
+  meaning. Each new quantity is the negative of the old one (in dB or deg), and the departure
+  angles are unchanged (all 192 rows of `summary_departures_aim1.csv` checked):
+
+  | Old key (CSVs before 2026-10-21) | Old quantity | New key | New quantity |
+  | --- | --- | --- | --- |
+  | `copol_ratio_db` | \|S_VV/S_HH\| | `zdr_db` | Z_DR = \|S_HH\|²/\|S_VV\|² |
+  | `copol_phase_difference_deg` | ∠(S_VV S_HH*) | `hh_vv_phase_deg` | ∠(S_HH S_VV*) |
+  | `co_minus_cross_txh_db` | \|S_HH/S_VH\| | `ldr_txh_db` | LDR_H = \|S_VH\|²/\|S_HH\|² |
+  | `co_minus_cross_txv_db` | \|S_VV/S_HV\| | `ldr_txv_db` | LDR_V = \|S_HV\|²/\|S_VV\|² |
+  | `co_cross_phase_txh_deg` | ∠(S_HH S_VH*) | `cross_co_phase_txh_deg` | ∠(S_VH S_HH*) |
+  | `co_cross_phase_txv_deg` | ∠(S_VV S_HV*) | `cross_co_phase_txv_deg` | ∠(S_HV S_VV*) |
+
+  The "co/cross" levels quoted in this log (e.g. "co/cross falls below 30 dB") read as
+  LDR above -30 dB in the new convention. The analysis figures are now split by group (powers,
+  copolar, crosspolar, pauli, cloude_pottier) with mathtext labels.
 
 ## Distillation (for the task note)
 

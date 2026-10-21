@@ -311,7 +311,7 @@ def test_target_matrices_compensate_the_linear_term_off_boresight(boresight):
     assert set(processor.bounce_parity(matrices).ravel()) == {"even"}
     assert np.min(processor.fidelity(matrices, reference_dihedral(30))) == pytest.approx(1.0)
     features = processor.signatures(matrices=matrices)
-    np.testing.assert_allclose(features["copol_phase_difference_deg"] % 360, 180.0)
+    np.testing.assert_allclose(features["hh_vv_phase_deg"] % 360, 180.0)
     np.testing.assert_allclose(features["entropy"], 0.0, atol=1e-9)
 
 
@@ -321,9 +321,9 @@ def test_canonical_features_tell_odd_and_even_bounces_apart():
     processor = CanonicalTargetProcessor
     assert processor.bounce_parity(sphere) == "odd"
     assert processor.bounce_parity(REFERENCE_DIHEDRAL) == "even"
-    co_h, co_v = processor.copol_crosspol_difference_db(leaky)
-    assert co_h == pytest.approx(20 * np.log10(1e-3 / 3e-6))
-    assert co_v == pytest.approx(60.0)
+    ldr_h, ldr_v = processor.ldr_db(leaky)
+    assert ldr_h == pytest.approx(20 * np.log10(3e-6 / 1e-3))
+    assert ldr_v == pytest.approx(-60.0)
 
 
 def test_signatures_are_target_agnostic_quantities(tmp_path):
@@ -343,8 +343,8 @@ def test_signatures_are_target_agnostic_quantities(tmp_path):
     assert not any("fidelity" in key or "reference" in key for key in features)
     np.testing.assert_allclose(features["power_hh_db"], -100.0)
     np.testing.assert_allclose(features["power_vh_db"], -160.0)
-    np.testing.assert_allclose(features["copol_ratio_db"], 0.0, atol=1e-9)
-    np.testing.assert_allclose(features["co_minus_cross_txh_db"], 60.0)
+    np.testing.assert_allclose(features["zdr_db"], 0.0, atol=1e-9)
+    np.testing.assert_allclose(features["ldr_txh_db"], -60.0)
     assert features["entropy"].shape == (2,) and features["pauli_fractions_db"].shape[-1] == 4
 
 
@@ -361,11 +361,16 @@ def test_co_cross_signatures_pair_the_receivers_of_one_transmission(tmp_path):
         metadata=json.dumps({"setup_sweep": "Setup : Sweep_Scattered"}),
     )
     features = CanonicalTargetProcessor.from_npz(tmp_path / "leaky.npz").signatures()
-    expected = {"txh": (40.0, 0.0), "txv": (20.0, 90.0)}
+    # LDR = |S_cross|^2 / |S_co|^2 and arg(S_cross S_co*): Tx H (S_VH / S_HH = 0.01), Tx V
+    # (S_HV / S_VV = -0.1j)
+    expected = {"txh": (-40.0, 0.0), "txv": (-20.0, -90.0)}
     for side, (ratio_db, phase_deg) in expected.items():
-        np.testing.assert_allclose(features[f"co_minus_cross_{side}_db"], ratio_db, atol=1e-9)
-        phase = features[f"co_cross_phase_{side}_deg"]
+        np.testing.assert_allclose(features[f"ldr_{side}_db"], ratio_db, atol=1e-9)
+        phase = features[f"cross_co_phase_{side}_deg"]
         np.testing.assert_allclose(np.cos(np.radians(phase - phase_deg)), 1.0, atol=1e-9)
+    # Z_DR = |S_HH|^2 / |S_VV|^2 and arg(S_HH S_VV*) of S_HH = 1, S_VV = -1
+    np.testing.assert_allclose(features["zdr_db"], 0.0, atol=1e-9)
+    np.testing.assert_allclose(np.abs(features["hh_vv_phase_deg"]), 180.0)
 
 
 # --- builder exports ----------------------------------------------------------------------------

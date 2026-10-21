@@ -90,9 +90,9 @@ There are three stages, each a class re-exported by `pomaar.simulator`:
    centres (array frame) are turned into the scene frame, so both frames give identical products
    (`positions=` are taken as given, in the scene frame).
    `CanonicalTargetProcessor` adds `target_matrices` (frequency-domain beamforming towards the
-   target) and target-agnostic `signatures` (channel powers, span, co-pol ratio/phase difference,
-   co/cross ratio and phase per Tx polarization, cross-pol ratio, asymmetry, bistatic Pauli
-   fractions, Cloude–Pottier H/A/ᾱ of the 4×4 band-averaged coherency matrix); `fidelity`,
+   target) and target-agnostic `signatures` (channel powers, span, differential reflectivity
+   Z_DR = |S_HH|²/|S_VV|² and ∠(S_HH S_VV*), LDR = |S_cross|²/|S_co|² and ∠(S_cross S_co*) per
+   Tx polarization, cross-pol ratio, asymmetry, bistatic Pauli fractions, Cloude–Pottier H/A/ᾱ of the 4×4 band-averaged coherency matrix); `fidelity`,
    `bounce_parity` and the reference matrices are opt-ins the analysis never uses. Exports are
    always the scattered solution: neither the processor nor the analysis handles total fields or
    background subtraction.

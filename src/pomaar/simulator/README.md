@@ -402,11 +402,11 @@ steering direction (at boresight: as exported). None of them refers to a particu
 | --- | --- | --- | --- |
 | 1 | Channel returns \|S_pq\|² | `power_<pq>_db` | frequency |
 | 2 | Span ‖S‖²_F | `span_db` | frequency |
-| 3 | Co-pol ratio \|S_VV/S_HH\| | `copol_ratio_db` | frequency |
-| 4 | Co-pol phase difference ∠(S_VV S_HH*) | `copol_phase_difference_deg` | frequency |
-| 5, 6 | Co- to cross-pol ratio per Tx pol, the two receivers of one transmission (as in a weather radar's linear depolarization ratio): magnitude \|S_co / S_cross\| and phase difference ∠(S_co S_cross*), with S_HH/S_VH for Tx H and S_VV/S_HV for Tx V | `co_minus_cross_tx<h\|v>_db`, `co_cross_phase_tx<h\|v>_deg` | frequency |
-| 7, 8 | Cross-pol ratio S_HV/S_VH: magnitude and phase difference | `reciprocity_db`, `reciprocity_phase_deg` | frequency |
-| 9 | Normalized asymmetry \|S_HV − S_VH\| / ‖S‖_F | `asymmetry_db` | frequency |
+| 3 | Differential reflectivity Z_DR = \|S_HH\|²/\|S_VV\|² | `zdr_db` | frequency |
+| 4 | Co-pol phase difference ∠(S_HH S_VV*) = φ_HH − φ_VV | `hh_vv_phase_deg` | frequency |
+| 5, 6 | Linear depolarization ratio per Tx pol, the two receivers of one transmission: the cross-polar power normalized to the co-polar one, LDR_H = \|S_VH\|²/\|S_HH\|² and LDR_V = \|S_HV\|²/\|S_VV\|², and the cross- relative to the co-polar phase ∠(S_cross S_co*), i.e. ∠(S_VH S_HH*) and ∠(S_HV S_VV*) | `ldr_tx<h\|v>_db`, `cross_co_phase_tx<h\|v>_deg` | frequency |
+| 7, 8 | Cross-pol ratio \|S_HV\|²/\|S_VH\|² and phase difference ∠(S_HV S_VH*) | `reciprocity_db`, `reciprocity_phase_deg` | frequency |
+| 9 | Normalized asymmetry \|S_HV − S_VH\|² / ‖S‖²_F | `asymmetry_db` | frequency |
 | 10 | Bistatic Pauli power fractions of k = [HH+VV, HH−VV, HV+VH, j(HV−VH)]/√2 | `pauli_fractions_db` | frequency |
 | 11, 12 | Cloude–Pottier entropy H and anisotropy A = (λ₂−λ₃)/(λ₂+λ₃) (one panel, both in [0, 1]), and mean α of the bistatic 4×4 coherency matrix | `entropy`, `anisotropy`, `mean_alpha_deg` | variation (averaged over the band) |
 | (CSV) | Pauli angle of the single matrix, cos α = \|k₁\|/‖k‖ | `alpha_deg` | frequency |
@@ -420,6 +420,11 @@ Notes on the table:
   over the frequency samples; H > 0 then means the signature changes across the band.
 * **Phase reference.** All phases are relative between channels. The absolute arg S_HH is path
   length (geometry), not polarimetry.
+* **Conventions.** Z_DR and ∠(S_HH S_VV*) follow weather radar (HH over VV, φ_HH − φ_VV), and
+  LDR is cross over co (negative dB for a weakly depolarizing target). Exports analysed before
+  2026-10-21 used |S_VV/S_HH|, ∠(S_VV S_HH*), |S_co/S_cross| and ∠(S_co S_cross*) instead, under
+  the keys `copol_ratio_db`, `copol_phase_difference_deg`, `co_minus_cross_tx<h|v>_db` and
+  `co_cross_phase_tx<h|v>_deg`: each is the negative of its new counterpart.
 * **Reading them (not done by the code).** An odd-bounce scatterer (sphere, trihedral, plate)
   shows S_VV ≈ S_HH (0 dB, 0°), all power in k₁ and ᾱ ≈ 0°; an even-bounce one (dihedral with its
   edge along H or V) S_VV ≈ −S_HH (0 dB, ±180°), k₂ and ᾱ ≈ 90°; a 45°-rolled dihedral is purely
@@ -504,18 +509,19 @@ From the original 201-point export (8 spacings, 50 MHz steps; since replaced in
 The values are at 79 GHz, with H, A and ᾱ taken over the band; β = 2·atan(d/2R) is the co-polar
 bistatic angle of this scene:
 
-| d (λ₀) | β (°) | \|S_VV/S_HH\| (dB) | ∠(S_VV S_HH*) (°) | Co − cross, Tx H (dB) | Co − cross, Tx V (dB) | \|S_HV/S_VH\| (dB) | H (10⁻⁴) | A | ᾱ (°) |
+| d (λ₀) | β (°) | Z_DR = \|S_HH\|²/\|S_VV\|² (dB) | ∠(S_HH S_VV*) (°) | LDR_H = \|S_VH\|²/\|S_HH\|² (dB) | LDR_V = \|S_HV\|²/\|S_VV\|² (dB) | \|S_HV\|²/\|S_VH\|² (dB) | H (10⁻⁴) | A | ᾱ (°) |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| 1.41 | 0.11 | −0.08 | −0.4 | 41.2 | 36.5 | 4.7 | 7.7 | 0.89 | 0.74 |
-| 2.41 | 0.18 | −0.07 | 0.8 | 40.6 | 57.5 | −16.9 | 3.9 | 0.46 | 0.50 |
-| 3.41 | 0.26 | −0.14 | 0.6 | 40.3 | 40.5 | −0.4 | 5.4 | 0.67 | 0.40 |
-| 4.41 | 0.33 | −0.19 | 0.8 | 41.1 | 48.5 | −7.6 | 4.5 | 0.84 | 1.02 |
-| 5.41 | 0.41 | 0.00 | 0.6 | 42.9 | 44.2 | −1.2 | 2.3 | 0.82 | 0.52 |
-| 6.41 | 0.48 | −0.12 | −0.8 | 39.1 | 47.9 | −8.9 | 3.0 | 0.79 | 0.71 |
-| 7.41 | 0.56 | 0.15 | 0.1 | 43.5 | 41.4 | 2.2 | 1.6 | 0.47 | 0.56 |
-| 8.41 | 0.63 | −0.02 | −0.1 | 44.2 | 42.8 | 1.4 | 2.3 | 0.48 | 0.33 |
+| 1.41 | 0.11 | 0.08 | 0.4 | −41.2 | −36.5 | 4.7 | 7.7 | 0.89 | 0.74 |
+| 2.41 | 0.18 | 0.07 | −0.8 | −40.6 | −57.5 | −16.9 | 3.9 | 0.46 | 0.50 |
+| 3.41 | 0.26 | 0.14 | −0.6 | −40.3 | −40.5 | −0.4 | 5.4 | 0.67 | 0.40 |
+| 4.41 | 0.33 | 0.19 | −0.8 | −41.1 | −48.5 | −7.6 | 4.5 | 0.84 | 1.02 |
+| 5.41 | 0.41 | 0.00 | −0.6 | −42.9 | −44.2 | −1.2 | 2.3 | 0.82 | 0.52 |
+| 6.41 | 0.48 | 0.12 | 0.8 | −39.1 | −47.9 | −8.9 | 3.0 | 0.79 | 0.71 |
+| 7.41 | 0.56 | −0.15 | −0.1 | −43.5 | −41.4 | 2.2 | 1.6 | 0.47 | 0.56 |
+| 8.41 | 0.63 | 0.02 | 0.1 | −44.2 | −42.8 | 1.4 | 2.3 | 0.48 | 0.33 |
 
-* **Co-pol.** Within −0.28…+0.20 dB and −1.3…+2.7° over the full 74–84 GHz band, with no
+* **Co-pol.** Z_DR within −0.20…+0.28 dB and ∠(S_HH S_VV*) within −2.7…+1.3° over the full
+  74–84 GHz band, with no
   bistatic trend up to β = 0.63°, as expected for a sphere. Absolute |S_HH| is −97.6…−98.1 dB.
 * **Cross-pol.** The cross-pol returns sit 33…73 dB below the co-pol ones over the band (36…57 dB
   at 79 GHz), with no trend in β.

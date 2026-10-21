@@ -51,6 +51,6 @@ def test_pool_receivers_sorts_by_bistatic_angle_and_keeps_equal_angles_once(tmp_
     # Rx_0 is monostatic at both variations, and Rx_1 at 2 deg sits where Rx_2 at 1 deg does
     np.testing.assert_allclose(angles, [0.0, 1.0, 2.0, 4.0], atol=1e-6)
     assert receivers == ["Rx_0", "Rx_1", "Rx_1", "Rx_2"]
-    assert features["co_minus_cross_txh_db"].shape == (4, len(FREQUENCIES))
-    np.testing.assert_allclose(features["co_minus_cross_txh_db"], 80.0)
+    assert features["ldr_txh_db"].shape == (4, len(FREQUENCIES))
+    np.testing.assert_allclose(features["ldr_txh_db"], -80.0)
     assert values[1] == pytest.approx(1.0)
