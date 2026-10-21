@@ -173,12 +173,13 @@ presets. The numbered `STEP` comments in the code are the map:
   on the boundary).
 * **Step 7b:** `verify_placement` checks every element against R(yaw)(p − o) + pos (its template's
   offset o, z shifted by `z_ref`) and aborts on mismatch. Step 7c reports the port polarizations.
-* **Setup (`configure_simulation_setup`, after Step 7c):** `Setup` is the unit cell's setup
-  (native copy-paste, else recreated) for its meshing only. Its copied sweeps are replaced by one
-  discrete `Sweep` over the ranges of the unit cell's first sweep (read with `saved_setups`) that
-  saves the radiated fields; a unit cell without a sweep fails. It warns when the adaptive
-  frequencies stay below the top of the sweep. A discrete sweep is one full-wave solve per
-  frequency.
+* **Setup (`configure_simulation_setup`, after Step 7c):** the array's setup is the unit cell's
+  (native copy-paste, else recreated) for its meshing only; requested as `Setup`, its name and its
+  sweep's are read back (`array_solution`) for the reports, the solve and the export. Its copied
+  sweeps are replaced by one discrete `Sweep` over the ranges of the unit cell's first sweep (read
+  with `saved_setups`) that saves the radiated fields; a unit cell without a sweep fails. It warns
+  when the adaptive frequencies stay below the top of the sweep. A discrete sweep is one full-wave
+  solve per frequency.
 * **`PhaseCentreCS` in the unit cell** is either reused or fitted by `fit_unit_cell_phase_centre`:
   a |E|-weighted least-squares fit of the co-polar Ludwig-3 phase over θ ≤ 40°. Lateral components
   below 10 µm are snapped to 0.

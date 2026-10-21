@@ -50,7 +50,9 @@ from pomaar.simulator.frequency_sweeps import parse_frequency_ghz as _parse_freq
 
 SPEED_OF_LIGHT_MM_S = 2.99792458e11
 DEFAULT_CENTRE_FREQUENCY_GHZ = 79.0
-# The array's analysis setup (the unit cell's meshing) and the builder's discrete sweep in it
+# The array's analysis setup (the unit cell's meshing) and the builder's discrete sweep in it.
+# Requested names only: AEDT may de-duplicate them (Setup1, ...), so the names in use are read
+# back from the design (`array_solution`)
 ARRAY_SETUP_NAME = "Setup"
 ARRAY_SWEEP_NAME = "Sweep"
 
@@ -285,6 +287,9 @@ class MimoHfssBuilder:
         self.source_design_app = None
         self.target_design_app = None
         self.is_new_design = True
+        # The array's setup and sweep names as AEDT gave them (`array_solution`)
+        self.setup_name = None
+        self.sweep_name = None
 
     def connect_desktop(self):
         """Attaches to the running AEDT GUI session (`connect_live_session`)."""
@@ -1326,12 +1331,13 @@ class MimoHfssBuilder:
 
     def configure_simulation_setup(self):
         """
-        Gives the array design 'Setup': the primary unit cell's analysis setup for its
-        meshing (adaptive frequencies, convergence and solver settings, as validated on the unit
-        cell), with the copied sweeps replaced by the builder's own discrete sweep over the
-        frequencies of the unit cell's sweep (`_create_array_sweep`), which SBR+ can link. The
-        setup is copy-pasted natively, else recreated from the unit cell's properties, else the
-        build fails; a unit cell without a sweep fails before anything is changed.
+        Gives the array design the primary unit cell's analysis setup for its meshing (adaptive
+        frequencies, convergence and solver settings, as validated on the unit cell), with the
+        copied sweeps replaced by the builder's own discrete sweep over the frequencies of the
+        unit cell's sweep (`_create_array_sweep`), which SBR+ can link. The setup is copy-pasted
+        natively, else recreated from the unit cell's properties, else the build fails; a unit
+        cell without a sweep fails before anything is changed. The setup and sweep are requested
+        as 'Setup' and 'Sweep', and the names AEDT gave them are kept (`array_solution`).
         """
         if not self.target_design_app:
             raise RuntimeError("Array design not synthesized yet.")
@@ -1405,8 +1411,17 @@ class MimoHfssBuilder:
             raise RuntimeError(f"Cannot read the frequency range of the unit cell's '{origin}'.")
 
         print(f"\nCopying the unit cell's analysis setup '{src_setup_name}' for its meshing...")
+        analysis = self.target_design_app.oanalysis
+        existing = set(analysis.GetSetups())
         self._copy_unit_cell_setup(src_setup_name, src_setup, target_setup_name)
-        self._create_array_sweep(target_setup_name, ranges, origin)
+        # AEDT may have de-duplicated the requested name (Setup1, ...)
+        created = sorted(set(analysis.GetSetups()) - existing)
+        if len(created) != 1:
+            raise RuntimeError(f"Expected one new array setup, found {created or 'none'}.")
+        self.setup_name, self.sweep_name = created[0], None
+        if self.setup_name != target_setup_name:
+            print(f"  Note: AEDT named the setup '{self.setup_name}'.")
+        self._create_array_sweep(self.setup_name, ranges, origin)
         coverage = adaptive_coverage_warning(saved, ranges)
         if coverage:
             print(f"  Warning: {coverage}")
@@ -1422,8 +1437,11 @@ class MimoHfssBuilder:
             pasted_name = self.target_design_app.oanalysis.PasteDrivenSetup()
             if pasted_name:
                 if pasted_name != target_setup_name:
-                    self.target_design_app.oanalysis.RenameSetup(pasted_name, target_setup_name)
-                print(f"  Copy-pasted the setup as '{target_setup_name}'.")
+                    try:
+                        self.target_design_app.oanalysis.RenameSetup(pasted_name, target_setup_name)
+                    except Exception as err:
+                        print(f"  Note: kept the pasted name '{pasted_name}' ({err}).")
+                print("  Copy-pasted the unit cell's setup.")
                 return
         except Exception as err:
             print(
@@ -1506,18 +1524,24 @@ class MimoHfssBuilder:
             ("SaveRadFields", True),
             ("ExtrapToDC", False),
         ]
+        existing = set(analysis.GetSweeps(setup_name))
         analysis.InsertFrequencySweep(
             setup_name, native_sweep_arguments(ARRAY_SWEEP_NAME, ranges, settings)
         )
-        if ARRAY_SWEEP_NAME not in list(analysis.GetSweeps(setup_name)):
-            raise RuntimeError(f"AEDT did not create '{setup_name} : {ARRAY_SWEEP_NAME}'.")
+        # AEDT may have de-duplicated the requested name (Sweep1, ...)
+        created = sorted(set(analysis.GetSweeps(setup_name)) - existing)
+        if len(created) != 1:
+            raise RuntimeError(
+                f"AEDT did not create the sweep '{ARRAY_SWEEP_NAME}' in '{setup_name}'."
+            )
+        self.sweep_name = created[0]
         low, high = sweep_bounds_ghz(ranges)
         try:
             points = f"{sweep_point_count(ranges)} frequencies"
         except ValueError:
             points = "its frequencies"
         print(
-            f"  Created the discrete sweep '{setup_name} : {ARRAY_SWEEP_NAME}' over "
+            f"  Created the discrete sweep '{setup_name} : {self.sweep_name}' over "
             f"{low:g}-{high:g} GHz ({points}, from the unit cell's '{origin}'), saving the "
             "radiated fields; solving it runs one full-wave solve of the array per frequency."
         )
@@ -1557,18 +1581,7 @@ class MimoHfssBuilder:
         rx_ports = sorted([p for p in port_names if "Rx" in p])
         tx_ports = sorted([p for p in port_names if "Tx" in p])
 
-        target_setups = list(self.target_design_app.setup_names)
-        if target_setups:
-            s_name = ARRAY_SETUP_NAME if ARRAY_SETUP_NAME in target_setups else target_setups[0]
-            try:
-                s_obj = self.target_design_app.get_setup(s_name)
-                sw_names = s_obj.get_sweep_names()
-                sw_name = sw_names[0] if sw_names else "Sweep"
-            except Exception:
-                sw_name = "Sweep"
-            setup_sweep = f"{s_name} : {sw_name}"
-        else:
-            setup_sweep = f"{ARRAY_SETUP_NAME} : {ARRAY_SWEEP_NAME}"
+        setup_sweep = self.array_solution()
 
         # Get list of existing reports to avoid duplicate report generation
         try:
@@ -1800,18 +1813,55 @@ class MimoHfssBuilder:
             return
         # The setup is deliberately not reconfigured here, since that deletes existing setups
         # together with their solutions
-        print(f"Solving HFSS array design '{self.target_design_name}'...")
-        self.target_design_app.analyze_setup(ARRAY_SETUP_NAME)
+        self.array_solution()
+        print(f"Solving HFSS array design '{self.target_design_name}' ('{self.setup_name}')...")
+        self.target_design_app.analyze_setup(self.setup_name)
         self.target_design_app.save_project()
 
-    def export_coupling_s_parameters(self, output_touchstone_path, setup_name=ARRAY_SETUP_NAME):
-        """Exports solved S-parameter coupling matrix to a Touchstone (.sNp) file."""
+    def array_solution(self):
+        """
+        The array's solution '<setup> : <sweep>', with the names AEDT gave them. They are read
+        from the design the first time they are needed (and kept): the setup and sweep created by
+        `configure_simulation_setup`, else the design's only setup (the first one, with a
+        warning, when there are several) and that setup's first sweep.
+        """
+        if not self.target_design_app:
+            raise RuntimeError("Array design not synthesized yet.")
+        analysis = self.target_design_app.oanalysis
+        if self.setup_name is None:
+            setups = list(analysis.GetSetups())
+            if not setups:
+                raise RuntimeError(f"Array design '{self.target_design_name}' has no setup.")
+            if len(setups) > 1:
+                print(f"  Warning: several analysis setups {setups}; using '{setups[0]}'.")
+            self.setup_name = setups[0]
+        if self.sweep_name is None:
+            sweeps = list(analysis.GetSweeps(self.setup_name))
+            if not sweeps:
+                raise RuntimeError(f"Array setup '{self.setup_name}' has no frequency sweep.")
+            if len(sweeps) > 1:
+                print(
+                    f"  Warning: several sweeps {sweeps} in '{self.setup_name}'; using the first."
+                )
+            self.sweep_name = sweeps[0]
+        return f"{self.setup_name} : {self.sweep_name}"
+
+    def export_coupling_s_parameters(self, output_touchstone_path, setup_name=None):
+        """
+        Exports the solved S-parameter coupling matrix to a Touchstone (.sNp) file: by default
+        of the array's solution (`array_solution`), else of `setup_name`'s first sweep (or its
+        last adaptive pass when it has none).
+        """
         if not self.target_design_app:
             raise RuntimeError("Array design is not resolved.")
 
         output_touchstone_path = os.path.abspath(output_touchstone_path)
-        sweep_names = self.target_design_app.get_setup(setup_name).get_sweep_names()
-        sweep_name = sweep_names[0] if sweep_names else "LastAdaptive"
+        if setup_name is None:
+            self.array_solution()
+            setup_name, sweep_name = self.setup_name, self.sweep_name
+        else:
+            sweep_names = list(self.target_design_app.oanalysis.GetSweeps(setup_name))
+            sweep_name = sweep_names[0] if sweep_names else "LastAdaptive"
         print(
             f"Exporting coupling S-parameters ({setup_name} : {sweep_name}) "
             f"to: {output_touchstone_path}"
