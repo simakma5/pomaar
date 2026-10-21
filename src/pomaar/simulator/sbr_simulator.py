@@ -69,11 +69,14 @@ TARGET_CS = "TargetCS"
 # back from the design (`analysis_solution`)
 SETUP_NAME = "Setup"
 SWEEP_NAME = "Sweep"
-# Objects of the canonical targets, each with a '<name>PerfectE' boundary
+# Objects of the canonical targets, each with a '<name>PerfectE' boundary (not the placeholder)
 TARGET_OBJECTS = {
     "sphere": "TargetSphere",
     "dihedral": "TargetDihedral",
     "trihedral": "TargetTrihedral",
+    # SBR+ refuses to solve a design without a model object, so the background scene gets a
+    # 1 mm vacuum cube at TargetCS, which scatters nothing
+    "none": "BackgroundPlaceholder",
 }
 # Earlier name of targetRange, removed when the target scene of an existing design is rebuilt
 LEGACY_RANGE_VARIABLE = "targetDistance"
@@ -458,8 +461,19 @@ class SbrSimulationManager:
         modeler = app.modeler
         app["targetSize"] = _aedt_length(size, "mm")
         if target_type == "none":
-            print("No target: this design solves the background (direct Tx/Rx coupling) only.")
-            self.target_object_names = []
+            print(
+                "No target: this design solves the background (direct Tx/Rx coupling) only; a "
+                "1 mm vacuum cube at TargetCS is its model object."
+            )
+            modeler.set_working_coordinate_system(TARGET_CS)
+            placeholder = modeler.create_box(
+                ["-0.5mm", "-0.5mm", "-0.5mm"],
+                ["1mm", "1mm", "1mm"],
+                name=TARGET_OBJECTS["none"],
+                material="vacuum",
+            )
+            modeler.set_working_coordinate_system("Global")
+            self.target_object_names = [placeholder.name]
             return
 
         print(f"Creating {target_type} target (targetSize = {app['targetSize']})...")
