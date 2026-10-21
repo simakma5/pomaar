@@ -541,12 +541,12 @@ def test_analysis_writes_its_figures_and_warns_on_identical_variations(tmp_path,
     main([str(tmp_path / "dihedral.npz"), "--out", str(tmp_path)])
     assert "All 3 values of copolarSpacingLambda give identical data" in capsys.readouterr().out
     written = {p.name for p in (tmp_path / "dihedral").iterdir()}
-    assert {
-        "signatures_vs_sweep.png",
-        "signatures_vs_frequency.png",
-        "signatures_vs_sweep.csv",
-        "range_profiles.png",
-    } <= written
+    groups = ("powers", "copolar", "crosspolar", "pauli", "cloude_pottier")
+    figures = {f"signatures_{group}_vs_sweep.png" for group in groups}
+    # Cloude-Pottier is band-averaged, so it has no frequency maps
+    maps = {f"signatures_{group}_vs_sweep_and_frequency.png" for group in groups[:-1]}
+    assert figures | maps | {"signatures_vs_sweep.csv", "range_profiles.png"} <= written
+    assert "signatures_cloude_pottier_vs_sweep_and_frequency.png" not in written
 
 
 def test_bistatic_angle_is_the_angle_at_the_target():

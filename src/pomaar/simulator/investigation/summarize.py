@@ -37,8 +37,8 @@ import numpy as np  # noqa: E402
 
 from pomaar.simulator.bistaticity_analysis import (  # noqa: E402
     INK,
+    LABELS,
     MUTED,
-    PAULI_NAMES,
     band_limits,
     pool_receivers,
     style_axis,
@@ -50,22 +50,28 @@ EXPORTS = SANDBOX_DIR / "exports"
 # (title, unit, feature key or (key, index), circular, domain)
 PANELS = (
     [
-        ("Span ‖S‖²", "dB", "span_db", False, None),
-        ("Z_DR = |S_HH|² / |S_VV|²", "dB", "zdr_db", False, None),
-        ("Co-pol phase difference ∠(S_HH S_VV*)", "deg", "hh_vv_phase_deg", True, None),
-        ("LDR, Tx H: |S_VH|² / |S_HH|²", "dB", "ldr_txh_db", False, None),
-        ("Cross-co phase, Tx H: ∠(S_VH S_HH*)", "deg", "cross_co_phase_txh_deg", True, None),
-        ("LDR, Tx V: |S_HV|² / |S_VV|²", "dB", "ldr_txv_db", False, None),
-        ("Cross-pol ratio |S_HV / S_VH|", "dB", "reciprocity_db", False, None),
-        ("Normalized asymmetry |S_HV − S_VH| / ‖S‖", "dB", "asymmetry_db", False, None),
+        (f"Span {LABELS['span_db']}", "dB", "span_db", False, None),
+        (LABELS["zdr_db"], "dB", "zdr_db", False, None),
+        (f"Co-pol phase {LABELS['hh_vv_phase_deg']}", "deg", "hh_vv_phase_deg", True, None),
+        (LABELS["ldr_txh_db"], "dB", "ldr_txh_db", False, None),
+        (LABELS["cross_co_phase_txh_deg"], "deg", "cross_co_phase_txh_deg", True, None),
+        (LABELS["ldr_txv_db"], "dB", "ldr_txv_db", False, None),
+        (f"Cross-pol ratio {LABELS['reciprocity_db']}", "dB", "reciprocity_db", False, None),
+        (f"Asymmetry {LABELS['asymmetry_db']}", "dB", "asymmetry_db", False, None),
     ]
     + [
-        (f"Pauli fraction {name}", "dB", ("pauli_fractions_db", i), False, None)
-        for i, name in enumerate(PAULI_NAMES)
+        (LABELS[("pauli_fractions_db", i)], "dB", ("pauli_fractions_db", i), False, None)
+        for i in range(4)
     ]
     + [
-        ("Cloude–Pottier entropy H (band-averaged)", "", "entropy", False, (0.0, 1.0)),
-        ("Cloude–Pottier mean α (band-averaged)", "deg", "mean_alpha_deg", False, (0.0, 90.0)),
+        ("Cloude–Pottier entropy $H$ (band-averaged)", "", "entropy", False, (0.0, 1.0)),
+        (
+            r"Cloude–Pottier mean $\bar{\alpha}$ (band-averaged)",
+            "deg",
+            "mean_alpha_deg",
+            False,
+            (0.0, 90.0),
+        ),
     ]
 )
 COLOURS = [

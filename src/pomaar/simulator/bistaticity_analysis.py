@@ -49,7 +49,90 @@ from pomaar.simulator.polarimetry_processor import (  # noqa: E402
 DEFAULT_OUTPUT_ROOT = PROCESSED_DATA_DIR / "bistaticity"
 SERIES_COLOURS = ["#2a78d6", "#eb6834", "#1baf7a", "#eda100"]
 INK, MUTED, GRID = "#222222", "#6b6b6b", "#e4e4e4"
-PAULI_NAMES = ["k₁ ∝ HH+VV", "k₂ ∝ HH−VV", "k₃ ∝ HV+VH", "k₄ ∝ j(HV−VH)"]
+
+
+def entry(pq):
+    """Mathtext of the scattering-matrix entry S_pq (S[rx, tx]: S_HV is H-receive, V-transmit)."""
+    return rf"S_\mathrm{{{pq}}}"
+
+
+SPAN = r"$\|S\|^2$"
+PAULI_NAMES = [
+    rf"$k_1 \propto {entry('HH')} + {entry('VV')}$",
+    rf"$k_2 \propto {entry('HH')} - {entry('VV')}$",
+    rf"$k_3 \propto {entry('HV')} + {entry('VH')}$",
+    rf"$k_4 \propto \mathrm{{j}}({entry('HV')} - {entry('VH')})$",
+]
+# Mathtext name of every plotted signature: powers and power ratios (written as such) on dB
+# axes, phases in deg
+LABELS = {
+    **{f"power_{q.lower()}_db": rf"$|{entry(q)}|^2$" for q in POLARIMETRIC_CHANNELS},
+    "span_db": SPAN,
+    "zdr_db": rf"$Z_\mathrm{{DR}} = |{entry('HH')}|^2 / |{entry('VV')}|^2$",
+    "hh_vv_phase_deg": rf"$\angle({entry('HH')} {entry('VV')}^*)$",
+    "ldr_txh_db": rf"$\mathrm{{LDR}}_\mathrm{{H}} = |{entry('VH')}|^2 / |{entry('HH')}|^2$",
+    "ldr_txv_db": rf"$\mathrm{{LDR}}_\mathrm{{V}} = |{entry('HV')}|^2 / |{entry('VV')}|^2$",
+    "cross_co_phase_txh_deg": rf"Tx H: $\angle({entry('VH')} {entry('HH')}^*)$",
+    "cross_co_phase_txv_deg": rf"Tx V: $\angle({entry('HV')} {entry('VV')}^*)$",
+    "reciprocity_db": rf"$|{entry('HV')}|^2 / |{entry('VH')}|^2$",
+    "reciprocity_phase_deg": rf"$\angle({entry('HV')} {entry('VH')}^*)$",
+    "asymmetry_db": rf"$|{entry('HV')} - {entry('VH')}|^2 / \|S\|^2$",
+    **{
+        ("pauli_fractions_db", i): rf"$|k_{i + 1}|^2 / \|\mathbf{{k}}\|^2$, {name}"
+        for i, name in enumerate(PAULI_NAMES)
+    },
+    "entropy": "$H$",
+    "anisotropy": "$A$",
+    "mean_alpha_deg": r"$\bar{\alpha}$",
+}
+# The signature figures, one per group: {group: (figure title, [(panel title, unit, [keys])])};
+# a panel with several keys has a legend of their LABELS
+SIGNATURE_GROUPS = {
+    "powers": (
+        "Channel returns and span",
+        [
+            ("Co-polar returns", "dB", ["power_hh_db", "power_vv_db"]),
+            ("Cross-polar returns", "dB", ["power_hv_db", "power_vh_db"]),
+            (f"Span {SPAN}", "dB", ["span_db"]),
+        ],
+    ),
+    "copolar": (
+        "Co-polar signatures",
+        [
+            (f"Differential reflectivity {LABELS['zdr_db']}", "dB", ["zdr_db"]),
+            (f"Co-polar phase difference {LABELS['hh_vv_phase_deg']}", "deg", ["hh_vv_phase_deg"]),
+        ],
+    ),
+    "crosspolar": (
+        "Cross-polar signatures",
+        [
+            ("Linear depolarization ratio per Tx polarization", "dB", ["ldr_txh_db", "ldr_txv_db"]),
+            (
+                "Cross- relative to co-polar phase per Tx polarization",
+                "deg",
+                ["cross_co_phase_txh_deg", "cross_co_phase_txv_deg"],
+            ),
+            (f"Cross-pol ratio {LABELS['reciprocity_db']}", "dB", ["reciprocity_db"]),
+            (
+                f"Cross-pol phase difference {LABELS['reciprocity_phase_deg']}",
+                "deg",
+                ["reciprocity_phase_deg"],
+            ),
+            (f"Normalized asymmetry {LABELS['asymmetry_db']}", "dB", ["asymmetry_db"]),
+        ],
+    ),
+    "pauli": (
+        "Bistatic Pauli power fractions",
+        [(LABELS[("pauli_fractions_db", i)], "dB", [("pauli_fractions_db", i)]) for i in range(4)],
+    ),
+    "cloude_pottier": (
+        "Cloude–Pottier parameters of the 4×4 coherency matrix averaged over the band",
+        [
+            ("Entropy $H$ and anisotropy $A$", "", ["entropy", "anisotropy"]),
+            (r"Mean alpha angle $\bar{\alpha}$", "deg", ["mean_alpha_deg"]),
+        ],
+    ),
+}
 # Phase differences (deg) are circular: their bands are taken around the centre-frequency value
 PHASE_KEYS = {
     "hh_vv_phase_deg",
@@ -57,6 +140,8 @@ PHASE_KEYS = {
     "cross_co_phase_txv_deg",
     "reciprocity_phase_deg",
 }
+# Ratios of like quantities, shown on a colour scale symmetric about 0 dB in the maps
+SYMMETRIC_RATIO_KEYS = {"zdr_db", "reciprocity_db"}
 # Bounded quantities are shown over their whole domain, so that noise is not magnified
 DOMAINS = {"entropy": (0.0, 1.0), "anisotropy": (0.0, 1.0), "mean_alpha_deg": (0.0, 90.0)}
 
@@ -126,7 +211,8 @@ def plot_range_profiles(out_dir, maps, x, x_label, picks):
                 lw=1.4,
                 label=f"{x_label} = {x[index]:g}",
             )
-        style_axis(ax, "Total power" if name == "total" else f"|b_{name}|²", "dB re total peak")
+        panel = "Total power" if name == "total" else rf"$|b_\mathrm{{{name}}}|^2$"
+        style_axis(ax, panel, "dB re total peak")
         ax.set_xlabel("range (m)", fontsize=8.5, color=MUTED)
         ax.set_ylim(-100, 5)
     axes[0].legend(fontsize=7.5, frameon=False)
@@ -158,8 +244,8 @@ def plot_maps(out_dir, maps, index, x_label, x_value):
     ]
     fig, axes = plt.subplots(1, 5, figsize=(22, 4.0), constrained_layout=True)
     images = [(db10(total / total.max()), "Total power (dB re peak)", (-40, 0))] + [
-        (db10(pauli[..., i] / peak_span), f"|{name.split()[0]}|² (dB re peak span)", (-40, 0))
-        for i, name in enumerate(PAULI_NAMES)
+        (db10(pauli[..., i] / peak_span), f"$|k_{i + 1}|^2$ (dB re peak span)", (-40, 0))
+        for i in range(4)
     ]
     for ax, (image, title, limits) in zip(axes, images):
         shown = ax.imshow(image.T, origin="lower", extent=extent, aspect="auto", cmap="viridis")
@@ -178,96 +264,69 @@ def plot_maps(out_dir, maps, index, x_label, x_value):
     plt.close(fig)
 
 
-def plot_signatures(
-    out_dir, features, x, x_label, centre_index, frequencies, title, name="signatures_vs_sweep"
-):
-    """
-    Target-agnostic signatures against the swept variable: a line at the centre frequency and,
-    for per-frequency quantities, the min-max band over the sweep (around the line for phases).
-    Phases span [-180, 180] deg, Pauli fractions end at 0 dB and H, A and mean alpha span their
-    whole domain; the other axes fit the data.
-    """
-    fig, axes = plt.subplots(3, 4, figsize=(20, 11.5), constrained_layout=True)
-    axes = axes.ravel()
-    panels = [
-        (
-            "(1) Channel returns |S_pq|²",
-            "dB",
-            [(f"power_{q.lower()}_db", f"|S_{q}|²") for q in POLARIMETRIC_CHANNELS],
-        ),
-        ("(2) Span ‖S‖²", "dB", [("span_db", None)]),
-        ("(3) Differential reflectivity |S_HH|² / |S_VV|²", "dB", [("zdr_db", None)]),
-        (
-            "(4) Co-pol phase difference ∠(S_HH S_VV*)",
-            "deg",
-            [("hh_vv_phase_deg", None)],
-        ),
-        (
-            "(5) Linear depolarization ratio per Tx polarization",
-            "dB",
-            [
-                ("ldr_txh_db", "Tx H: |S_VH|² / |S_HH|²"),
-                ("ldr_txv_db", "Tx V: |S_HV|² / |S_VV|²"),
-            ],
-        ),
-        (
-            "(6) Cross- relative to co-pol phase per Tx polarization",
-            "deg",
-            [
-                ("cross_co_phase_txh_deg", "Tx H: ∠(S_VH S_HH*)"),
-                ("cross_co_phase_txv_deg", "Tx V: ∠(S_HV S_VV*)"),
-            ],
-        ),
-        ("(7) Cross-pol ratio |S_HV / S_VH|", "dB", [("reciprocity_db", None)]),
-        ("(8) Cross-pol phase difference ∠(S_HV S_VH*)", "deg", [("reciprocity_phase_deg", None)]),
-        ("(9) Normalized asymmetry |S_HV − S_VH| / ‖S‖", "dB", [("asymmetry_db", None)]),
-        (
-            "(10) Bistatic Pauli power fractions |k_i|² / ‖k‖²",
-            "dB",
-            [(("pauli_fractions_db", i), name) for i, name in enumerate(PAULI_NAMES)],
-        ),
-    ]
-    for ax, (panel_title, unit, series) in zip(axes, panels):
-        for colour, (key, label) in zip(SERIES_COLOURS, series):
-            values = features[key[0]][..., key[1]] if isinstance(key, tuple) else features[key]
-            band_plot(ax, x, values, centre_index, colour, label, circular=key in PHASE_KEYS)
-        style_axis(ax, panel_title, unit)
-        if series[0][0][0] == "pauli_fractions_db":
-            low = ax.get_ylim()[0]
-            set_domain(ax, low, 0.0)
-        if len(series) > 1:
-            ax.legend(fontsize=7, frameon=False)
+def values_of(features, key):
+    """The values of a feature key, or of one component (key, index) of it."""
+    return features[key[0]][..., key[1]] if isinstance(key, tuple) else features[key]
 
-    # H and A share the domain [0, 1], so they share a panel
-    cloude = [
-        (
-            "(11) Cloude–Pottier entropy H and anisotropy A (4×4, band-averaged)",
-            "",
-            [("entropy", "H"), ("anisotropy", "A")],
-        ),
-        ("(12) Cloude–Pottier mean α (4×4, band-averaged)", "deg", [("mean_alpha_deg", None)]),
-    ]
-    for ax, (panel_title, unit, series) in zip(axes[10:], cloude):
-        for colour, (key, label) in zip(SERIES_COLOURS, series):
-            ax.plot(x, features[key], color=colour, lw=2, marker="o", markersize=5, label=label)
-        style_axis(ax, panel_title, unit)
-        set_domain(ax, *DOMAINS[series[0][0]])
-        if len(series) > 1:
-            ax.legend(fontsize=7, frameon=False)
 
-    for ax in axes:
-        ax.set_xlabel(x_label, fontsize=8.5, color=MUTED)
-    fig.suptitle(
-        f"{title}. Line: {frequencies[centre_index] / 1e9:.2f} GHz; band: min–max over "
-        f"{frequencies[0] / 1e9:.2f}–{frequencies[-1] / 1e9:.2f} GHz (phases: of the wrapped "
-        "deviation from the line).",
-        fontsize=10,
-        color=INK,
-        x=0.01,
-        ha="left",
+def grid_shape(n_panels, max_columns=3):
+    """(rows, columns) of a figure with `n_panels`, e.g. 2 x 2 for four."""
+    columns = n_panels if n_panels <= max_columns else (2 if n_panels == 4 else max_columns)
+    return -(-n_panels // columns), columns
+
+
+def plot_signature_group(path, features, x, x_label, centre_index, frequencies, title, group):
+    """
+    One group of target-agnostic signatures (`SIGNATURE_GROUPS`) against the swept variable: a
+    line at the centre frequency and, for per-frequency quantities, the min-max band over the
+    sweep (around the line for phases). Phases span [-180, 180] deg, Pauli fractions end at
+    0 dB and H, A and mean alpha span their whole domain; the other axes fit the data.
+    """
+    group_title, panels = SIGNATURE_GROUPS[group]
+    rows, columns = grid_shape(len(panels))
+    fig, axes = plt.subplots(
+        rows, columns, figsize=(5.6 * columns, 4.0 * rows), constrained_layout=True, squeeze=False
     )
-    fig.savefig(os.path.join(out_dir, f"{name}.png"), dpi=150)
+    per_frequency = False
+    for index, (ax, (panel_title, unit, keys)) in enumerate(zip(axes.ravel(), panels)):
+        for colour, key in zip(SERIES_COLOURS, keys):
+            values = values_of(features, key)
+            if np.ndim(values) == 2:
+                per_frequency = True
+                circular = key in PHASE_KEYS
+                band_plot(ax, x, values, centre_index, colour, LABELS[key], circular)
+            else:
+                ax.plot(x, values, color=colour, lw=2, marker="o", markersize=5, label=LABELS[key])
+        style_axis(ax, f"({chr(ord('a') + index)}) {panel_title}", unit)
+        ax.set_xlabel(x_label, fontsize=8.5, color=MUTED)
+        if keys[0] in DOMAINS:
+            set_domain(ax, *DOMAINS[keys[0]])
+        elif isinstance(keys[0], tuple) and keys[0][0] == "pauli_fractions_db":
+            set_domain(ax, ax.get_ylim()[0], 0.0)
+        if len(keys) > 1:
+            ax.legend(fontsize=7.5, frameon=False)
+    for ax in axes.ravel()[len(panels) :]:
+        ax.set_visible(False)
+    phases = any(key in PHASE_KEYS for _, _, keys in panels for key in keys)
+    band = (
+        f" Line: {frequencies[centre_index] / 1e9:.2f} GHz; band: min–max over "
+        f"{frequencies[0] / 1e9:.2f}–{frequencies[-1] / 1e9:.2f} GHz"
+        + (" (phases: of the wrapped deviation from the line)." if phases else ".")
+        if per_frequency
+        else ""
+    )
+    fig.suptitle(
+        f"{title}: {group_title}.{band}", fontsize=10, color=INK, x=0.01, ha="left", wrap=True
+    )
+    fig.savefig(path, dpi=150)
     plt.close(fig)
+
+
+def plot_signatures(out_dir, features, x, x_label, centre_index, frequencies, title, x_name):
+    """Every signature group as `signatures_<group>_vs_<x_name>.png` (`plot_signature_group`)."""
+    for group in SIGNATURE_GROUPS:
+        path = os.path.join(out_dir, f"signatures_{group}_vs_{x_name}.png")
+        plot_signature_group(path, features, x, x_label, centre_index, frequencies, title, group)
 
 
 def cell_edges(centres):
@@ -284,82 +343,78 @@ def finite_limits(*arrays):
     return (finite.min(), finite.max()) if finite.size else (-1.0, 1.0)
 
 
-def plot_signature_maps(
-    out_dir, features, x, x_label, frequencies, title, name="signatures_vs_frequency"
-):
+def plot_signature_maps(out_dir, features, x, x_label, frequencies, title, x_name):
     """
-    Every per-frequency signature as a frequency x swept-variable map: the unsummarized data
-    behind the bands of `plot_signatures`. Every panel has its own colour scale over its data's
-    min and max, so the variation within each quantity stays visible; ratios use a scale
-    symmetric about 0 dB. Phases are shown as their circular mean plus the wrapped deviation
-    from it, on a cyclic scale when the deviations reach around the circle.
+    Every per-frequency signature as a frequency x swept-variable map, grouped as the line
+    figures (`SIGNATURE_GROUPS`) into `signatures_<group>_vs_<x_name>_and_frequency.png`: the
+    unsummarized data behind their bands (the band-averaged Cloude-Pottier group has none).
+    Every panel has its own colour scale over its data's min and max, so the variation within
+    each quantity stays visible; ratios of like quantities use a scale symmetric about 0 dB.
+    Phases are shown as their circular mean plus the wrapped deviation from it, on a cyclic
+    scale when the deviations reach around the circle.
     """
     order = np.argsort(x)
     x_edges = cell_edges(np.asarray(x)[order])
     f_edges = cell_edges(np.asarray(frequencies) / 1e9)
-    channels = [(f"power_{q.lower()}_db", f"|S_{q}|² (dB)", None) for q in POLARIMETRIC_CHANNELS]
-    panels = (
-        channels
-        + [
-            ("span_db", "Span ‖S‖² (dB)", None),
-            ("zdr_db", "Differential reflectivity |S_HH|² / |S_VV|² (dB)", "ratio"),
-            ("hh_vv_phase_deg", "Co-pol phase difference ∠(S_HH S_VV*) (deg)", "phase"),
-            ("ldr_txh_db", "LDR Tx H: |S_VH|² / |S_HH|² (dB)", None),
-            ("cross_co_phase_txh_deg", "Tx H: ∠(S_VH S_HH*) (deg)", "phase"),
-            ("ldr_txv_db", "LDR Tx V: |S_HV|² / |S_VV|² (dB)", None),
-            ("cross_co_phase_txv_deg", "Tx V: ∠(S_HV S_VV*) (deg)", "phase"),
-            ("reciprocity_db", "Cross-pol ratio |S_HV / S_VH| (dB)", "ratio"),
-            ("reciprocity_phase_deg", "Cross-pol phase difference ∠(S_HV S_VH*) (deg)", "phase"),
-            ("asymmetry_db", "Normalized asymmetry |S_HV − S_VH| / ‖S‖ (dB)", None),
+    for group, (group_title, group_panels) in SIGNATURE_GROUPS.items():
+        keys = [
+            key
+            for _, _, panel_keys in group_panels
+            for key in panel_keys
+            if np.ndim(values_of(features, key)) == 2
         ]
-        + [
-            (("pauli_fractions_db", i), f"Pauli fraction |{name.split()[0]}|² / ‖k‖² (dB)", None)
-            for i, name in enumerate(PAULI_NAMES)
-        ]
-    )
-
-    def values_of(key):
-        values = features[key[0]][..., key[1]] if isinstance(key, tuple) else features[key]
-        return values[order]
-
-    n_columns = 4
-    n_rows = -(-len(panels) // n_columns)
-    fig, axes = plt.subplots(
-        n_rows, n_columns, figsize=(20, 3.6 * n_rows), constrained_layout=True, sharey=True
-    )
-    for ax, (key, panel_title, group) in zip(axes.ravel(), panels):
-        values = values_of(key)
-        if group == "phase":
-            mean = np.degrees(np.angle(np.mean(np.exp(1j * np.radians(values)))))
-            values = mean + wrap_deg(values - mean)
-            extent = np.max(np.abs(values - mean))
-            if extent > 170.0:
-                cmap, limits = "twilight", (mean - 180.0, mean + 180.0)
-            else:
-                cmap, limits = "viridis", (mean - extent, mean + extent)
-        elif group == "ratio":
-            extent = np.max(np.abs(finite_limits(values)))
-            cmap, limits = "RdBu_r", (-extent, extent)
-        else:
-            cmap, limits = "viridis", finite_limits(values)
-        shown = ax.pcolormesh(
-            x_edges, f_edges, values.T, cmap=cmap, vmin=limits[0], vmax=limits[1], rasterized=True
+        if not keys:
+            continue
+        units = {key: unit for _, unit, panel_keys in group_panels for key in panel_keys}
+        rows, columns = grid_shape(len(keys), max_columns=4 if len(keys) > 6 else 3)
+        fig, axes = plt.subplots(
+            rows,
+            columns,
+            figsize=(5.6 * columns, 3.8 * rows),
+            constrained_layout=True,
+            sharey=True,
+            squeeze=False,
         )
-        fig.colorbar(shown, ax=ax, shrink=0.9)
-        style_axis(ax, panel_title, "frequency (GHz)")
-        ax.grid(False)
-        ax.set_xlabel(x_label, fontsize=8.5, color=MUTED)
-    for ax in axes.ravel()[len(panels) :]:
-        ax.set_visible(False)
-    fig.suptitle(
-        f"{title}. Signatures over frequency and {x_label}.",
-        fontsize=10,
-        color=INK,
-        x=0.01,
-        ha="left",
-    )
-    fig.savefig(os.path.join(out_dir, f"{name}.png"), dpi=150)
-    plt.close(fig)
+        for ax, key in zip(axes.ravel(), keys):
+            values = values_of(features, key)[order]
+            if key in PHASE_KEYS:
+                mean = np.degrees(np.angle(np.mean(np.exp(1j * np.radians(values)))))
+                values = mean + wrap_deg(values - mean)
+                extent = np.max(np.abs(values - mean))
+                if extent > 170.0:
+                    cmap, limits = "twilight", (mean - 180.0, mean + 180.0)
+                else:
+                    cmap, limits = "viridis", (mean - extent, mean + extent)
+            elif key in SYMMETRIC_RATIO_KEYS:
+                extent = np.max(np.abs(finite_limits(values)))
+                cmap, limits = "RdBu_r", (-extent, extent)
+            else:
+                cmap, limits = "viridis", finite_limits(values)
+            shown = ax.pcolormesh(
+                x_edges,
+                f_edges,
+                values.T,
+                cmap=cmap,
+                vmin=limits[0],
+                vmax=limits[1],
+                rasterized=True,
+            )
+            fig.colorbar(shown, ax=ax, shrink=0.9, label=units[key])
+            style_axis(ax, LABELS[key], "frequency (GHz)")
+            ax.grid(False)
+            ax.set_xlabel(x_label, fontsize=8.5, color=MUTED)
+        for ax in axes.ravel()[len(keys) :]:
+            ax.set_visible(False)
+        fig.suptitle(
+            f"{title}: {group_title} over frequency and {x_label}.",
+            fontsize=10,
+            color=INK,
+            x=0.01,
+            ha="left",
+        )
+        name = f"signatures_{group}_vs_{x_name}_and_frequency.png"
+        fig.savefig(os.path.join(out_dir, name), dpi=150)
+        plt.close(fig)
 
 
 def write_csv(out_dir, features, x, x_label, centre_index, name="signatures_vs_sweep", extra=None):
@@ -547,18 +602,16 @@ def main(argv=None):
             f"{args.elevation:g}°)"
         )
         label = "bistatic angle (deg)"
-        name = "signatures_vs_bistatic_angle"
-        plot_signatures(args.out, features, angles, label, centre_index, frequencies, title, name)
-        plot_signature_maps(
-            args.out, features, angles, label, frequencies, title, f"{name}_and_frequency"
-        )
+        x_name = "bistatic_angle"
+        plot_signatures(args.out, features, angles, label, centre_index, frequencies, title, x_name)
+        plot_signature_maps(args.out, features, angles, label, frequencies, title, x_name)
         write_csv(
             args.out,
             features,
             angles,
             label,
             centre_index,
-            name,
+            f"signatures_vs_{x_name}",
             extra={"receiver": receivers, x_label: values},
         )
         print(f"Figures and CSV written to {args.out}")
@@ -580,8 +633,8 @@ def main(argv=None):
     else:
         print("One virtual channel per polarization: no angular resolution, so no maps.")
     title = f"{design}, steered to ({args.azimuth:g}°, {args.elevation:g}°)"
-    plot_signatures(args.out, features, x, x_label, centre_index, frequencies, title)
-    plot_signature_maps(args.out, features, x, x_label, frequencies, title)
+    plot_signatures(args.out, features, x, x_label, centre_index, frequencies, title, "sweep")
+    plot_signature_maps(args.out, features, x, x_label, frequencies, title, "sweep")
     write_csv(args.out, features, x, x_label, centre_index)
     print(f"Figures and CSV written to {args.out}")
 

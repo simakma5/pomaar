@@ -244,23 +244,32 @@ analysing other data sets never overwrites earlier results (re-running the same 
 outputs make no assumption about the target or the scene: no reference target, no thresholds or
 "ideal" lines, no classification. It writes:
 
-* `signatures_vs_sweep.png` and `signatures_vs_sweep.csv`: the signatures of §4.5 against the
-  swept variable; per-frequency quantities as a line at the centre frequency with a band spanning
+* `signatures_<group>_vs_sweep.png`, one figure per group of the signatures of §4.5 (`powers`:
+  the channel returns and the span; `copolar`: Z_DR and ∠(S_HH S_VV*); `crosspolar`: LDR and the
+  cross–co phase per Tx polarization, the HV/VH ratio and phase and the asymmetry; `pauli`: the
+  four Pauli fractions; `cloude_pottier`: H, A and ᾱ), and `signatures_vs_sweep.csv` with all of
+  them, against the swept variable; per-frequency quantities as a line at the centre frequency with a band spanning
   their minimum and maximum over the frequency sweep (not a confidence interval), band-averaged
   ones as a line. Phase differences are circular: their band is the line plus the min–max of each
   phase's deviation from it, wrapped to ±180°, drawn on a [−180°, 180°] axis and repeated 360° up
   and down (a phase scattered around ±180° would otherwise span the whole circle). Bounded
   quantities use their whole domain (H, A ∈ [0, 1], ᾱ ∈ [0°, 90°], Pauli fractions up to 0 dB),
   so noise is not zoomed into structure; the other axes fit the data, bands included;
-* `signatures_vs_frequency.png`: every per-frequency signature as a frequency × swept-variable map,
-  the unsummarized data behind the bands, which shows whether a wide band comes from a narrow
+* `signatures_<group>_vs_sweep_and_frequency.png` (every group but `cloude_pottier`, which is
+  band-averaged): every per-frequency signature as a frequency × swept-variable map, the
+  unsummarized data behind the bands, which shows whether a wide band comes from a narrow
   null, a slope or ripple across the band, or the swept variable. Each panel has its own colour
-  scale over its data (ratios symmetric about 0 dB); phases are shown as their circular mean plus
+  scale over its data (Z_DR and the HV/VH ratio symmetric about 0 dB); phases are shown as their circular mean plus
   the wrapped deviation, on a cyclic scale when the deviations reach around the circle;
 * `range_profiles.png`: the beamformed range profiles of the total power and of every
   polarimetric channel towards the target;
 * `azimuth_elevation_maps.png`: total power and Pauli powers at the target range, only for arrays
   with several virtual channels per polarization (a cluster has no angular resolution).
+
+With `--per-receiver`, the same groups are written against the bistatic angle instead
+(`signatures_<group>_vs_bistatic_angle[_and_frequency].png`, `signatures_vs_bistatic_angle.csv`).
+All labels are matplotlib mathtext; power ratios are written as such (e.g.
+Z_DR = |S_HH|²/|S_VV|²) on dB axes, never as differences of magnitudes.
 
 Both `sbr_results` and the analysis warn when several values of the swept variable give
 identical data, e.g. an SBR+ variable that does not reach the linked antenna (a stale link
@@ -393,7 +402,7 @@ gives −36…−57 dB (§4.7). That gating chain has been removed.
 > **Remove the coupling at its source.** Export `<setup> : <sweep>_Scattered` (the default).
 > The processor and the analysis assume it and do no background subtraction of their own.
 
-### 4.5 Signatures (panels of `signatures_vs_sweep.png`)
+### 4.5 Signatures (panels of the `signatures_<group>_vs_<x>.png` figures)
 
 The signatures are computed from `target_matrices`, i.e. the channels beamformed towards the
 steering direction (at boresight: as exported). None of them refers to a particular target.

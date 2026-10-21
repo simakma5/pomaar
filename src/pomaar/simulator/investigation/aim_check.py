@@ -31,6 +31,7 @@ import numpy as np  # noqa: E402
 from pomaar.simulator.array_templates import polarimetric_quads  # noqa: E402
 from pomaar.simulator.bistaticity_analysis import (  # noqa: E402
     INK,
+    MUTED,
     receiver_bistatic_angles,
     style_axis,
 )
@@ -137,11 +138,20 @@ def main(argv=None):
                 )
 
     fig, axes = plt.subplots(1, 4, figsize=(22, 4.6), constrained_layout=True)
+    aimed, boresight = r"S_\mathrm{aim}", r"S_\mathrm{boresight}"
     panels = [
-        ("Fit residual ‖S_aim − g S_boresight‖ / ‖S_aim‖", "dB", lambda f: db20(f["residual"])),
-        ("Gain |g|² of aiming", "dB", lambda f: db20(np.abs(f["g"]))),
-        ("Phase arg g of aiming", "deg", lambda f: np.degrees(np.angle(f["g"]))),
-        ("Span of the aimed receivers", "dB re monostatic", lambda f: f["span_re_monostatic_db"]),
+        (
+            rf"Fit residual $\|{aimed} - g\,{boresight}\|^2 / \|{aimed}\|^2$",
+            "dB",
+            lambda f: db20(f["residual"]),
+        ),
+        ("Gain $|g|^2$ of aiming", "dB", lambda f: db20(np.abs(f["g"]))),
+        (r"Phase $\arg g$ of aiming", "deg", lambda f: np.degrees(np.angle(f["g"]))),
+        (
+            r"Span $\|S\|^2$ of the aimed receivers",
+            "dB re monostatic",
+            lambda f: f["span_re_monostatic_db"],
+        ),
     ]
     for ax, (title, unit, quantity) in zip(axes, panels):
         for colour, (design, fit) in zip(COLOURS, fits.items()):
@@ -149,12 +159,12 @@ def main(argv=None):
             values = np.where(np.isfinite(quantity(fit)), quantity(fit), np.nan)
             draw(ax, fit["angle"][off], values[off], centre, colour, design, False)
         style_axis(ax, title, unit)
-        ax.set_xlabel("bistatic angle (deg)")
+        ax.set_xlabel("bistatic angle (deg)", fontsize=8.5, color=MUTED)
     axes[0].legend(fontsize=7, frameon=False)
     frequencies = np.load(pairs[0][0])["frequencies_hz"]
     fig.suptitle(
-        "Receivers aimed at the target (rxAim 1) against on boresight (rxAim 0): S_aim = g "
-        f"S_boresight. Line {frequencies[centre] / 1e9:.2f} GHz, band min–max over "
+        "Receivers aimed at the target (rxAim 1) against on boresight (rxAim 0): "
+        rf"${aimed} = g\,{boresight}$. Line {frequencies[centre] / 1e9:.2f} GHz, band min–max over "
         f"{frequencies[0] / 1e9:.0f}–{frequencies[-1] / 1e9:.0f} GHz",
         fontsize=10,
         color=INK,

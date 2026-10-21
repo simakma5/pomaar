@@ -96,7 +96,9 @@ There are three stages, each a class re-exported by `pomaar.simulator`:
    `bounce_parity` and the reference matrices are opt-ins the analysis never uses. Exports are
    always the scattered solution: neither the processor nor the analysis handles total fields or
    background subtraction.
-   `bistaticity_analysis.py` only combines and plots those products against the swept variable.
+   `bistaticity_analysis.py` only combines and plots those products against the swept variable,
+   one figure per signature group (`SIGNATURE_GROUPS`: powers, copolar, crosspolar, pauli,
+   cloude_pottier), with mathtext labels (`LABELS`) that write power ratios as ratios on dB axes.
 
 ### Layouts
 

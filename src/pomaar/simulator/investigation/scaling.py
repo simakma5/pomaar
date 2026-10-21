@@ -30,7 +30,13 @@ matplotlib.use("Agg")
 import matplotlib.pyplot as plt  # noqa: E402
 import numpy as np  # noqa: E402
 
-from pomaar.simulator.bistaticity_analysis import INK, MUTED, pool_receivers, style_axis  # noqa: E402
+from pomaar.simulator.bistaticity_analysis import (  # noqa: E402
+    INK,
+    LABELS,
+    MUTED,
+    pool_receivers,
+    style_axis,
+)
 from pomaar.simulator.investigation.sandbox import SANDBOX_DIR  # noqa: E402
 from pomaar.simulator.investigation.summarize import (  # noqa: E402
     COLOURS,
@@ -151,11 +157,11 @@ def main(argv=None):
     print(f"Wrote {out / 'scaling.csv'}")
 
     panels = [
-        ("Span ‖S‖² minus monostatic", "dB", "span"),
-        ("Z_DR = |S_HH|² / |S_VV|²", "dB", "zdr_db"),
-        ("Co-pol phase difference ∠(S_HH S_VV*)", "deg", "hh_vv_phase_deg"),
-        ("|S_HV|² minus monostatic span", "dB", "power_hv_db"),
-        ("|S_VH|² minus monostatic span", "dB", "power_vh_db"),
+        (f"Span {LABELS['span_db']} minus monostatic", "dB", "span"),
+        (LABELS["zdr_db"], "dB", "zdr_db"),
+        (LABELS["hh_vv_phase_deg"], "deg", "hh_vv_phase_deg"),
+        (f"{LABELS['power_hv_db']} minus monostatic span", "dB", "power_hv_db"),
+        (f"{LABELS['power_vh_db']} minus monostatic span", "dB", "power_vh_db"),
     ]
     fig, axes = plt.subplots(2, len(panels), figsize=(5 * len(panels), 8), constrained_layout=True)
     for column, (title, unit, key) in enumerate(panels):
@@ -174,7 +180,9 @@ def main(argv=None):
                 keep = x > 0 if key.startswith("power_") else np.ones_like(x, bool)
                 ax.plot(x[keep], values[keep], color=colour, lw=1.4, marker="o", markersize=2.5,
                         label=label)  # fmt: skip
-        for row, xlabel in enumerate(("bistatic angle β (deg)", "β / β₀ (first null)")):
+        for row, xlabel in enumerate(
+            (r"bistatic angle $\beta$ (deg)", r"$\beta / \beta_0$ (first null)")
+        ):
             ax = axes[row, column]
             style_axis(ax, title, unit)
             ax.set_xlabel(xlabel, fontsize=8.5, color=MUTED)
