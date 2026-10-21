@@ -221,9 +221,11 @@ class SbrSimulationManager:
         if not self.desktop_session:
             self.connect_desktop()
 
-        # The linked solution is checked before an existing SBR+ design is replaced
+        # The linked solution and the mapped variables are checked before an existing SBR+
+        # design is replaced or a new one created
         self.open_source_design()
         self.source_solution = self.linkable_solution(source_solution)
+        self.mapped_source_variables(mapped_variables)
         self.create_sbr_design(overwrite=overwrite)
         self.create_coordinate_systems(
             target_range=target_range,
@@ -480,18 +482,12 @@ class SbrSimulationManager:
         )
         self.target_object_names = [target.name]
 
-    def link_antenna(self, field_type=None, mapped_variables=None, source_solution=None):
+    def mapped_source_variables(self, mapped_variables):
         """
-        (d) Links the HFSS design (same project) as an antenna in AntennaCS with 'Simulate source
-        design as needed', the chosen variable mapping and Model Visualization of all objects
-        except the radiation boundary.
+        ({independent variable: expression} of the HFSS design, [mapped names as spelt there]);
+        raises ValueError for a name that is no independent design variable of it.
         """
-        app = self.sbr_app
         src = self.source_app
-        field_type = _ask_field_type(field_type)
-        if source_solution or not self.source_solution:
-            self.source_solution = self.linkable_solution(source_solution)
-
         independent = list(src.variable_manager.independent_design_variable_names)
         expressions = {v: src.variable_manager.variables[v].expression for v in independent}
         # A name given in either spelling (e.g. centreWavelength) maps the HFSS variable as spelt
@@ -502,6 +498,21 @@ class SbrSimulationManager:
                     f"Cannot map '{name}': not an independent design variable of "
                     f"'{self.source_design_name}' ({', '.join(independent)})."
                 )
+        return expressions, mapped
+
+    def link_antenna(self, field_type=None, mapped_variables=None, source_solution=None):
+        """
+        (d) Links the HFSS design (same project) as an antenna in AntennaCS with 'Simulate source
+        design as needed', the chosen variable mapping and Model Visualization of all objects
+        except the radiation boundary.
+        """
+        app = self.sbr_app
+        field_type = _ask_field_type(field_type)
+        if source_solution or not self.source_solution:
+            self.source_solution = self.linkable_solution(source_solution)
+
+        expressions, mapped = self.mapped_source_variables(mapped_variables)
+        for name in mapped:
             if name not in app.variable_manager.variables:
                 app[name] = expressions[name]
         params = ["NAME:Params"]
@@ -1108,6 +1119,10 @@ def main(argv=None):
     except (NativeAedtRefusedError, NoLiveSessionError, UnlinkableSolutionError) as e:
         print(f"[ERROR] {e}")
         return 2
+    except ValueError as e:
+        # Invalid arguments, e.g. a mapped variable that the HFSS design lacks
+        print(f"[ERROR] {e}")
+        return 1
     finally:
         manager.close()
     return 0
