@@ -42,6 +42,9 @@ doc = [
     "mkdocs-material",
     "mkdocstrings[python]",
 ]
+x11 = [
+    "python-xlib>=0.33",
+]
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/pomaar"]
