@@ -1,4 +1,9 @@
-"""Saves a PNG of the region (x, y, w, h) of display :1."""
+"""Saves a PNG of the region (x, y, w, h) of display :1.
+
+    ansys-vnc exec python src/pomaar/agent/x11_shot.py X Y W H out.png
+
+Needs the project's x11 extra (`uv sync --extra x11`).
+"""
 
 import sys
 

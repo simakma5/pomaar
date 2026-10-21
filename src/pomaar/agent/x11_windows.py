@@ -1,4 +1,9 @@
-"""Lists viewable windows on :1 between 200x60 and 900x400 px with position and WM_CLASS."""
+"""Lists viewable windows on :1 between 200x60 and 900x400 px with position and WM_CLASS.
+
+    ansys-vnc exec python src/pomaar/agent/x11_windows.py
+
+Needs the project's x11 extra (`uv sync --extra x11`).
+"""
 
 from Xlib import X, display
 

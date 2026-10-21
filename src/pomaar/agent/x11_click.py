@@ -1,4 +1,9 @@
-"""Clicks the left mouse button at screen position (x, y) on :1 through XTEST."""
+"""Clicks the left mouse button at screen position (x, y) on :1 through XTEST.
+
+    ansys-vnc exec python src/pomaar/agent/x11_click.py X Y
+
+Needs the project's x11 extra (`uv sync --extra x11`).
+"""
 
 import sys
 import time

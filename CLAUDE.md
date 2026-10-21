@@ -63,6 +63,11 @@ ansys-vnc solve <project.aedt> Design:Nominal:Setup   # headless batch solve
   under a telling name, never in `data/`), or, when the user agrees, build sandbox designs in it
   from layouts with a distinct file stem (e.g. `sandbox_*.yaml`), which gives distinct array
   design names. The builder saves the project.
+* **Agent tools and scratch space.** `src/pomaar/agent/` holds read-only session tools
+  (`list_projects`, `inspect_design PROJECT DESIGN ...`) and X11 helpers for the VNC display
+  (window list, screenshot, click, the 'file in use' dialog watcher; `uv sync --extra x11`); see
+  its README. Throwaway output (logs, screenshots, test exports and layouts) goes to `sandbox/`
+  at the repository root, which is gitignored except for its `.gitkeep`.
 
 ## Architecture: the simulation pipeline
 

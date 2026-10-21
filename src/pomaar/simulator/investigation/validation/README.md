@@ -7,9 +7,9 @@ on a copy of `mimo_polarimetry.aedt`
 the results of `ApertureCoupledPatch` and the solved `ApertureCoupledPatchPolarimetricCluster`
 only). `common.py` refuses any other project. The unit cell's sweep in the copy is cut to 5
 points (`prepare.py`), so that a fresh array solves in minutes; the existing cluster keeps its
-81-point solution. The cases' logs and exports are in `data/interim/validation/` (untracked). The
-X11 helpers (`x11_*.py`, `watch_dialogs.sh`, for AEDT's modal dialogs on the VNC display) need
-the project's x11 extra: `uv sync --extra x11`.
+81-point solution. The cases' logs and exports are in `data/interim/validation/` (untracked).
+Designs were inspected with `pomaar.agent.inspect_design`, and AEDT's modal dialogs were handled
+with the X11 helpers in `src/pomaar/agent/` (`x11_*.py`, `watch_dialogs.sh`).
 
 A structured selection rather than every combination: each CLI option and each target type is
 exercised at least once, each in a combination that changes something observable, plus the
