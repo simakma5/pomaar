@@ -318,6 +318,18 @@ Working notes of the sandboxed investigation behind the task note "Bistaticity a
   sweeps, mapped variables, builder presets, robust exports, x boresight, co/cross signatures),
   the branch was rebased onto them (same final tree) and merged; the worktree was removed.
   `SANDBOX_DIR` now follows `pomaar.config.INTERIM_DATA_DIR` instead of a home-relative path.
+* Receiver aiming closed as a reference (`investigation/aim_check.py`, outputs and argument in
+  `<sandbox>/reference/rx_aim/`). Per receiver, angle and frequency, S_aim = g S_boresight:
+  - The residual of that fit is at most -48 dB inside the lobe (span within 20 dB of
+    monostatic). Its median there is -79 ... -103 dB per design, and it stays at most -32 dB
+    even in nulls.
+  - |g|^2 = 3 (beta / 30 deg)^2 dB (the 60 deg beam) to within 0.1 dB, and |arg g| < 0.8 deg.
+  - Since every descriptor but the span is invariant under S -> g S, aiming changes the span
+    only.
+  - Scope: identical cross-pol-free H/V beams in a principal plane. With real patterns, aiming
+    changes the one-way receive polarization matrix P_Rx(beta): the E/H-plane gain ratio, the
+    pattern cross-pol and, off the principal planes, the basis rotation. That comes from the
+    far-field patterns, not from SBR+.
 
 ## Distillation (for the task note)
 
