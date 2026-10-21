@@ -140,7 +140,7 @@ sbr_simulator <path_to_project.aedt> <sbr_design_name> --scene-only [--target ..
      * dihedral: two square `targetSize` × `targetSize` sheets, i.e. `targetSize` is the seam length and the sheet depth. The seam lies on the local x axis through `TargetCS` (parallel to H at zero roll), which is also the phase reference of the double bounce. One sheet is drawn, tilted by 45° and copied by a 180° rotation about the symmetry axis (local z);
      * trihedral: three right-isosceles triangular sheets with edge length `targetSize`, the corner at `TargetCS` and the symmetry axis pointing at the antenna. One sheet is drawn and copied by 120° rotations about local z.
 
-     The defaults (40 mm at 4 m) keep all three in their own far field at 79 GHz (2D²/λ ≤ 3.4 m); the script warns when the chosen range is shorter. `--target none` builds the same scene without a target; its solve is the background (the direct Tx→Rx coupling between the proxy ports), a cross-check of the incident solution below (use `--output-design` to keep both designs).
+     The defaults (40 mm at 4 m) keep all three in their own far field at 79 GHz (2D²/λ ≤ 3.4 m); the script warns when the chosen range is shorter. `--target none` builds the same scene without a target (only a 1 mm vacuum cube at `TargetCS`, since SBR+ refuses to solve a design without a model object; it scatters nothing, −225 dB); its solve is the background (the direct Tx→Rx coupling between the proxy ports), a cross-check of the incident solution below (use `--output-design` to keep both designs).
   4. Links the HFSS design (solution `--source-solution`, default its first discrete sweep that saves fields, e.g. the builder's `Setup : Sweep`; anything else is refused before an existing SBR+ design is touched, see below) with *Simulate source design as needed*, *Model Visualization* of all its objects except the radiation boundary objects (`RadiatingSurface`, the builder's `Airbox`), and far-field (standard) or near-field (bumper/radome integration) results, asked interactively unless `--field-type` is given. `--map-variables` maps independent HFSS design variables to SBR+ design variables of the same name, which are created from the HFSS value when missing, so they can be swept in the SBR+ design. Each mapped variable is also declared as a parameter of the linked component's definition, as the GUI's linked-antenna dialog does; without that declaration (links made by `sbr_simulator` before this fix), AEDT keys the link's per-instance caches by no parameter at all: changing the variable resizes the footprint box but not the visualized antenna, and a horn link made that way returned the same S-parameters at every swept value. Re-create such links (GUI or `sbr_simulator`).
   5. Selects Tx/Rx: ports whose names contain `Tx`/`Rx` and end in `H`/`V` (e.g. `TxH`, `Port_Tx_1_V`); every Tx transmits to every Rx. The builder's matched `_Load` ports are skipped.
   6. Creates `Setup` (4 rays per wavelength, 5 bounces, PTD + UTD, creeping waves) whose sweep `Sweep` copies every range of the linked HFSS sweep, so SBR+ runs exactly at the frequencies where the HFSS design saved fields.
@@ -335,7 +335,12 @@ hand-built designs.
 * for an array built by `hfss_array_builder`, its port table (`metadata["ports"]`): per excitation
   the builder port, role, polarization, field sign and phase centre (mm). `sbr_results` finds the
   `<ArrayDesign>_ports.json` that matches the excitations next to the project, or takes
-  `--port-table <file>`.
+  `--port-table <file>`;
+* for a scene built by `sbr_simulator`, its boresight (`metadata["boresight"]`, read from
+  `AntennaCS`) and the target's direction as the processor's steering angles per variation
+  (`metadata["target_steering_deg"]`: azimuth towards H, elevation towards V). With an x
+  boresight these equal targetAzimuth and targetElevation; with a z boresight those are spherical
+  angles (about and off boresight) and are converted (`scene_frames.target_steering_angles`).
 
 Like the other AEDT scripts, `sbr_results` attaches to the running GUI session and never starts an
 AEDT.

@@ -18,7 +18,9 @@ is gitignored except for its folder structure.
   `force-sort-within-sections`). `hfss_array_builder.py` has 14 pre-existing E501 warnings and
   is not ruff-formatted; don't add new ones and don't reformat it wholesale.
 * `uv run --with pytest python -m pytest tests` runs the pure-NumPy processor, scene-frame,
-  template-planning, setup/sweep-helper and layout-generator tests. Nothing that talks to AEDT has tests; verify it against a running AEDT (below).
+  template-planning, setup/sweep-helper and layout-generator tests. Nothing that talks to AEDT has
+  tests; verify it against a running AEDT (below), e.g. with the harness and test plan in
+  `src/pomaar/simulator/investigation/validation/` (on a copy of the project).
 * `python src/pomaar/simulator/layouts/generate_<topology>.py --unit-cell <Design> [--help]`
   writes `<Design>_<topology>.yaml` next to the script (`-o` elsewhere). The shipped YAMLs are
   bound to `ApertureCoupledPatch`; the simulator README lists the exact commands.
@@ -72,7 +74,10 @@ There are three stages, each a class re-exported by `pomaar.simulator`:
    `tests/test_scene_frames.py`), which the processor shares. `--scene-only` rebuilds just
    `TargetCS` and the target of an existing SBR+ design (e.g. parametric-beam antennas). Setup
    and sweep names are read back from the design (`analysis_solution`), never assumed, since
-   AEDT de-duplicates them (`Setup1`).
+   AEDT de-duplicates them (`Setup1`). With a z boresight, targetAzimuth/targetElevation are
+   spherical angles (about and off boresight), not the processor's steering angles; exports
+   carry `boresight` and `target_steering_deg` (`scene_frames.target_steering_angles`).
+   `--target none` (the background) gets a vacuum placeholder, since SBR+ needs a model object.
 3. **`MimoPolarimetryProcessor`** (`polarimetry_processor.py`). It is pure NumPy, needs no AEDT,
    and works from `.npz` sweeps exported by `sbr_results.py` (scattered solution by default). It
    runs a plain MIMO radar chain, one method each: frequency window, IFFT to range profiles
@@ -211,6 +216,17 @@ presets. The numbered `STEP` comments in the code are the map:
 * **Re-creating a design.** Within one session, AEDT refuses to re-create a design under a
   just-deleted name until the project is saved: `InsertDesign` silently returns `None`. Rename the
   old design before deleting it, as `sbr_simulator.py` does.
+* **Deleted designs keep their result files open.** Re-creating a design under the name of one
+  deleted in the same session (even renamed first) blocks AEDT on a modal "The file
+  <design>.asol_priv is in use - do you want to wait?". Save, close and reopen the project in
+  between, as `sbr_simulator` and `investigation/sandbox.reopen_sandbox` do.
+* **Opening a design by name creates it.** PyAEDT's `Hfss(project, design=name)` silently
+  inserts an empty design when `name` does not exist; check first with
+  `hfss_array_builder.require_designs`.
+* **SBR+ needs a model object.** A design whose only object is a linked antenna's footprint fails
+  to solve ("There should be at least one model object in SBR+ design").
+* **Failed solves.** `analyze_setup` returns False and reports only in AEDT's message window
+  (`odesktop.GetMessages(project, design, 0)`); the scripts raise `SolveFailedError`.
 * **`post.delete_report(None)`** deletes **all** reports; always pass a name.
 * **`edit_sources`** sets every unlisted port to 0 W.
 * **Reading far-field sweeps.** Use `get_solution_data(...)` and `full_matrix_real_imag`; columns
