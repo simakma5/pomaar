@@ -432,6 +432,12 @@ class SbrSimulationManager:
                 "Power Fraction:=", "0.95",
             ]  # fmt: skip
 
+        # Each mapped variable must also be a parameter of the component definition (with the
+        # HFSS value as its default), as the GUI's linked-antenna dialog declares it
+        local_variables = ["NAME:LocalVariables"]
+        for name in mapped:
+            local_variables += ["VariableProp:=", [name, "D", "", expressions[name]]]
+
         component = self.source_design_name
         args = [
             "NAME:InsertNativeComponentData",
@@ -453,7 +459,7 @@ class SbrSimulationManager:
                 "Notes:=", "",
                 "IconType:=", "Linked Antenna",
             ],
-            ["NAME:GeometryDefinitionParameters", ["NAME:VariableOrders"]],
+            ["NAME:GeometryDefinitionParameters", local_variables, ["NAME:VariableOrders"]],
             ["NAME:DesignDefinitionParameters", ["NAME:VariableOrders"]],
             ["NAME:MaterialDefinitionParameters", ["NAME:VariableOrders"]],
             "DefReferenceCSID:=", 1,

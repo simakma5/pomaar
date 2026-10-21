@@ -229,6 +229,14 @@ and V ports) and `attach_port_table`.
   the project, then parses the file with `load_entire_aedt_file`). `oanalysis.GetSweeps` and the
   object API (`odesign.GetChildObject("Analysis")`, `GetPropValue("Type")`) are live but lack the
   save-fields flags.
+* **Mapped variables of a linked antenna.** `InsertNativeComponent` accepts a mapping
+  (`Params` `name='name'`, instance `GeometryParameters`) whose name is no parameter of the
+  component definition. Such a link keys its per-instance caches (`InstanceBoundingBoxMap`) by no
+  parameter: the variable resizes only the `_Footprint` box, not the visualized antenna, and a
+  horn link made that way gave identical SBR+ results at every swept value. `link_antenna` therefore also declares each mapped
+  variable in `GeometryDefinitionParameters` as `"VariableProp:=", [name, "D", "", value]`, as the
+  GUI does. A correct link's saved definition shows `LocalVariables` with that `VariableProp` and
+  one bounding-box `Key` per value used.
 * **Per-variation solutions.** `existing_analysis_sweeps` also lists `Setup - <variation> : …`
   entries (e.g. from SBR+ "simulate source design as needed"); only names whose setup is in
   `setup_names` are the design's own.
