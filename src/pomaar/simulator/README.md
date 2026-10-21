@@ -142,12 +142,13 @@ sbr_simulator <path_to_project.aedt> <hfss_design_name> [--target dihedral] [--s
      The defaults (40 mm at 4 m) keep all three in their own far field at 79 GHz (2D²/λ ≤ 3.4 m); the script warns when the chosen range is shorter. `--target none` builds the same scene without a target; its solve is the background (the direct Tx→Rx coupling between the proxy ports), a cross-check of the incident solution below (use `--design` to keep both designs).
   4. Links the HFSS design (solution `--source-solution`, default its first frequency sweep) with *Simulate source design as needed*, *Model Visualization* of all its objects except the radiation boundary objects (`RadiatingSurface`, the builder's `Airbox`), and far-field (standard) or near-field (bumper/radome integration) results, asked interactively unless `--field-type` is given. `--map-variables` maps independent HFSS design variables to SBR+ design variables of the same name, which are created from the HFSS value when missing, so they can be swept in the SBR+ design.
   5. Selects Tx/Rx: ports whose names contain `Tx`/`Rx` and end in `H`/`V` (e.g. `TxH`, `Port_Tx_1_V`); every Tx transmits to every Rx. The builder's matched `_Load` ports are skipped.
-  6. Creates `Setup` (4 rays per wavelength, 5 bounces, PTD + UTD, creeping waves) whose sweep `Sweep` copies the linked HFSS sweep.
+  6. Creates `Setup` (4 rays per wavelength, 5 bounces, PTD + UTD, creeping waves) whose sweep `Sweep` copies every range of the linked HFSS sweep, so SBR+ runs exactly at the frequencies where the HFSS design saved fields.
   7. Creates quick-look reports from the scattered solution (see below): `S-parameters dB` for all Tx/Rx pairs and, per polarimetric quad, `Co-pol VV/HH` (`S_VV/S_HH` in dB and degrees; ideally 0 dB for both, with the dihedral's phase 180° away from the sphere's) and `Cross-pol isolation` (`S_VH/S_HH` for Tx H, `S_HV/S_VV` for Tx V, in dB). `S-parameters dB (total)` shows the total solution for reference. A quad pairs a dual-polarized Rx with a dual-polarized Tx: an element with an H and a V port of the same name prefix (`Port_Rx_1_H`/`_V`), or a role's single H and V ports when it has exactly one of each (the polarimetric cluster). When the HFSS design comes with the builder's port table (`<design>_ports.json` next to the project), the VV/HH phase is corrected for the port field signs.
   8. Asks whether to solve (`--simulate` / `--no-simulate` decide silently). Solving also solves the HFSS design where its linked solution is missing.
 
   `SbrSimulationManager.export_results(path, sweep_variable)` writes the solved scattered solution to an `.npz` for Module 3 (via `sbr_results.py`, which is also a standalone CLI; see §4.2).
 
+* **Only discrete sweeps are linked.** SBR+ receives the linked antenna's far fields only at the frequencies where the HFSS design saved fields, and interpolates them in between. Linking `Setup : LastAdaptive` gives fields at the adaptive frequencies only; an interpolating sweep gives them at its basis frequencies only, which it picks by bisecting the band. Both put ripple into every SBR+ result, with slope breaks exactly at the solved frequencies: the dihedral export of §4 peaked at 77, 79 and 81 GHz (its link was `LastAdaptive`), and the sphere export at 75.25, 76.5, …, 82.75 GHz (an interpolating sweep), with curvature 100–250 times the median at those frequencies. `sbr_simulator` therefore links only a discrete sweep that saves fields (all fields or the radiated ones) and refuses anything else, naming each candidate and why. It reads the sweeps from the saved project file after saving the project, since PyAEDT 1.1 reports every loaded sweep as interpolating. A hand-built HFSS design needs a discrete sweep with saved fields over the SBR+ band.
 * **The scattered field is the default, everywhere.** SBR+ splits its total solution `Setup : Sweep` into `Setup : Sweep_Incident`, the direct Tx→Rx coupling between the linked antenna's ports (the line-of-sight path that never touches the target), and `Setup : Sweep_Scattered`, everything that reached the receiver via the target (total = incident + scattered). The reports above, `export_results` and `sbr_results` all use the scattered part. This is the simulation's counterpart of what every practical radar measurement does to the antenna coupling: the direct Tx→Rx leakage arrives at (almost) zero range, well ahead of any target, and is removed by range gating, i.e. by keeping only the target's cells of the range (delay) profile, or equivalently by subtracting an empty-scene background measurement. SBR+ makes the same separation exactly, by bookkeeping of the rays instead of by delay, so it needs no window, loses no bandwidth or resolution, and still works when the frequency step folds the target's delay next to the coupling (§4.4). Because the coupling is 30–60 dB above the target at short Tx/Rx spacings, reading the total field means reading the coupling. The total field stays visible in `S-parameters dB (total)` and exportable with `sbr_results --setup "Setup : Sweep"` for debugging; the processor and the analysis assume the scattered solution.
 
 ### Module 3: Offline polarimetric post-processing (`polarimetry_processor.py`, `bistaticity_analysis.py`)
@@ -455,8 +456,16 @@ processing error, not a limit of the configuration.**
 
 ### 4.7 First results: boresight sphere at 3 m
 
-From `data/processed/bistaticity/signatures_vs_sweep.csv` (79 GHz values; H, A and ᾱ over the
-band; β = 2·atan(d/2R) is the co-polar bistatic angle of this scene):
+> **Caveat.** These exports linked the horn cluster's interpolating sweep, so their frequency
+> dependence carries interpolation ripple, with slope breaks at the sweep's basis frequencies
+> (Module 2, "Only discrete sweeps are linked"). The band-wide ranges below include it; the
+> 79 GHz values (a basis frequency) are less affected. Re-solve with a linked discrete sweep
+> before relying on them.
+
+From the original 201-point export (8 spacings, 50 MHz steps; since replaced in
+`data/interim/bistatic_sweep/sphere_boresight_3m.npz` by a 1001-point, 20-spacing sweep). The
+values are at 79 GHz, with H, A and ᾱ taken over the band; β = 2·atan(d/2R) is the co-polar
+bistatic angle of this scene:
 
 | d (λ₀) | β (°) | \|S_VV/S_HH\| (dB) | ∠(S_VV S_HH*) (°) | Co − cross, Tx H (dB) | Co − cross, Tx V (dB) | \|S_HV/S_VH\| (dB) | H (10⁻⁴) | A | ᾱ (°) |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
@@ -492,9 +501,9 @@ band; β = 2·atan(d/2R) is the co-polar bistatic angle of this scene):
 
 ### 4.8 Next steps
 
-* **Finer frequency steps.** Halving Δf, which the SBR+ sweep inherits from the HFSS
-  interpolating sweep and that in turn from the unit cell, doubles the unambiguous range of the
-  range profiles and maps.
+* **Finer frequency steps.** Halving Δf, which the SBR+ sweep copies from the array's discrete
+  sweep and that in turn from the unit cell's sweep, doubles the unambiguous range of the range
+  profiles and maps, at one more full-wave array solve per added frequency.
 * **Cross-pol cross-check.** Check the cross-pol level against the HFSS embedded patterns:
   M_VH ≈ e_rx,V · S_ideal · e_tx,H at θ ≈ β/2 for every element.
 * **Off-boresight targets.** Put the target off boresight (θ_y scan) to observe the linear term in

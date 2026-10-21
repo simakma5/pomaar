@@ -22,6 +22,14 @@ from pomaar.simulator.array_templates import (
     polarimetric_quads,
 )
 from pomaar.simulator.array_templates import parse_port as _parse_port
+from pomaar.simulator.frequency_sweeps import (
+    LINK_REQUIREMENT,
+    linked_solution_problem,
+    native_sweep_arguments,
+    setup_sweeps,
+    sweep_bounds_ghz,
+    sweep_ranges,
+)
 from pomaar.simulator.hfss_array_builder import (
     DEFAULT_CENTRE_FREQUENCY_GHZ,
     SPEED_OF_LIGHT_MM_S,
@@ -31,8 +39,8 @@ from pomaar.simulator.hfss_array_builder import (
     _confirm,
     _find_by_spelling,
     _length_mm,
-    _parse_frequency_ghz,
     connect_live_session,
+    saved_setups,
 )
 
 # 'none' builds the same scene without a target; its solve is the background (direct Tx -> Rx
@@ -66,6 +74,10 @@ REPORT_S_DB = "S-parameters dB"
 REPORT_S_DB_TOTAL = "S-parameters dB (total)"
 REPORT_COPOL_IMBALANCE = "Co-pol VV/HH"
 REPORT_CROSSPOL_ISOLATION = "Cross-pol isolation"
+
+
+class UnlinkableSolutionError(ValueError):
+    """Raised when the HFSS design has no solution that SBR+ can link without interpolating."""
 
 
 def _ask_field_type(preset=None):
@@ -118,6 +130,9 @@ class SbrSimulationManager:
 
         self.antenna_instance_name = None
         self.source_solution = None
+        self.setup_name = None
+        self.sweep_name = None
+        self._saved_setups = None
         self.tx_ports = []
         self.rx_ports = []
         self.target_object_names = []
@@ -168,13 +183,18 @@ class SbrSimulationManager:
             Independent variables of the HFSS design that are mapped to SBR+ design variables
             of the same name (created from the HFSS value when missing).
         source_solution : str, optional
-            Linked HFSS solution; defaults to the first frequency sweep of the HFSS design.
+            Linked HFSS solution, a discrete sweep that saves fields; defaults to the first
+            such sweep of the HFSS design. Anything else raises `UnlinkableSolutionError`
+            before the SBR+ design is touched.
         overwrite, simulate : bool, optional
             Presets for the 'replace existing design' and 'start simulation' prompts.
         """
         if not self.desktop_session:
             self.connect_desktop()
 
+        # The linked solution is checked before an existing SBR+ design is replaced
+        self.open_source_design()
+        self.source_solution = self.linkable_solution(source_solution)
         self.create_sbr_design(overwrite=overwrite)
         self.create_coordinate_systems(
             target_distance=target_distance,
@@ -204,8 +224,10 @@ class SbrSimulationManager:
     # Steps
     # ------------------------------------------------------------------------------------------
 
-    def create_sbr_design(self, overwrite=None):
-        """Opens the HFSS source design and (re)creates the SBR+ design next to it."""
+    def open_source_design(self):
+        """Opens the HFSS source design (once)."""
+        if self.source_app:
+            return
         print(f"Loading project: {self.project_path}")
         self.source_app = Hfss(
             project=self.project_path,
@@ -216,6 +238,9 @@ class SbrSimulationManager:
         if self.source_app.solution_type == "SBR+":
             raise ValueError(f"Source design '{self.source_design_name}' is itself an SBR+ design.")
 
+    def create_sbr_design(self, overwrite=None):
+        """Opens the HFSS source design and (re)creates the SBR+ design next to it."""
+        self.open_source_design()
         if self.sbr_design_name in self.source_app.design_list:
             question = (
                 f"SBR+ design '{self.sbr_design_name}' already exists. Delete and rebuild it?"
@@ -359,7 +384,8 @@ class SbrSimulationManager:
         app = self.sbr_app
         src = self.source_app
         field_type = _ask_field_type(field_type)
-        self.source_solution = source_solution or self._default_source_solution()
+        if source_solution or not self.source_solution:
+            self.source_solution = self.linkable_solution(source_solution)
 
         independent = list(src.variable_manager.independent_design_variable_names)
         expressions = {v: src.variable_manager.variables[v].expression for v in independent}
@@ -488,15 +514,17 @@ class SbrSimulationManager:
         print(f"Tx: {tx_ports}\nRx: {rx_ports}")
 
     def create_analysis_setup(self, ray_density=4, max_bounces=5):
-        """(f) SBR+ setup whose frequency sweep copies the linked HFSS sweep."""
-        sweep = self._source_sweep()
-        sweep_args = [f"NAME:{SWEEP_NAME}"]
-        for key, value in sweep.items():
-            sweep_args += [f"{key}:=", value]
+        """
+        (f) SBR+ setup whose frequency sweep copies every range of the linked HFSS sweep, so
+        SBR+ runs exactly at the frequencies where the HFSS design saved its fields.
+        """
+        ranges = self._source_ranges()
+        sweep_args = native_sweep_arguments(SWEEP_NAME, ranges)
+        low, high = sweep_bounds_ghz(ranges)
         print(
-            f"Creating SBR+ setup '{SETUP_NAME}' ({sweep['RangeType']} {sweep['RangeStart']} - "
-            f"{sweep['RangeEnd']}, ray density {ray_density}, {max_bounces} bounces, "
-            "creeping waves)..."
+            f"Creating SBR+ setup '{SETUP_NAME}' ({low:g}-{high:g} GHz in {len(ranges)} "
+            f"range(s) copied from '{self.source_solution}', ray density {ray_density}, "
+            f"{max_bounces} bounces, creeping waves)..."
         )
         self.sbr_app.oanalysis.InsertSetup(
             "HfssDriven",
@@ -519,10 +547,12 @@ class SbrSimulationManager:
         """Warns when the target range is shorter than the target's own far-field distance."""
         if target_type.lower() == "none":
             return
-        sweep = self._source_sweep()
-        start = _parse_frequency_ghz(sweep["RangeStart"])
-        stop = _parse_frequency_ghz(sweep["RangeEnd"])
-        centre_ghz = (start + stop) / 2.0 if start and stop else DEFAULT_CENTRE_FREQUENCY_GHZ
+        try:
+            start, stop = sweep_bounds_ghz(self._source_ranges())
+            centre_ghz = (start + stop) / 2.0
+        except (ValueError, AttributeError):
+            # No linked HFSS sweep (e.g. a rebuilt scene of parametric-beam antennas)
+            centre_ghz = DEFAULT_CENTRE_FREQUENCY_GHZ
         wavelength_mm = SPEED_OF_LIGHT_MM_S / (centre_ghz * 1e9)
         size_mm = _length_mm(self.sbr_app, self.sbr_app["targetSize"])
         # _length_mm reads AEDT's 'meter' as well as m/metre(s)
@@ -612,37 +642,58 @@ class SbrSimulationManager:
     # Helpers
     # ------------------------------------------------------------------------------------------
 
-    def _default_source_solution(self):
-        """First '<setup> : <sweep>' of the HFSS design, falling back to its first solution."""
-        solutions = [s for s in self.source_app.existing_analysis_sweeps if " : " in s]
-        sweeps = [s for s in solutions if "Adaptive" not in s and " - " not in s]
-        if not sweeps and not solutions:
-            raise ValueError(f"'{self.source_design_name}' has no analysis setup to link.")
-        return (sweeps or solutions)[0]
-
-    def _source_sweep(self):
-        """Frequency range of the linked HFSS sweep as SBR+ sweep properties."""
-        setup_name, sweep_name = [s.strip() for s in self.source_solution.split(":", 1)]
-        setup = self.source_app.get_setup(setup_name)
-        if sweep_name not in setup.get_sweep_names():
-            raise ValueError(
-                f"Linked solution '{self.source_solution}' is not a frequency sweep; link a sweep "
-                "so that the SBR+ frequencies can match it."
+    def linkable_solution(self, requested=None):
+        """
+        The HFSS solution to link: `requested` ('<setup> : <sweep>'), else the first solution
+        of the design that is a discrete sweep saving fields (`linked_solution_problem`).
+        Raises `UnlinkableSolutionError` with the reason for every candidate otherwise. The
+        sweeps are read as saved (`saved_setups`, which saves the project first).
+        """
+        self._saved_setups = saved_setups(self.source_app)
+        # AEDT also lists per-variation solutions ('Setup - <variation> : Sweep'); only the
+        # design's own setups can be linked
+        setups = set(self.source_app.setup_names)
+        solutions = [
+            s
+            for s in self.source_app.existing_analysis_sweeps
+            if " : " in s and s.split(":", 1)[0].strip() in setups
+        ]
+        if requested and requested not in solutions:
+            raise UnlinkableSolutionError(
+                f"'{self.source_design_name}' has no solution '{requested}' "
+                f"(it has: {', '.join(solutions) or 'none'})."
             )
-        props = setup.get_sweep(sweep_name).props
-        if props.get("RangeType") in ("LinearCount", "LinearStep", "LogScale"):
-            ranges = props
-        else:
-            # Interpolating/discrete sweeps with sub-ranges keep them under 'SweepRanges'
-            subranges = props.get("SweepRanges", {}).get("Subrange", [])
-            ranges = subranges[0] if isinstance(subranges, list) and subranges else subranges
-        if not ranges or "RangeStart" not in ranges:
+        problems = []
+        for solution in [requested] if requested else solutions:
+            problem = linked_solution_problem(solution, self._sweep_props(solution))
+            if problem is None:
+                return solution
+            problems.append(f"  {solution}: {problem}")
+        raise UnlinkableSolutionError(
+            f"No solution of '{self.source_design_name}' can be linked into SBR+:\n"
+            + ("\n".join(problems) or "  (no analysis setup)")
+            + f"\n{LINK_REQUIREMENT}"
+        )
+
+    def _sweep_props(self, solution):
+        """Saved properties of the sweep '<setup> : <sweep>', or None for an adaptive solution."""
+        setup_name, sweep_name = [s.strip() for s in solution.split(":", 1)]
+        if sweep_name not in list(self.source_app.oanalysis.GetSweeps(setup_name)):
+            return None
+        if self._saved_setups is None:
+            self._saved_setups = saved_setups(self.source_app)
+        props = setup_sweeps(self._saved_setups.get(setup_name, {})).get(sweep_name)
+        if props is None:
+            raise UnlinkableSolutionError(f"Cannot read the saved definition of '{solution}'.")
+        return props
+
+    def _source_ranges(self):
+        """The frequency ranges of the linked HFSS sweep (`frequency_sweeps.sweep_ranges`)."""
+        props = self._sweep_props(self.source_solution)
+        ranges = sweep_ranges(props) if props is not None else []
+        if not ranges:
             raise ValueError(f"Cannot read the frequency range of '{self.source_solution}'.")
-        sweep = {key: ranges[key] for key in ("RangeType", "RangeStart", "RangeEnd")}
-        for key in ("RangeCount", "RangeStep", "RangeSamples"):
-            if key in ranges:
-                sweep[key] = ranges[key]
-        return sweep
+        return ranges
 
     def _visualization_objects(self):
         """All model solids and sheets of the HFSS design except the radiation boundary objects."""
@@ -809,7 +860,10 @@ def main(argv=None):
     parser.add_argument(
         "--source-solution",
         default=None,
-        help="Linked HFSS solution, e.g. 'Setup : Sweep' (default: first frequency sweep)",
+        help=(
+            "Linked HFSS solution, a discrete sweep that saves fields, e.g. 'Setup : Sweep' "
+            "(default: the first such sweep)"
+        ),
     )
     parser.add_argument("--ray-density", type=float, default=4, help="Rays per wavelength")
     parser.add_argument("--max-bounces", type=int, default=5, help="Maximum number of bounces")
@@ -856,7 +910,7 @@ def main(argv=None):
     except BuildAbortedError as e:
         print(f"[INFO] {e}")
         return 0
-    except (NativeAedtRefusedError, NoLiveSessionError) as e:
+    except (NativeAedtRefusedError, NoLiveSessionError, UnlinkableSolutionError) as e:
         print(f"[ERROR] {e}")
         return 2
     finally:

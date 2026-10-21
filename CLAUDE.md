@@ -17,8 +17,8 @@ is gitignored except for its folder structure.
 * `uvx ruff check src` and `uvx ruff format src` lint and format (line length 100, isort with
   `force-sort-within-sections`). `hfss_array_builder.py` has about 24 pre-existing E501 warnings;
   don't add new ones.
-* `uv run --with pytest python -m pytest tests` runs the pure-NumPy processor, template-planning and
-  layout-generator tests. Nothing that talks to AEDT has tests; verify it against a running AEDT (below).
+* `uv run --with pytest python -m pytest tests` runs the pure-NumPy processor, template-planning,
+  setup/sweep-helper and layout-generator tests. Nothing that talks to AEDT has tests; verify it against a running AEDT (below).
 * `python src/pomaar/simulator/layouts/generate_<topology>.py --unit-cell <Design> [--help]`
   writes `<Design>_<topology>.yaml` next to the script (`-o` elsewhere). The shipped YAMLs are
   bound to `ApertureCoupledPatch`; the simulator README lists the exact commands.
@@ -61,7 +61,8 @@ There are three stages, each a class re-exported by `pomaar.simulator`:
    solved unit-cell HFSS design plus a layout file. It is the bulk of the code.
 2. **`SbrSimulationManager`** (`sbr_simulator.py`). It builds an SBR+ design with a canonical
    target (sphere, dihedral, trihedral) on a sphere around `AntennaCS`, links the array design as
-   the antenna source, sets Tx/Rx pairs, copies its sweep, creates reports and optionally solves.
+   the antenna source (only a discrete sweep that saves fields; see "Linked far fields" below),
+   sets Tx/Rx pairs, copies that sweep's ranges, creates reports and optionally solves.
    SBR+ total = `_Incident` (direct Tx/Rx coupling) + `_Scattered` (target); read targets from
    `Setup : Sweep_Scattered`.
 3. **`MimoPolarimetryProcessor`** (`polarimetry_processor.py`). It is pure NumPy, needs no AEDT,
@@ -87,7 +88,7 @@ There are three stages, each a class re-exported by `pomaar.simulator`:
   `unit_cells` (`{h: PatchH}`, `{hv: DualPatch}`), `drop_unused_ports`, `phase_reference_mode`,
   design `variables` (each referenced; a test checks it) and `board` size formulas
   (`array_templates.layout_settings` reads and checks them). No frequencies: the builder takes
-  the centre frequency and the sweep from the primary unit cell's setup. Older layouts'
+  the centre frequency and the frequency sampling from the primary unit cell's setup. Older layouts'
   `centre_frequency_ghz`, `bandwidth_ghz` and `topology` are reported as ignored;
 * `elements`: each with role Tx/Rx, polarization h/v/hv, numeric `position` (x y z, for the
   builder's checks), a parametric `position_expression` [x, y] in design variables (for the
@@ -99,7 +100,8 @@ CLI flags only answer prompts. The array design is named
 stem (`array_design_name`). The generators share `layouts/_layout_common.py` (`--unit-cell`,
 `--extra-unit-cell`, `--drop-unused-ports`, `--phase-reference-mode`, `-o`; default file
 `<UnitCell>_<topology>.yaml`). The frequency sweep is never in a layout: the builder copies the
-primary unit cell's setup (or fails), and `sbr_simulator` copies that sweep.
+primary unit cell's setup for its meshing (or fails), replaces its sweeps by a discrete sweep over
+the unit cell's sweep frequencies, and `sbr_simulator` copies that sweep.
 
 ### Polarization templates
 
@@ -162,6 +164,12 @@ and V ports) and `attach_port_table`.
   on the boundary).
 * **Step 7b:** `verify_placement` checks every element against R(yaw)(p − o) + pos (its template's
   offset o, z shifted by `z_ref`) and aborts on mismatch. Step 7c reports the port polarizations.
+* **Setup (`configure_simulation_setup`, after Step 7c):** `Setup` is the unit cell's setup
+  (native copy-paste, else recreated) for its meshing only. Its copied sweeps are replaced by one
+  discrete `Sweep` over the ranges of the unit cell's first sweep (read with `saved_setups`) that
+  saves the radiated fields; a unit cell without a sweep fails. It warns when the adaptive
+  frequencies stay below the top of the sweep. A discrete sweep is one full-wave solve per
+  frequency.
 * **`PhaseCentreCS` in the unit cell** is either reused or fitted by `fit_unit_cell_phase_centre`:
   a |E|-weighted least-squares fit of the co-polar Ludwig-3 phase over θ ≤ 40°. Lateral components
   below 10 µm are snapped to 0.
@@ -207,6 +215,23 @@ and V ports) and `attach_port_table`.
   XZ plane); pass `Plane.XY`.
 * **SBR+ scattered solution.** PyAEDT's `create_report` rejects `Setup : Sweep_Scattered` before the
   first solve; the native `ReportSetup.CreateReport` accepts it.
+* **Linked far fields are interpolated between solved frequencies.** SBR+ gets a linked antenna's
+  far fields only where the HFSS design saved fields: an adaptive solution (`LastAdaptive`) has
+  them at the adaptive frequencies, an interpolating sweep at its basis frequencies (bisections
+  of the band). In between, SBR+ interpolates, which put ripple with slope breaks exactly at those
+  frequencies into every result (seen at 77/79/81 GHz and at 75.25, 76.5, …, 82.75 GHz). Hence the
+  builder's discrete `Setup : Sweep` (radiated fields saved) and `sbr_simulator`'s refusal of
+  anything else (`frequency_sweeps.linked_solution_problem`). The SBR+ frequencies must be among
+  the saved ones; `sbr_simulator` copies the linked sweep's ranges to ensure it.
+* **PyAEDT sweep objects misreport the type.** `SweepHFSS.__init__` (PyAEDT 1.1) sets every
+  loaded sweep's `props["Type"]` to `Interpolating`, and setups and sweeps are read from the saved
+  `.aedt`, which may predate GUI edits. Read them with the builder's `saved_setups(app)` (saves
+  the project, then parses the file with `load_entire_aedt_file`). `oanalysis.GetSweeps` and the
+  object API (`odesign.GetChildObject("Analysis")`, `GetPropValue("Type")`) are live but lack the
+  save-fields flags.
+* **Per-variation solutions.** `existing_analysis_sweeps` also lists `Setup - <variation> : …`
+  entries (e.g. from SBR+ "simulate source design as needed"); only names whose setup is in
+  `setup_names` are the design's own.
 
 ## Conventions
 

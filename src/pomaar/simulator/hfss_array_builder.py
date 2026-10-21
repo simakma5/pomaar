@@ -15,6 +15,7 @@ from ansys.aedt.core import Desktop, Hfss
 from ansys.aedt.core.generic.constants import Axis, Gravity
 from ansys.aedt.core.generic.data_handlers import _dict2arg
 from ansys.aedt.core.generic.general_methods import grpc_active_sessions
+from ansys.aedt.core.internal.load_aedt_file import load_entire_aedt_file
 import numpy as np
 
 from pomaar.simulator.array_templates import (
@@ -34,9 +35,24 @@ from pomaar.simulator.array_templates import (
     sidecar_dict,
     sign_warnings,
 )
+from pomaar.simulator.frequency_sweeps import (
+    LINKABLE_SWEEP_TYPE,
+    adaptive_coverage_warning,
+    adaptive_frequencies_ghz,
+    design_setups,
+    native_sweep_arguments,
+    setup_sweeps,
+    sweep_bounds_ghz,
+    sweep_point_count,
+    sweep_ranges,
+)
+from pomaar.simulator.frequency_sweeps import parse_frequency_ghz as _parse_frequency_ghz
 
 SPEED_OF_LIGHT_MM_S = 2.99792458e11
 DEFAULT_CENTRE_FREQUENCY_GHZ = 79.0
+# The array's analysis setup (the unit cell's meshing) and the builder's discrete sweep in it
+ARRAY_SETUP_NAME = "Setup"
+ARRAY_SWEEP_NAME = "Sweep"
 
 # Builder-owned far-field spheres. They are (re)created on every results setup so that a
 # manual GUI edit (e.g. a changed Boresight) can never silently alter the reported quantities.
@@ -120,44 +136,16 @@ def _confirm(question, preset=None, default=True):
     return answer not in ["n", "no"]
 
 
-def _parse_frequency_ghz(value):
-    """Parses an AEDT frequency string (e.g. '77GHz', '500MHz') to GHz. Bare numbers are GHz."""
-    if value is None or value == "":
-        return None
-    match = re.match(r"\s*([-+\d.eE]+)\s*([a-zA-Z]*)", str(value))
-    if not match:
-        return None
-    number, unit = float(match.group(1)), match.group(2).lower()
-    scale = {"": 1.0, "ghz": 1.0, "mhz": 1e-3, "khz": 1e-6, "hz": 1e-9, "thz": 1e3}
-    return number * scale.get(unit, 1.0)
-
-
 def _setup_frequency_ghz(app):
     """Returns the representative (centre) frequency of the first analysis setup in GHz, or None."""
     setup_names = list(app.setup_names)
     if not setup_names:
         return None
     setup = app.get_setup(getattr(app, "active_setup", None) or setup_names[0])
-    props = setup.props
-
-    single = _parse_frequency_ghz(props.get("Frequency"))
-    if single:
-        return single
-
-    adaptive = props.get("MultipleAdaptiveFreqsSetup", {})
-    if isinstance(adaptive, dict):
-        if "Low" in adaptive and "High" in adaptive:
-            low = _parse_frequency_ghz(adaptive["Low"])
-            high = _parse_frequency_ghz(adaptive["High"])
-            if low and high:
-                return (low + high) / 2.0
-        if isinstance(adaptive.get("AdaptAt"), list):
-            freqs = [_parse_frequency_ghz(f.get("Frequency")) for f in adaptive["AdaptAt"]]
-        else:
-            freqs = [_parse_frequency_ghz(key) for key in adaptive.keys()]
-        freqs = [f for f in freqs if f]
-        if freqs:
-            return sum(freqs) / len(freqs)
+    # The single adaptive frequency, else the mean of the multi-frequency or broadband ones
+    adaptive = adaptive_frequencies_ghz(setup.props)
+    if adaptive:
+        return sum(adaptive) / len(adaptive)
 
     for sweep_name in setup.get_sweep_names():
         sweep_props = getattr(setup.get_sweep(sweep_name), "props", {})
@@ -166,6 +154,17 @@ def _setup_frequency_ghz(app):
         if start and stop:
             return (start + stop) / 2.0
     return None
+
+
+def saved_setups(app):
+    """
+    {setup: properties, each with its 'Sweeps'} of the design of `app`, read from the project
+    file after saving the project, so that the file holds the current definitions. PyAEDT's
+    setup and sweep objects are not used: PyAEDT 1.1 sets every loaded sweep's 'Type' to
+    'Interpolating' whatever it is, and reads a project file that may predate GUI edits.
+    """
+    app.save_project()
+    return design_setups(load_entire_aedt_file(app.project_file), app.design_name)
 
 
 def _length_mm(app, expression):
@@ -1339,11 +1338,12 @@ class MimoHfssBuilder:
 
     def configure_simulation_setup(self):
         """
-        Copies the primary unit cell's analysis setup with all its frequency sweeps into the
-        array design as 'ArraySetup': adaptive meshing (single/multi-frequency/broadband),
-        convergence settings and, above all, the frequency sampling, which the linked SBR+
-        design copies in turn. Nothing is invented: the setup is copy-pasted natively, else
-        recreated from the unit cell's properties, else the build fails.
+        Gives the array design 'Setup': the primary unit cell's analysis setup for its
+        meshing (adaptive frequencies, convergence and solver settings, as validated on the unit
+        cell), with the copied sweeps replaced by the builder's own discrete sweep over the
+        frequencies of the unit cell's sweep (`_create_array_sweep`), which SBR+ can link. The
+        setup is copy-pasted natively, else recreated from the unit cell's properties, else the
+        build fails; a unit cell without a sweep fails before anything is changed.
         """
         if not self.target_design_app:
             raise RuntimeError("Array design not synthesized yet.")
@@ -1392,133 +1392,147 @@ class MimoHfssBuilder:
                 except Exception:
                     pass
 
-        target_setup_name = "ArraySetup"
+        target_setup_name = ARRAY_SETUP_NAME
         source_setups = list(self.source_design_app.setup_names) if self.source_design_app else []
-        copied_successfully = False
         if not source_setups:
             raise RuntimeError(
                 f"Unit cell '{self.source_design_name}' has no analysis setup to copy; the array "
                 "takes its meshing and frequency sweep from it."
             )
-
-        if source_setups:
-            src_setup_name = getattr(self.source_design_app, "active_setup", None) or source_setups[0]
-            print(
-                f"\nInheriting analysis setup and frequency sweep from element design ('{src_setup_name}')..."
+        src_setup_name = getattr(self.source_design_app, "active_setup", None) or source_setups[0]
+        src_setup = self.source_design_app.get_setup(src_setup_name)
+        # The array's frequencies come from the unit cell's (first) sweep, as saved
+        saved = saved_setups(self.source_design_app).get(src_setup_name, {})
+        src_sweeps = list(self.source_design_app.oanalysis.GetSweeps(src_setup_name))
+        if not src_sweeps:
+            raise RuntimeError(
+                f"Unit cell setup '{src_setup_name}' has no frequency sweep; the array's sweep "
+                "takes its frequencies from it."
             )
-            # Primary approach: Native CopyDrivenSetup / PasteDrivenSetup via oanalysis
-            try:
-                self.source_design_app.oanalysis.CopyDrivenSetup(src_setup_name)
-                pasted_name = self.target_design_app.oanalysis.PasteDrivenSetup()
-                if pasted_name:
-                    if pasted_name != target_setup_name:
-                        self.target_design_app.oanalysis.RenameSetup(pasted_name, target_setup_name)
-                    copied_successfully = True
-                    print(f"  Successfully copy-pasted and renamed setup to '{target_setup_name}'.")
-            except Exception as err:
-                print(
-                    f"  Warning: Native CopyDrivenSetup/PasteDrivenSetup encountered an issue ({err}). Falling back to manual recreation..."
+        if len(src_sweeps) > 1:
+            print(f"  Note: the unit cell has sweeps {src_sweeps}; the first sets the frequencies.")
+        origin = f"{src_setup_name} : {src_sweeps[0]}"
+        ranges = sweep_ranges(setup_sweeps(saved).get(src_sweeps[0], {}))
+        if not ranges:
+            raise RuntimeError(f"Cannot read the frequency range of the unit cell's '{origin}'.")
+
+        print(f"\nCopying the unit cell's analysis setup '{src_setup_name}' for its meshing...")
+        self._copy_unit_cell_setup(src_setup_name, src_setup, target_setup_name)
+        self._create_array_sweep(target_setup_name, ranges, origin)
+        coverage = adaptive_coverage_warning(saved, ranges)
+        if coverage:
+            print(f"  Warning: {coverage}")
+
+    def _copy_unit_cell_setup(self, src_setup_name, src_setup, target_setup_name):
+        """
+        Copies the unit cell's setup into the array design as `target_setup_name`: natively
+        (copy-paste, which brings its sweeps along; `_create_array_sweep` replaces them), else
+        recreated from its adaptive and solver properties, else raises.
+        """
+        try:
+            self.source_design_app.oanalysis.CopyDrivenSetup(src_setup_name)
+            pasted_name = self.target_design_app.oanalysis.PasteDrivenSetup()
+            if pasted_name:
+                if pasted_name != target_setup_name:
+                    self.target_design_app.oanalysis.RenameSetup(pasted_name, target_setup_name)
+                print(f"  Copy-pasted the setup as '{target_setup_name}'.")
+                return
+        except Exception as err:
+            print(
+                f"  Warning: Native CopyDrivenSetup/PasteDrivenSetup encountered an issue ({err}). Falling back to manual recreation..."
+            )
+
+        try:
+            print(f"  Recreating setup '{target_setup_name}' from source properties...")
+            solve_type = str(src_setup.props.get("SolveType", "BroadBand")).lower()
+
+            setup = self.target_design_app.create_setup(name=target_setup_name)
+            setup.auto_update = False
+
+            max_passes = src_setup.props.get("MaximumPasses", 21)
+            max_delta_s = src_setup.props.get("MaxDeltaS", 0.02)
+
+            if solve_type == "broadband":
+                adaptive_freqs = src_setup.props.get("MultipleAdaptiveFreqsSetup", {})
+                low_f, high_f = adaptive_freqs["Low"], adaptive_freqs["High"]
+                setup.enable_adaptive_setup_broadband(
+                    low_frequency=low_f,
+                    high_frequency=high_f,
+                    max_passes=max_passes,
+                    max_delta_s=max_delta_s,
                 )
+                print(f"  Configured Broadband adaptive mesh: Low={low_f}, High={high_f}, MaxPasses={max_passes}, MaxDeltaS={max_delta_s}")
+            elif solve_type == "multifrequency":
+                freq_list = [f"{f:g}GHz" for f in adaptive_frequencies_ghz(src_setup.props)]
+                if not freq_list:
+                    raise RuntimeError("cannot read the multi-frequency adaptive frequencies")
+                setup.enable_adaptive_setup_multifrequency(
+                    frequencies=freq_list,
+                    max_delta_s=max_delta_s,
+                )
+                print(f"  Configured Multi-Frequency adaptive mesh: Frequencies={freq_list}, MaxDeltaS={max_delta_s}")
+            else:
+                freq = src_setup.props.get("Frequency", f"{self.centre_frequency_ghz}GHz")
+                setup.enable_adaptive_setup_single(
+                    freq=freq,
+                    max_passes=max_passes,
+                    max_delta_s=max_delta_s,
+                )
+                print(f"  Configured Single-Frequency adaptive mesh: Frequency={freq}, MaxPasses={max_passes}, MaxDeltaS={max_delta_s}")
 
-            # Secondary approach: Manual recreation from source properties
-            if not copied_successfully:
-                try:
-                    print(f"  Recreating setup '{target_setup_name}' from source properties...")
-                    src_setup = self.source_design_app.get_setup(src_setup_name)
-                    solve_type = str(src_setup.props.get("SolveType", "BroadBand")).lower()
+            # Replicate meshing, convergence, and solver options
+            for prop_key in [
+                "BasisOrder", "DoLambdaRefine", "DoMaterialLambda", "SetLambdaTarget",
+                "Target", "UseMaxTetIncrease", "PortAccuracy", "SaveFields", "SaveAnyFields",
+                "PercentRefinement", "MinimumPasses", "MinimumConvergedPasses", "DrivenSolverType"
+            ]:
+                if prop_key in src_setup.props:
+                    setup.props[prop_key] = src_setup.props[prop_key]
 
-                    setup = self.target_design_app.create_setup(name=target_setup_name)
-                    setup.auto_update = False
+            setup.auto_update = True
+            setup.update()
+        except Exception as err2:
+            raise RuntimeError(
+                f"Could not copy the analysis setup '{src_setup_name}' of unit cell "
+                f"'{self.source_design_name}' ({err2})."
+            ) from err2
 
-                    max_passes = src_setup.props.get("MaximumPasses", 21)
-                    max_delta_s = src_setup.props.get("MaxDeltaS", 0.02)
-
-                    if solve_type == "broadband":
-                        adaptive_freqs = src_setup.props.get("MultipleAdaptiveFreqsSetup", {})
-                        low_f, high_f = adaptive_freqs["Low"], adaptive_freqs["High"]
-                        setup.enable_adaptive_setup_broadband(
-                            low_frequency=low_f,
-                            high_frequency=high_f,
-                            max_passes=max_passes,
-                            max_delta_s=max_delta_s,
-                        )
-                        print(f"  Configured Broadband adaptive mesh: Low={low_f}, High={high_f}, MaxPasses={max_passes}, MaxDeltaS={max_delta_s}")
-                    elif solve_type == "multifrequency":
-                        adaptive_freqs = src_setup.props.get("MultipleAdaptiveFreqsSetup", {})
-                        freq_list = list(adaptive_freqs.keys()) if isinstance(adaptive_freqs, dict) else [f"{self.centre_frequency_ghz}GHz"]
-                        setup.enable_adaptive_setup_multifrequency(
-                            frequencies=freq_list,
-                            max_delta_s=max_delta_s,
-                        )
-                        print(f"  Configured Multi-Frequency adaptive mesh: Frequencies={freq_list}, MaxDeltaS={max_delta_s}")
-                    else:
-                        freq = src_setup.props.get("Frequency", f"{self.centre_frequency_ghz}GHz")
-                        setup.enable_adaptive_setup_single(
-                            freq=freq,
-                            max_passes=max_passes,
-                            max_delta_s=max_delta_s,
-                        )
-                        print(f"  Configured Single-Frequency adaptive mesh: Frequency={freq}, MaxPasses={max_passes}, MaxDeltaS={max_delta_s}")
-
-                    # Replicate meshing, convergence, and solver options
-                    for prop_key in [
-                        "BasisOrder", "DoLambdaRefine", "DoMaterialLambda", "SetLambdaTarget",
-                        "Target", "UseMaxTetIncrease", "PortAccuracy", "SaveFields", "SaveAnyFields",
-                        "PercentRefinement", "MinimumPasses", "MinimumConvergedPasses", "DrivenSolverType"
-                    ]:
-                        if prop_key in src_setup.props:
-                            setup.props[prop_key] = src_setup.props[prop_key]
-
-                    setup.auto_update = True
-                    setup.update()
-
-                    # Recreate frequency sweeps
-                    try:
-                        src_sweeps = src_setup.get_sweep_names()
-                    except Exception:
-                        src_sweeps = []
-
-                    for sw_name in src_sweeps:
-                        sw_src = src_setup.get_sweep(sw_name)
-                        if hasattr(sw_src, "props"):
-                            sw_props = sw_src.props
-                            range_type = sw_props.get("RangeType", "LinearCount")
-                            sw_type = sw_props.get("Type", "Interpolating")
-                            start_f, end_f = sw_props["RangeStart"], sw_props["RangeEnd"]
-                            save_fields = sw_props.get("SaveFields", True)
-
-                            if range_type == "LinearCount":
-                                count = sw_props["RangeCount"]
-                                self.target_design_app.create_linear_count_sweep(
-                                    setup=target_setup_name,
-                                    unit="GHz" if ("GHz" in str(start_f) or "GHz" in str(end_f)) else "",
-                                    start_frequency=start_f,
-                                    stop_frequency=end_f,
-                                    num_of_freq_points=count,
-                                    name=sw_name,
-                                    save_fields=save_fields,
-                                    sweep_type=sw_type,
-                                )
-                                print(f"  Created {sw_type} sweep '{sw_name}': {start_f} to {end_f} ({count} points, SaveFields={save_fields})")
-                            elif range_type == "LinearStep":
-                                step = sw_props["RangeStep"]
-                                self.target_design_app.create_linear_step_sweep(
-                                    setup=target_setup_name,
-                                    unit="GHz" if ("GHz" in str(start_f) or "GHz" in str(end_f)) else "",
-                                    start_frequency=start_f,
-                                    stop_frequency=end_f,
-                                    step_size=step,
-                                    name=sw_name,
-                                    save_fields=save_fields,
-                                    sweep_type=sw_type,
-                                )
-                                print(f"  Created {sw_type} sweep '{sw_name}': {start_f} to {end_f} (step {step}, SaveFields={save_fields})")
-                    copied_successfully = True
-                except Exception as err2:
-                    raise RuntimeError(
-                        f"Could not copy the analysis setup '{src_setup_name}' of unit cell "
-                        f"'{self.source_design_name}' ({err2})."
-                    ) from err2
+    def _create_array_sweep(self, setup_name, ranges, origin):
+        """
+        Replaces every sweep of the array setup `setup_name` by the builder's own: one discrete
+        sweep 'Sweep' over the frequency `ranges` of the unit cell's sweep `origin`, saving the
+        radiated fields at every frequency. SBR+ receives a linked antenna's far fields only at
+        frequencies where it saved fields and interpolates in between, so an interpolating
+        sweep (fields at its basis frequencies) or the adaptive solution would put ripple into
+        every SBR+ result (see frequency_sweeps). A discrete sweep solves the whole array once
+        per frequency on the final adaptive mesh.
+        """
+        analysis = self.target_design_app.oanalysis
+        for name in list(analysis.GetSweeps(setup_name)):
+            analysis.DeleteSweep(setup_name, name)
+            print(f"  Removed the copied sweep '{name}'.")
+        settings = [
+            ("IsEnabled", True),
+            ("Type", LINKABLE_SWEEP_TYPE),
+            ("SaveFields", True),
+            ("SaveRadFields", True),
+            ("ExtrapToDC", False),
+        ]
+        analysis.InsertFrequencySweep(
+            setup_name, native_sweep_arguments(ARRAY_SWEEP_NAME, ranges, settings)
+        )
+        if ARRAY_SWEEP_NAME not in list(analysis.GetSweeps(setup_name)):
+            raise RuntimeError(f"AEDT did not create '{setup_name} : {ARRAY_SWEEP_NAME}'.")
+        low, high = sweep_bounds_ghz(ranges)
+        try:
+            points = f"{sweep_point_count(ranges)} frequencies"
+        except ValueError:
+            points = "its frequencies"
+        print(
+            f"  Created the discrete sweep '{setup_name} : {ARRAY_SWEEP_NAME}' over "
+            f"{low:g}-{high:g} GHz ({points}, from the unit cell's '{origin}'), saving the "
+            "radiated fields; solving it runs one full-wave solve of the array per frequency."
+        )
 
     def create_post_processing_reports(self):
         """
@@ -1557,7 +1571,7 @@ class MimoHfssBuilder:
 
         target_setups = list(self.target_design_app.setup_names)
         if target_setups:
-            s_name = "ArraySetup" if "ArraySetup" in target_setups else target_setups[0]
+            s_name = ARRAY_SETUP_NAME if ARRAY_SETUP_NAME in target_setups else target_setups[0]
             try:
                 s_obj = self.target_design_app.get_setup(s_name)
                 sw_names = s_obj.get_sweep_names()
@@ -1566,7 +1580,7 @@ class MimoHfssBuilder:
                 sw_name = "Sweep"
             setup_sweep = f"{s_name} : {sw_name}"
         else:
-            setup_sweep = "ArraySetup : Sweep"
+            setup_sweep = f"{ARRAY_SETUP_NAME} : {ARRAY_SWEEP_NAME}"
 
         # Get list of existing reports to avoid duplicate report generation
         try:
@@ -1794,7 +1808,7 @@ class MimoHfssBuilder:
         print("Solving full-wave HFSS array design using 'Analyze All'...")
         self.target_design_app.analyze()
 
-    def export_coupling_s_parameters(self, output_touchstone_path, setup_name="ArraySetup"):
+    def export_coupling_s_parameters(self, output_touchstone_path, setup_name=ARRAY_SETUP_NAME):
         """Exports solved S-parameter coupling matrix to a Touchstone (.sNp) file."""
         if not self.target_design_app:
             raise RuntimeError("Array design is not resolved.")
