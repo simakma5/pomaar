@@ -2,6 +2,10 @@
 
 Working notes of the sandboxed investigation behind the task note "Bistaticity analysis"
 (Obsidian). A distillation goes to that note's Findings and Log; this file keeps the details.
+All scenes use idealized parametric beams (see `README.md` next to this file for the scope).
+Results folders such as `summary/`, `pairs/`, `scaling/` and `rx_aim/` below are in
+`data/processed/bistaticity/parametric_beams/`; until 2026-10-21 they lived in the sandbox data
+folder (`<sandbox>/...` in older entries), which no longer exists.
 
 ## Sandbox
 
@@ -9,9 +13,11 @@ Working notes of the sandboxed investigation behind the task note "Bistaticity a
 | --- | --- |
 | Branch | `sandbox/bistaticity`, worked in a git worktree `~/Repositories/pomaar-sandbox` (`main` and its working tree untouched); merged into `main` and the worktree removed on 2026-10-21. Since then on `main`, one topical commit per step (user: "work in the main branch, committing everything in a structured manner") |
 | Baseline | the uncommitted simulator state of `main` on 2026-10-20, first one commit (`9dfe44b`), then split into six topical commits on `main` (`d1af11f` ... `7ac4186`) onto which the branch was rebased |
-| AEDT project | `~/Repositories/pomaar/data/interim/sandbox/bistaticity/bistaticity_sandbox.aedt`, a copy of `~/Projects/AEDT/bistaticity-analysis/bistaticity_analysis.aedt` (12:21), open in the GUI session next to the original |
+| AEDT project | `~/Projects/AEDT/bistaticity-parametric-beams/bistaticity_parametric_beams.aedt` (until 2026-10-21 `data/interim/sandbox/bistaticity/bistaticity_sandbox.aedt`), a copy of `~/Projects/AEDT/bistaticity-analysis/bistaticity_analysis.aedt` (12:21), open in the GUI session next to the original |
 | Scripts | `src/pomaar/simulator/investigation/` (run with `ansys-vnc exec python ...` from the repository root); they refuse any project but the sandbox copy |
-| Data | `~/Repositories/pomaar/data/interim/sandbox/bistaticity/` (exports, figures) |
+| Exports | `data/interim/bistaticity/parametric_beams/` (.npz, untracked; run logs in `logs/`) |
+| Results | `data/processed/bistaticity/parametric_beams/` (untracked, regenerable): `summary/`, `pairs/`, `scaling/`, `rx_aim/`, and `per_export/<export>/` |
+| Scripts and documents | `src/pomaar/simulator/investigation/` (tracked): this log, `README.md`, `rx_aim_reference.md` |
 
 ## Current action point
 
@@ -60,7 +66,7 @@ Working notes of the sandboxed investigation behind the task note "Bistaticity a
     45, 67.5 and 90 deg (a linear roll sweep; 67.5 mirrors 22.5);
   - `bistaticAngle` 0.25 ... 8 deg in 0.25 deg steps (32 values; with Rx_2 the bistatic
     angles reach 16 deg), each with rxAim 0 and 1: 512 solves, about 3.5 h
-    (`investigation/run_production.sh`, log `production.log` in the sandbox data folder);
+    (`investigation/run_production.sh`, log `logs/production.log` next to the exports);
   - exports: one per (design, rxAim, targetRoll) over `bistaticAngle`, with the scene
     geometry (`positions_m`, `target_m`) in the metadata (`export_sweep.py`);
   - analysis: `bistaticity_analysis --per-receiver` pools every (receiver, variation) by its
@@ -288,7 +294,7 @@ Working notes of the sandboxed investigation behind the task note "Bistaticity a
   (H and alpha move only at 0.8 ... 1.0 beta_0) but is partly blindness: at roll 0 the
   trihedral's co/cross had fallen 20 dB by 2.5 deg while H and alpha stayed put to 6.5 deg.
 * Scaling check (user: "Run it"; `run_scaling.sh`, 60 solves, 92 min, log `scaling.log`;
-  analysis `scaling.py` -> `<sandbox>/scaling/scaling.png`, `scaling.csv`). Trihedral at roll 0:
+  analysis `scaling.py` -> `scaling/scaling.png`, `scaling.csv`). Trihedral at roll 0:
   40 mm at 1 m (the 4 m run exists), 80 mm at 4 m and 16 m, 160 mm at 4 m; dihedral at roll 90
   (retro plane): 160 mm at 4 m. bistaticAngle grids scaled with the expected first null; rxAim 1.
   Far-field distance 2 (sqrt 2 a)^2 / lambda: 1.7 m (40 mm), 6.7 m (80 mm), 27 m (160 mm).
@@ -333,7 +339,7 @@ Working notes of the sandboxed investigation behind the task note "Bistaticity a
   the branch was rebased onto them (same final tree) and merged; the worktree was removed.
   `SANDBOX_DIR` now follows `pomaar.config.INTERIM_DATA_DIR` instead of a home-relative path.
 * Receiver aiming closed as a reference (`investigation/aim_check.py`, outputs and argument in
-  `<sandbox>/reference/rx_aim/`). Per receiver, angle and frequency, S_aim = g S_boresight:
+  `rx_aim/`). Per receiver, angle and frequency, S_aim = g S_boresight:
   - The residual of that fit is at most -48 dB inside the lobe (span within 20 dB of
     monostatic). Its median there is -79 ... -103 dB per design, and it stays at most -32 dB
     even in nulls.
@@ -414,7 +420,7 @@ Working notes of the sandboxed investigation behind the task note "Bistaticity a
   co-pol phase 5 deg at 4.0 deg (4.75), mean alpha 10 deg at 5.25 deg (5.75). Its cross-pol is
   exactly zero in physical optics (LDR -150 ... -360 dB, never defined): a flat PEC plate in a
   principal plane does not depolarize.
-* Split-pair Z_DR (`pairs.py` -> `<sandbox>/pairs/pairs_zdr.png`, `pairs_zdr.csv`). The
+* Split-pair Z_DR (`pairs.py` -> `pairs/pairs_zdr.png`, `pairs_zdr.csv`). The
   supervisor's layout TxV -[b]- RxV -[g]- TxH -[b]- RxH: VV and HH each from a pair of base b
   (pair bistatic angle beta), the pairs g apart, so their bisectors lie (b + g) / R apart
   (beta and 3 beta for g = 0 and 2 b). Reference: a co-located dual-polarized pair of the same
@@ -446,6 +452,29 @@ Working notes of the sandboxed investigation behind the task note "Bistaticity a
   0.7 deg of the co-located pair: at automotive geometry (b of a few cm at a few metres,
   beta below 1 deg) the split costs nothing with these ideal beams. The order of growth below
   2 deg is not resolvable: the differences there sit at the ~0.05 dB level of the band spread.
+* Results integrated into the main tree (user: "the results are solid"; then "only an actual
+  report ... will sit [in reports]" and "scrap the whole sandbox folder"). The sandbox folder is
+  gone:
+  - the AEDT project moved to
+    `~/Projects/AEDT/bistaticity-parametric-beams/bistaticity_parametric_beams.aedt` (renamed
+    with its results folder; the scripts' default, `investigation/project.py`, and `--project`
+    for another);
+  - the exports and run logs moved to `data/interim/bistaticity/parametric_beams/`, and the
+    results to `data/processed/bistaticity/parametric_beams/` (untracked, regenerable);
+  - this log, the README and the receiver-aiming argument moved next to the scripts in
+    `src/pomaar/simulator/investigation/`;
+  - the validation copy moved to
+    `~/Projects/AEDT/mimo-polarimetry-validation/mimo_polarimetry_validation.aedt`, with its
+    port tables, and its logs and exports to `data/interim/validation/`.
+
+  The `parametric_beams` layer marks the idealized antennas, next to the full-wave cluster
+  results in `data/*/bistaticity/`. Every regenerated value matched the log (e.g. T1 +0.25 dB,
+  the scaling's beta_0 and HV levels).
+  A re-export from the moved project (`MultiRxPlate`) is bit-identical to the original.
+  The pooling's consistency check reports 32 deg between equal-angle points of the plate, but
+  only in its cross-pol phases: those channels are exactly zero in physical optics (−256 …
+  −443 dB, double-precision rounding), so their phases are arbitrary. The plate's co-pol, like
+  every other export's, agrees to 1e-7.
 
 ## Distillation (for the task note)
 
@@ -563,11 +592,11 @@ the same Tx polarization, Z_DR = |S_HH|²/|S_VV|²); "co/cross 3 dB down" above 
 ### Log entry
 
 - 2026-10-20: Multi-receiver sweep done (sandbox branch `sandbox/bistaticity`, plan and log in
-  `src/pomaar/simulator/bistaticity_investigation.md`): sphere, trihedral (2 rolls), dihedral
-  (5 rolls) at 4 m, bistatic angles 0 ... 16°; six trust checks plus a β-sign symmetry check
-  pass. Departure table and summaries in `data/interim/sandbox/bistaticity/summary/`; size and
-  range scaling (trihedral 40–160 mm, 1–16 m) in `…/scaling/`; edge-diffraction check (PO, PTD,
-  UTD).
+  `src/pomaar/simulator/investigation/investigation_log.md`): sphere, trihedral (2 rolls),
+  dihedral (5 rolls) at 4 m, bistatic angles 0 ... 16°; six trust checks plus a β-sign symmetry
+  check pass. Departure table and summaries in `data/processed/bistaticity/parametric_beams/summary/`;
+  size and range scaling (trihedral 40–160 mm, 1–16 m) in `…/scaling/`; edge-diffraction check
+  (PO, PTD, UTD).
   Extension noted: vertical receiver displacement.
 - 2026-10-21: Pipeline validated end to end on a copy of the project (16 cases, 6 bugs fixed;
   `src/pomaar/simulator/investigation/validation/README.md`). Signatures switched to radar

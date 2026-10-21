@@ -8,7 +8,15 @@ POMAAR (Polarimetric MIMO Arrays for Automotive Radars) is a PhD research reposi
 cookiecutter-data-science layout. The active code is the HFSS / SBR+ simulation pipeline in
 `src/pomaar/simulator/`, which has its own `README.md` with usage and strict unit-cell modelling
 rules. `reports/research-proposal/` is a LaTeX document (latexmk with lualatex and biber). `data/`
-is gitignored except for its folder structure.
+is gitignored except for its folder structure (`reports/` is for actual reports only).
+AEDT projects live outside the repository in `~/Projects/AEDT/`.
+`src/pomaar/simulator/investigation/` is the bistaticity investigation with idealized
+parametric-beam antennas. It holds the scripts, the log, the findings and a README (scope, where
+everything lives). Its project is
+`~/Projects/AEDT/bistaticity-parametric-beams/bistaticity_parametric_beams.aedt` (paths in
+`project.py`). Its exports go to `data/interim/bistaticity/parametric_beams/` and its figures
+and CSVs to `data/processed/bistaticity/parametric_beams/`; the `parametric_beams` layer sets
+them apart from the full-wave results.
 
 ## Commands
 
@@ -51,9 +59,10 @@ ansys-vnc solve <project.aedt> Design:Nominal:Setup   # headless batch solve
 * **All AEDT scripts attach to the running GUI session only.** `connect_live_session` finds the
   GUI's gRPC port (usually 50051); there is no `--port`, and nothing starts an AEDT
   (`NoLiveSessionError` without a GUI).
-* **Don't edit the user's open project unasked.** Test against a copy, or, when the user agrees,
-  build sandbox designs in it from layouts with a distinct file stem (e.g. `sandbox_*.yaml` in
-  `data/interim/sandbox/`), which gives distinct array design names. The builder saves the project.
+* **Don't edit the user's open project unasked.** Test against a copy (in `~/Projects/AEDT/`
+  under a telling name, never in `data/`), or, when the user agrees, build sandbox designs in it
+  from layouts with a distinct file stem (e.g. `sandbox_*.yaml`), which gives distinct array
+  design names. The builder saves the project.
 
 ## Architecture: the simulation pipeline
 
@@ -221,7 +230,7 @@ presets. The numbered `STEP` comments in the code are the map:
 * **Deleted designs keep their result files open.** Re-creating a design under the name of one
   deleted in the same session (even renamed first) blocks AEDT on a modal "The file
   <design>.asol_priv is in use - do you want to wait?". Save, close and reopen the project in
-  between, as `sbr_simulator` and `investigation/sandbox.reopen_sandbox` do.
+  between, as `sbr_simulator` and `investigation/project.reopen_project` do.
 * **Opening a design by name creates it.** PyAEDT's `Hfss(project, design=name)` silently
   inserts an empty design when `name` does not exist; check first with
   `hfss_array_builder.require_designs`.
