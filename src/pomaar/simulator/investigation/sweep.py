@@ -28,9 +28,17 @@ def main(argv=None):
         "--sweep", nargs=2, action="append", required=True, metavar=("VARIABLE", "DATA")
     )
     parser.add_argument("--solve", action="store_true")
+    parser.add_argument(
+        "--validation", action="store_true", help="Use the pipeline-validation project instead"
+    )
     args = parser.parse_args(argv)
 
-    desktop, app = open_sandbox(args.design)
+    if args.validation:
+        from pomaar.simulator.investigation.validation.common import open_validation
+
+        desktop, app = open_validation(args.design)
+    else:
+        desktop, app = open_sandbox(args.design)
     try:
         setup = scattered_solution(app).split(" : ")[0]
         optimetrics = app.odesign.GetModule("Optimetrics")
