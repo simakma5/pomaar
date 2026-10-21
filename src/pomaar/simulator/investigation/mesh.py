@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Sets the initial (SBR+ surface) mesh settings of a sandbox design: the surface-approximation
+Sets the initial (SBR+ surface) mesh settings of an investigation design: the surface-approximation
 slider (1 coarse ... 10 fine) and curvilinear elements, which decide how finely curved targets
 such as the sphere are faceted:
 
@@ -10,7 +10,7 @@ such as the sphere are faceted:
 
 import argparse
 
-from pomaar.simulator.investigation.sandbox import open_sandbox, release
+from pomaar.simulator.investigation.project import add_project_argument, open_project, release
 
 
 def main(argv=None):
@@ -18,9 +18,10 @@ def main(argv=None):
     parser.add_argument("design")
     parser.add_argument("--slider", type=int, default=5, help="1 (coarse) ... 10 (fine)")
     parser.add_argument("--curvilinear", action="store_true")
+    add_project_argument(parser)
     args = parser.parse_args(argv)
 
-    desktop, app = open_sandbox(args.design)
+    desktop, app = open_project(args.design, args.project)
     try:
         app.odesign.GetModule("MeshSetup").InitialMeshSettings(
             [

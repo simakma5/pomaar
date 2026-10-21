@@ -1,12 +1,12 @@
 #!/usr/bin/env python3
 """
-Exports the solved `bistaticAngle` sweep of a sandbox design once per combination of the other
-swept variables (rxAim, targetRoll, ...), which are set as nominal values first:
+Exports the solved `bistaticAngle` sweep of an investigation design once per combination of the
+other swept variables (rxAim, targetRoll, ...), which are set as nominal values first:
 
     ansys-vnc exec python src/pomaar/simulator/investigation/export_sweep.py MultiRxDihedral \
         --fixed rxAim 0 1 --fixed targetRoll 0deg 45deg
 
-Each export (<sandbox>/exports/<design>_<var><value>...npz) carries the scene geometry in its
+Each export (<exports>/<design>_<var><value>...npz) carries the scene geometry in its
 metadata, in the ISO frame of the scene (x boresight, y left, z up), per variation:
 `positions_m` {port: [[x, y, z], ...]} and `target_m` [[x, y, z], ...] (see `scene_geometry`).
 """
@@ -19,7 +19,12 @@ import re
 import numpy as np
 
 from pomaar.simulator.array_templates import parse_port
-from pomaar.simulator.investigation.sandbox import SANDBOX_DIR, open_sandbox, release
+from pomaar.simulator.investigation.project import (
+    EXPORTS_DIR,
+    add_project_argument,
+    open_project,
+    release,
+)
 from pomaar.simulator.sbr_results import export_sbr_parametric_sweep
 
 UNITS = {"meter": 1.0, "m": 1.0, "mm": 1e-3, "cm": 1e-2, "deg": 1.0, "": 1.0}
@@ -101,11 +106,12 @@ def main(argv=None):
     parser.add_argument("design")
     parser.add_argument("--fixed", nargs="+", action="append", default=[], metavar="VAR VALUES")
     parser.add_argument("--sweep-variable", default="bistaticAngle")
+    add_project_argument(parser)
     args = parser.parse_args(argv)
 
     names = [f[0] for f in args.fixed]
     combinations = list(itertools.product(*[f[1:] for f in args.fixed])) or [()]
-    desktop, app = open_sandbox(args.design)
+    desktop, app = open_project(args.design, args.project)
     try:
         for combination in combinations:
             for name, setting in zip(names, combination):
@@ -115,7 +121,7 @@ def main(argv=None):
                 f"{name}{re.sub(r'[^0-9.]', '', setting)}"
                 for name, setting in zip(names, combination)
             )
-            path = SANDBOX_DIR / "exports" / f"{args.design}{'_' + label if label else ''}.npz"
+            path = EXPORTS_DIR / f"{args.design}{'_' + label if label else ''}.npz"
             _, _, _, expressions = export_sbr_parametric_sweep(
                 app, str(path), sweep_variable=args.sweep_variable
             )

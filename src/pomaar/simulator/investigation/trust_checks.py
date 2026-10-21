@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Trust checks of the multi-receiver scene (host side, NumPy only), from the sandbox exports:
+Trust checks of the multi-receiver scene (host side, NumPy only), from the exports:
 
     python src/pomaar/simulator/investigation/trust_checks.py level <export> [--range 4]
     python src/pomaar/simulator/investigation/trust_checks.py paths <export> --bistatic-angle 1
@@ -21,10 +21,10 @@ from pathlib import Path
 
 import numpy as np
 
-from pomaar.simulator.investigation.sandbox import SANDBOX_DIR
+from pomaar.simulator.investigation.project import EXPORTS_DIR
 from pomaar.simulator.polarimetry_processor import SPEED_OF_LIGHT, CanonicalTargetProcessor, db20
 
-EXPORTS = SANDBOX_DIR / "exports"
+EXPORTS = EXPORTS_DIR
 
 
 def export_path(name):

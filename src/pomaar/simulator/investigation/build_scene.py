@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Builds a multi-receiver bistaticity scene as a new SBR+ design of the sandbox project
+Builds a multi-receiver bistaticity scene as a new SBR+ design of the investigation project
 (x boresight, ISO 8855: x forward, y left, z up; H along y, V along z):
 
 * one dual-polarized Tx site at the origin and `--rx-count` dual-polarized Rx sites, all
@@ -37,12 +37,11 @@ from ansys.aedt.core import Hfss
 from ansys.aedt.core.generic.constants import Plane
 
 from pomaar.simulator.frequency_sweeps import native_sweep_arguments
-from pomaar.simulator.investigation.sandbox import (
-    PROJECT_NAME,
-    check_sandbox,
-    open_sandbox,
+from pomaar.simulator.investigation.project import (
+    add_project_argument,
+    open_project,
     release,
-    reopen_sandbox,
+    reopen_project,
 )
 from pomaar.simulator.sbr_simulator import (
     TARGET_CS,
@@ -64,7 +63,7 @@ def replace_design(desktop, project_app, name, overwrite):
     """
     (Re)creates the SBR+ design `name` with native calls (see the CLAUDE.md pitfalls). A
     deleted design's result files stay open in AEDT, so the project is reopened before the
-    name is used again (`reopen_sandbox`).
+    name is used again (`reopen_project`).
     """
     oproject = project_app.oproject
     if name in oproject.GetTopDesignList():
@@ -74,12 +73,14 @@ def replace_design(desktop, project_app, name, overwrite):
         oproject.GetDesign(name).RenameDesignInstance(name, retired)
         oproject.DeleteDesign(retired)
         print(f"Deleted the existing design '{name}'; reopening the project...")
-        oproject = reopen_sandbox(desktop, REFERENCE_DESIGN).oproject
+        project_app = reopen_project(desktop, project_app, REFERENCE_DESIGN)
+        oproject = project_app.oproject
     oproject.InsertDesign("HFSS", name, "SBR+", "")
     if name not in oproject.GetTopDesignList():
         raise RuntimeError(f"AEDT did not create design '{name}'.")
-    app = Hfss(project=PROJECT_NAME, design=name, new_desktop=False, close_on_exit=False)
-    check_sandbox(app)
+    app = Hfss(
+        project=project_app.project_name, design=name, new_desktop=False, close_on_exit=False
+    )
     app.modeler.model_units = "mm"
     return app
 
@@ -211,7 +212,7 @@ def create_setup(app, start, stop, step, ray_density, max_bounces):
 
 def main(argv=None):
     parser = argparse.ArgumentParser(description=__doc__.split("\n\n")[0])
-    parser.add_argument("design", help="Name of the SBR+ design to create in the sandbox")
+    parser.add_argument("design", help="Name of the SBR+ design to create")
     parser.add_argument("--target", choices=TARGETS, default="trihedral")
     parser.add_argument("--size", default="40mm", help="Target size (sbr_simulator's meaning)")
     parser.add_argument("--range", default="4m", help="targetRange (default: 4m)")
@@ -235,9 +236,10 @@ def main(argv=None):
     parser.add_argument("--ray-density", type=float, default=4)
     parser.add_argument("--max-bounces", type=int, default=5)
     parser.add_argument("--overwrite", action="store_true")
+    add_project_argument(parser)
     args = parser.parse_args(argv)
 
-    desktop, reference = open_sandbox(REFERENCE_DESIGN)
+    desktop, reference = open_project(REFERENCE_DESIGN, args.project)
     try:
         app = replace_design(desktop, reference, args.design, args.overwrite)
         if args.layout == "pairs":

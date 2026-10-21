@@ -10,7 +10,7 @@ counterpart, S_aim = g S_boresight (least squares over the four channels, per fr
 Every descriptor of `CanonicalTargetProcessor.signatures` except the span is a ratio, a phase
 difference or a span-normalized quantity, i.e. unchanged by S -> g S. A small fit residual
 ||S_aim - g S_boresight|| / ||S_aim|| therefore shows that aiming changes the span by |g|^2 and
-nothing else. Outputs (in <sandbox>/reference/rx_aim/):
+nothing else. Outputs (in <results>/rx_aim/):
 
 * `rx_aim_scalar_fit.csv`: per design, receiver and bistatic angle, the residual, |g|^2 and
   arg g at the centre frequency with their band limits, and the span relative to the monostatic
@@ -35,7 +35,7 @@ from pomaar.simulator.bistaticity_analysis import (  # noqa: E402
     receiver_bistatic_angles,
     style_axis,
 )
-from pomaar.simulator.investigation.sandbox import SANDBOX_DIR  # noqa: E402
+from pomaar.simulator.investigation.project import RESULTS_DIR  # noqa: E402
 from pomaar.simulator.investigation.summarize import (  # noqa: E402
     COLOURS,
     EXPORTS,
@@ -87,7 +87,7 @@ def fit_design(boresight_path, aimed_path):
 
 def main(argv=None):
     parser = argparse.ArgumentParser(description=__doc__.split("\n\n")[0])
-    parser.add_argument("--out", default=str(SANDBOX_DIR / "reference" / "rx_aim"))
+    parser.add_argument("--out", default=str(RESULTS_DIR / "rx_aim"))
     args = parser.parse_args(argv)
     out = Path(args.out)
     out.mkdir(parents=True, exist_ok=True)

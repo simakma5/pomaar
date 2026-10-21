@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Size and range scaling of the multi-receiver results (sandbox project only): trihedral at roll
+# Size and range scaling of the multi-receiver results (the investigation project, `project.PROJECT_PATH`): trihedral at roll
 # 0 (first-order cross-pol) at 80 mm and 160 mm (4 m), 80 mm at 16 m (far field, 2 D^2 / lambda
 # = 6.7 m), 40 mm at 1 m (near field), and a 160 mm dihedral at roll 90 (retro plane). rxAim 1.
 set -euo pipefail

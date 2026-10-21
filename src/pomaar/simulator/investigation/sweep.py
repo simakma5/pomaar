@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
-Creates (or replaces) an Optimetrics parametric sweep of a sandbox design and optionally solves
-it, e.g.
+Creates (or replaces) an Optimetrics parametric sweep of an investigation design and optionally
+solves it, e.g.
 
     ansys-vnc exec python src/pomaar/simulator/investigation/sweep.py MultiRxDihedral \
         --sweep bistaticAngle "LIN 0.25deg 8deg 0.25deg" --sweep rxAim "LIN 0 1 1" \
@@ -14,7 +14,7 @@ count' or a single value); the variations are their Cartesian product.
 import argparse
 import time
 
-from pomaar.simulator.investigation.sandbox import open_sandbox, release
+from pomaar.simulator.investigation.project import add_project_argument, open_project, release
 from pomaar.simulator.sbr_results import scattered_solution
 
 SWEEP_NAME = "BistaticSweep"
@@ -31,6 +31,7 @@ def main(argv=None):
     parser.add_argument(
         "--validation", action="store_true", help="Use the pipeline-validation project instead"
     )
+    add_project_argument(parser)
     args = parser.parse_args(argv)
 
     if args.validation:
@@ -38,7 +39,7 @@ def main(argv=None):
 
         desktop, app = open_validation(args.design)
     else:
-        desktop, app = open_sandbox(args.design)
+        desktop, app = open_project(args.design, args.project)
     try:
         setup = scattered_solution(app).split(" : ")[0]
         optimetrics = app.odesign.GetModule("Optimetrics")

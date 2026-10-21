@@ -2,11 +2,14 @@
 
 End-to-end check of `hfss_array_builder` -> `sbr_simulator` -> `sbr_results` ->
 `polarimetry_processor` / `bistaticity_analysis` against the running AEDT 2025 R2 GUI session,
-on a copy of `mimo_polarimetry.aedt` (`data/interim/sandbox/validation/validation.aedt`, with
+on a copy of `mimo_polarimetry.aedt`
+(`~/Projects/AEDT/mimo-polarimetry-validation/mimo_polarimetry_validation.aedt`, with
 the results of `ApertureCoupledPatch` and the solved `ApertureCoupledPatchPolarimetricCluster`
 only). `common.py` refuses any other project. The unit cell's sweep in the copy is cut to 5
 points (`prepare.py`), so that a fresh array solves in minutes; the existing cluster keeps its
-81-point solution.
+81-point solution. The cases' logs and exports are in `data/interim/validation/` (untracked). The
+X11 helpers (`x11_*.py`, `watch_dialogs.sh`, for AEDT's modal dialogs on the VNC display) need
+the project's x11 extra: `uv sync --extra x11`.
 
 A structured selection rather than every combination: each CLI option and each target type is
 exercised at least once, each in a combination that changes something observable, plus the

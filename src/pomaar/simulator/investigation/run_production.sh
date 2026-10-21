@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# M4 production run of the multi-receiver bistaticity study (sandbox project only). Run from the
+# M4 production run of the multi-receiver bistaticity study (the investigation project, `project.PROJECT_PATH`). Run from the
 # worktree root; each step logs to stdout. Order: sphere, trihedral, dihedral.
 set -euo pipefail
 cd "$(dirname "$0")/../../../.."

@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Extension runs of the bistaticity study (sandbox project only), after the supervisor's
+# Extension runs of the bistaticity study (the investigation project, `project.PROJECT_PATH`), after the supervisor's
 # suggestions: more reflectors (slant trihedral, flat plate) and the differential reflectivity
 # from split antenna pairs. Receivers aimed (rxAim 1) only: aiming changes the span only
 # (reference/rx_aim). Run from the repository root; each step logs to stdout.

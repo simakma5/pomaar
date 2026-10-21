@@ -7,7 +7,7 @@ beta / beta_0, beta_0 being the first null of its span at the centre frequency:
     python src/pomaar/simulator/investigation/scaling.py MultiRxTrihedral_rxAim1_targetRoll0 \
         MultiRxTrihedralS80_rxAim1 ... [--out <folder>]
 
-Outputs (in <sandbox>/scaling/):
+Outputs (in <results>/scaling/):
 * `scaling.png`: span, Z_DR and co-pol phase difference, and each cross-pol channel relative to the
   monostatic span (where it stands EMERGED_DB above its monostatic value, which is the
   numerical floor for these targets), against beta (log axis for the cross-pol) and against
@@ -37,7 +37,7 @@ from pomaar.simulator.bistaticity_analysis import (  # noqa: E402
     pool_receivers,
     style_axis,
 )
-from pomaar.simulator.investigation.sandbox import SANDBOX_DIR  # noqa: E402
+from pomaar.simulator.investigation.project import EXPORTS_DIR, RESULTS_DIR  # noqa: E402
 from pomaar.simulator.investigation.summarize import (  # noqa: E402
     COLOURS,
     DEPARTURES,
@@ -46,7 +46,7 @@ from pomaar.simulator.investigation.summarize import (  # noqa: E402
     monostatic_defined,
 )
 
-EXPORTS = SANDBOX_DIR / "exports"
+EXPORTS = EXPORTS_DIR
 # the bistatic angles over which the emerging cross-pol is fitted by a power law
 FIT_RANGE_DEG = (0.25, 1.5)
 EMERGED_DB = 10.0
@@ -91,8 +91,8 @@ def power_law(angles, values, defined):
 
 def main(argv=None):
     parser = argparse.ArgumentParser(description=__doc__.split("\n\n")[0])
-    parser.add_argument("stems", nargs="+", help="Export names in <sandbox>/exports")
-    parser.add_argument("--out", default=str(SANDBOX_DIR / "scaling"))
+    parser.add_argument("stems", nargs="+", help="Export names in <exports>")
+    parser.add_argument("--out", default=str(RESULTS_DIR / "scaling"))
     args = parser.parse_args(argv)
     out = Path(args.out)
     out.mkdir(parents=True, exist_ok=True)

@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
-Solves a design of the sandbox project (nominal variation, or an existing parametric sweep)
-and exports its scattered solution to <sandbox>/exports/<name>.npz:
+Solves a design of the investigation project (nominal variation, or an existing parametric sweep)
+and exports its scattered solution to <exports>/<name>.npz:
 
     ansys-vnc exec python src/pomaar/simulator/investigation/solve.py MultiRxTrihedral \
         --export trihedral_nominal [--set bistaticAngle=10deg ...] [--ray-density 8] \
@@ -12,7 +12,12 @@ and exports its scattered solution to <sandbox>/exports/<name>.npz:
 import argparse
 import time
 
-from pomaar.simulator.investigation.sandbox import SANDBOX_DIR, open_sandbox, release
+from pomaar.simulator.investigation.project import (
+    EXPORTS_DIR,
+    add_project_argument,
+    open_project,
+    release,
+)
 from pomaar.simulator.sbr_results import export_sbr_parametric_sweep, scattered_solution
 
 
@@ -31,9 +36,10 @@ def main(argv=None):
     parser.add_argument("--parametric", default=None, help="Optimetrics setup to solve instead")
     parser.add_argument("--sweep-variable", default=None)
     parser.add_argument("--no-solve", action="store_true", help="Only export")
+    add_project_argument(parser)
     args = parser.parse_args(argv)
 
-    desktop, app = open_sandbox(args.design)
+    desktop, app = open_project(args.design, args.project)
     try:
         for assignment in args.set:
             name, value = assignment.split("=", 1)
@@ -60,7 +66,7 @@ def main(argv=None):
         changed = args.ray_density is not None or args.ptd_utd is not None
         if args.set or changed or not args.no_solve:
             app.save_project()
-        exports = SANDBOX_DIR / "exports"
+        exports = EXPORTS_DIR
         exports.mkdir(exist_ok=True)
         export_sbr_parametric_sweep(
             app, str(exports / f"{args.export}.npz"), sweep_variable=args.sweep_variable

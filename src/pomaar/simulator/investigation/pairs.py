@@ -13,7 +13,7 @@ boresight) gives the reference. Per pair bistatic angle and frequency:
   pairs and of the reference pair;
 * their differences, split minus reference: what measuring HH and VV with separate pairs adds.
 
-Outputs (in <sandbox>/pairs/): `pairs_zdr.png` and `pairs_zdr.csv` (centre frequency, band
+Outputs (in <results>/pairs/): `pairs_zdr.png` and `pairs_zdr.csv` (centre frequency, band
 limits). The figure is target-agnostic: no expected values or thresholds.
 """
 
@@ -31,7 +31,7 @@ import numpy as np  # noqa: E402
 
 from pomaar.simulator.array_templates import parse_port  # noqa: E402
 from pomaar.simulator.bistaticity_analysis import INK, style_axis, wrap_deg  # noqa: E402
-from pomaar.simulator.investigation.sandbox import SANDBOX_DIR  # noqa: E402
+from pomaar.simulator.investigation.project import RESULTS_DIR  # noqa: E402
 from pomaar.simulator.investigation.summarize import COLOURS, EXPORTS, draw  # noqa: E402
 from pomaar.simulator.polarimetry_processor import (  # noqa: E402
     bistatic_angle_deg,
@@ -103,7 +103,7 @@ def load(path):
 def main(argv=None):
     parser = argparse.ArgumentParser(description=__doc__.split("\n\n")[0])
     parser.add_argument("--designs", nargs="*", default=None, help="Design stems (default: all)")
-    parser.add_argument("--out", default=str(SANDBOX_DIR / "pairs"))
+    parser.add_argument("--out", default=str(RESULTS_DIR / "pairs"))
     args = parser.parse_args(argv)
     out = Path(args.out)
     out.mkdir(parents=True, exist_ok=True)

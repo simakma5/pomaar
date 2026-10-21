@@ -1,7 +1,8 @@
 """
 Guard of the pipeline validation: scripts attach to the live AEDT GUI session and open only the
-validation copy of the project (data/interim/sandbox/validation/validation.aedt), never the
-original in ~/Projects/AEDT.
+validation copy of the project
+(~/Projects/AEDT/mimo-polarimetry-validation/mimo_polarimetry_validation.aedt), never the
+original. The harness's logs and exports go to data/interim/validation/ (`VALIDATION_DIR`).
 """
 
 from pathlib import Path
@@ -11,9 +12,9 @@ from ansys.aedt.core import Hfss
 from pomaar.config import INTERIM_DATA_DIR
 from pomaar.simulator.hfss_array_builder import connect_live_session
 
-VALIDATION_DIR = INTERIM_DATA_DIR / "sandbox" / "validation"
-PROJECT_NAME = "validation"
-PROJECT_PATH = VALIDATION_DIR / f"{PROJECT_NAME}.aedt"
+VALIDATION_DIR = INTERIM_DATA_DIR / "validation"
+PROJECT_NAME = "mimo_polarimetry_validation"
+PROJECT_PATH = Path.home() / "Projects/AEDT/mimo-polarimetry-validation" / f"{PROJECT_NAME}.aedt"
 ORIGINALS = [Path.home() / "Projects/AEDT/mimo-polarimetry/mimo_polarimetry.aedt"]
 
 

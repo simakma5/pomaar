@@ -1,13 +1,13 @@
 #!/usr/bin/env python3
 """
 Cross-target summary of the multi-receiver bistaticity sweep (host side, NumPy only): every
-export in <sandbox>/exports matching the given stems is pooled by bistatic angle
+export in <exports> matching the given stems is pooled by bistatic angle
 (`bistaticity_analysis.pool_receivers`) and compared, at the centre frequency with the min-max
 band over the sweep:
 
     python src/pomaar/simulator/investigation/summarize.py --aim 1 [--out <folder>]
 
-Figures (in <sandbox>/summary/), one per target family (`FAMILIES`: dihedral, trihedral,
+Figures (in <results>/summary/), one per target family (`FAMILIES`: dihedral, trihedral,
 sphere_plate), so that every series gets its own colour:
 * `summary_signatures_<family>_aim<a>.png`: selected signatures against the bistatic angle, one
   series per design and roll;
@@ -46,9 +46,9 @@ from pomaar.simulator.bistaticity_analysis import (  # noqa: E402
     style_axis,
     wrap_deg,
 )
-from pomaar.simulator.investigation.sandbox import SANDBOX_DIR  # noqa: E402
+from pomaar.simulator.investigation.project import EXPORTS_DIR, RESULTS_DIR  # noqa: E402
 
-EXPORTS = SANDBOX_DIR / "exports"
+EXPORTS = EXPORTS_DIR
 # (title, unit, feature key or (key, index), circular, domain)
 PANELS = (
     [
@@ -329,7 +329,7 @@ def write_csv(pooled, centre, path):
 def main(argv=None):
     parser = argparse.ArgumentParser(description=__doc__.split("\n\n")[0])
     parser.add_argument("--aim", type=int, default=1, choices=(0, 1))
-    parser.add_argument("--out", default=str(SANDBOX_DIR / "summary"))
+    parser.add_argument("--out", default=str(RESULTS_DIR / "summary"))
     parser.add_argument("--designs", nargs="*", default=["MultiRx"])
     args = parser.parse_args(argv)
     out = Path(args.out)
