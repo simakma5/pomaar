@@ -976,6 +976,8 @@ def main(argv=None):
     )
     parser.add_argument(
         "--output-design",
+        "--design",
+        dest="output_design",
         default=None,
         metavar="NAME",
         help="Name of the SBR+ design to create (default: Linked<source_design_name>)",
