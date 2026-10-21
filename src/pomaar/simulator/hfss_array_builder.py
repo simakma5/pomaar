@@ -508,13 +508,7 @@ class MimoHfssBuilder:
             )
         return merged
 
-    def synthesize_array_in_hfss(
-        self,
-        setup_results=None,
-        run_simulation=None,
-        use_existing_cs=None,
-        overwrite=None,
-    ):
+    def synthesize_array_in_hfss(self, use_existing_cs=None, overwrite=None, simulate=None):
         """
         Synthesizes the builder's layout in HFSS using a naming-convention boolean assembly:
         1. Classifies the objects of every unit-cell template and plans the elements (template,
@@ -526,7 +520,10 @@ class MimoHfssBuilder:
         5. Applies boolean operations using the dummy solids (e.g. Subtract_L2_Ground).
         6. Assigns wave ports (lumped fallback), including matched loads on unused feeds.
         7. Creates the radiation airbox, verifies the placement, reports the port polarizations,
-           sets up the simulation and asks whether to set up results and to solve.
+           sets up the simulation, the far-field spheres and the reports, and optionally solves.
+
+        `use_existing_cs`, `overwrite` and `simulate` preset the prompts for reusing the unit
+        cells' PhaseCentreCS, replacing an existing array design and solving (`run_solve`).
 
         Raises
         ------
@@ -610,8 +607,12 @@ class MimoHfssBuilder:
                 f"Design '{self.target_design_name}' already exists. "
                 "Do you want to clear it and overwrite?",
                 preset=overwrite,
+                default=False,
             ):
-                raise BuildAbortedError("Aborted by user to prevent overwriting existing design.")
+                raise BuildAbortedError(
+                    f"Kept the existing array design '{self.target_design_name}' "
+                    "(--overwrite replaces it)."
+                )
 
             print(f"Design '{self.target_design_name}' already exists. Reusing and clearing it...")
             self.target_design_app = self._open_design(self.target_design_name, project_name)
@@ -1158,14 +1159,8 @@ class MimoHfssBuilder:
         # Configure simulation setup and sweep by inheriting from the element design
         self.configure_simulation_setup()
 
-        # As the last step of building, ask the user whether to set up results (far-field sphere & post-processing reports)
-        if _confirm(
-            "\nDo you want to set up results (far-field spheres & post-processing reports)?",
-            preset=setup_results,
-        ):
-            self.create_post_processing_reports()
-        else:
-            print("\n[INFO] Skipping results setup as requested.")
+        # Far-field spheres and post-processing reports
+        self.create_post_processing_reports()
 
         # Run Design Validation
         print("\nRunning HFSS built-in design validation...")
@@ -1183,14 +1178,7 @@ class MimoHfssBuilder:
             f"\nMIMO array synthesis successfully completed in design '{self.target_design_name}'."
         )
 
-        # As the very last step, ask the user if they want to launch the simulation ('Analyze All')
-        if _confirm(
-            "\nDo you want to launch the simulation ('Analyze All')?", preset=run_simulation
-        ):
-            print("\nLaunching HFSS simulation ('Analyze All')...")
-            self.target_design_app.analyze()
-        else:
-            print("\n[INFO] Skipping simulation execution. Model synthesis is complete.")
+        self.run_solve(simulate=simulate)
 
     @staticmethod
     def _template_corners(template):
@@ -1798,15 +1786,23 @@ class MimoHfssBuilder:
             except Exception as e:
                 print(f"  Warning: Failed to configure far-field sphere '{name}' ({e})")
 
-    def run_solve(self):
-        """Triggers the HFSS simulation setup and solve using 'Analyze All'."""
+    def run_solve(self, simulate=None):
+        """Solves the array setup (adaptive passes and the discrete sweep), after asking."""
         if not self.target_design_app:
             raise RuntimeError("Array design not synthesized yet.")
 
-        # Note: the setup is deliberately not reconfigured here, since that deletes existing
-        # setups together with their solutions.
-        print("Solving full-wave HFSS array design using 'Analyze All'...")
-        self.target_design_app.analyze()
+        question = (
+            f"Start the full-wave simulation of '{self.target_design_name}' now? The discrete "
+            "sweep solves the whole array once per frequency"
+        )
+        if not _confirm(question, preset=simulate, default=False):
+            print("Simulation not started.")
+            return
+        # The setup is deliberately not reconfigured here, since that deletes existing setups
+        # together with their solutions
+        print(f"Solving HFSS array design '{self.target_design_name}'...")
+        self.target_design_app.analyze_setup(ARRAY_SETUP_NAME)
+        self.target_design_app.save_project()
 
     def export_coupling_s_parameters(self, output_touchstone_path, setup_name=ARRAY_SETUP_NAME):
         """Exports solved S-parameter coupling matrix to a Touchstone (.sNp) file."""
@@ -2092,102 +2088,53 @@ def main(argv=None):
         description=(
             "Builds the MIMO array of a layout file in HFSS, attached to the running AEDT GUI "
             "session. The layout names its unit cells (metadata.primary_unit_cell, unit_cells) "
-            "and modelling options; the array design is <primary_unit_cell><LayoutFileStem>."
+            "and modelling options."
         )
     )
-    parser.add_argument("project_path", help="AEDT project (.aedt) holding the unit cells")
+    parser.add_argument("project_path", help="Path to the AEDT project (.aedt) with the unit cells")
     parser.add_argument("layout_path", help="Layout YAML or JSON file (layouts/generate_*.py)")
     parser.add_argument(
-        "-f",
-        "--overwrite",
-        "--overwrite-design",
-        action="store_true",
-        default=False,
-        help="Clear and rebuild the array design if it already exists",
-    )
-    parser.add_argument(
-        "-y",
-        "--yes",
-        "--accept-all",
-        action="store_true",
-        default=False,
-        help=(
-            "Accept all affirmative defaults (use existing PhaseCentreCS, overwrite, set up "
-            "results, run the simulation)"
-        ),
-    )
-    parser.add_argument(
-        "--build-only",
-        action="store_true",
-        default=False,
-        help="Build the model only: no results setup and no simulation, without prompting",
-    )
-    parser.add_argument(
-        "--results-only",
-        action="store_true",
-        default=False,
-        help="Skip building; only set up post-processing results on the existing array design",
-    )
-    parser.add_argument(
-        "--simulate-only",
-        action="store_true",
-        default=False,
-        help="Skip building; only launch 'Analyze All' on the existing array design",
+        "--output-design",
+        default=None,
+        metavar="NAME",
+        help="Name of the array design to create (default: <primary_unit_cell><LayoutFileStem>)",
     )
     parser.add_argument(
         "--use-existing-cs",
         "--use-existing-phase-centre",
         "--use-existing-phase-center",
         action="store_true",
-        default=False,
-        help="Use the unit cells' existing PhaseCentreCS without prompting or re-fitting it",
+        default=None,
+        help="Use the unit cells' existing PhaseCentreCS without asking (instead of a fit)",
+    )
+    parser.add_argument(
+        "--overwrite", action="store_true", default=None, help="Replace an existing array design"
+    )
+    simulate = parser.add_mutually_exclusive_group()
+    simulate.add_argument(
+        "--simulate",
+        dest="simulate",
+        action="store_true",
+        default=None,
+        help="Solve without asking",
+    )
+    simulate.add_argument(
+        "--no-simulate", dest="simulate", action="store_false", help="Do not solve, do not ask"
     )
     args = parser.parse_args(argv)
 
     try:
-        builder = MimoHfssBuilder(args.project_path, args.layout_path)
+        builder = MimoHfssBuilder(args.project_path, args.layout_path, args.output_design)
         print(
             f"Layout {args.layout_path}: primary unit cell '{builder.source_design_name}', "
             f"array design '{builder.target_design_name}'"
         )
         builder.connect_desktop()
-
-        if args.results_only or args.simulate_only:
-            target_design = builder.target_design_name
-            print(f"\n[INFO] Opening the array design '{target_design}'...")
-            builder.target_design_app = builder._open_design(target_design)
-
-            if args.results_only:
-                builder.create_post_processing_reports()
-                builder.target_design_app.save_project()
-
-            if args.simulate_only:
-                print("\nRunning HFSS built-in design validation...")
-                validation_ok = builder.target_design_app.validate_simple()
-                if validation_ok == 1 or validation_ok is True:
-                    print("  Design validation: PASSED.")
-                else:
-                    print("  [WARNING] Design validation returned issues.")
-                print("\nLaunching HFSS simulation ('Analyze All')...")
-                builder.target_design_app.analyze()
-                builder.target_design_app.save_project()
-        else:
-            if args.build_only:
-                setup_results = False
-                run_simulation = False
-            elif args.yes:
-                setup_results = True
-                run_simulation = True
-            else:
-                setup_results = None
-                run_simulation = None
-
-            builder.synthesize_array_in_hfss(
-                use_existing_cs=True if (args.use_existing_cs or args.yes) else None,
-                overwrite=True if (args.overwrite or args.yes) else None,
-                setup_results=setup_results,
-                run_simulation=run_simulation,
-            )
+        builder.synthesize_array_in_hfss(
+            use_existing_cs=args.use_existing_cs,
+            overwrite=args.overwrite,
+            simulate=args.simulate,
+        )
     except BuildAbortedError as e:
         print(f"[INFO] {e}")
         return 0

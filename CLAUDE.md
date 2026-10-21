@@ -15,8 +15,8 @@ is gitignored except for its folder structure.
 * `uv sync` installs the package editable into `.venv`, including the `hfss_array_builder`,
   `sbr_simulator`, `sbr_results` and `bistaticity_analysis` console scripts. Python >= 3.12.
 * `uvx ruff check src` and `uvx ruff format src` lint and format (line length 100, isort with
-  `force-sort-within-sections`). `hfss_array_builder.py` has about 24 pre-existing E501 warnings;
-  don't add new ones.
+  `force-sort-within-sections`). `hfss_array_builder.py` has 14 pre-existing E501 warnings and
+  is not ruff-formatted; don't add new ones and don't reformat it wholesale.
 * `uv run --with pytest python -m pytest tests` runs the pure-NumPy processor, template-planning,
   setup/sweep-helper and layout-generator tests. Nothing that talks to AEDT has tests; verify it against a running AEDT (below).
 * `python src/pomaar/simulator/layouts/generate_<topology>.py --unit-cell <Design> [--help]`
@@ -29,7 +29,7 @@ AEDT 2025 R2 runs only inside the `ansys-vnc` Podman container (repo `~/Reposito
 launcher `ansys-vnc` on PATH). Every PyAEDT script must run **inside** that container:
 
 ```bash
-ansys-vnc exec hfss_array_builder <project.aedt> <layout.yaml> [-y | --build-only] [-f] [flags]
+ansys-vnc exec hfss_array_builder <project.aedt> <layout.yaml> [--overwrite] [--no-simulate] [flags]
 ansys-vnc exec sbr_simulator <project.aedt> <ArrayDesign> [--target ...] [flags]
 ansys-vnc exec sbr_results <project> <SbrDesign> <out.npz> [--sweep-variable VAR]   # scattered
 ansys-vnc solve <project.aedt> Design:Nominal:Setup   # headless batch solve
@@ -143,8 +143,10 @@ and V ports) and `attach_port_table`.
 
 ### Builder flow
 
-`synthesize_array_in_hfss`, then `create_post_processing_reports`, then `run_solve`. The numbered
-`STEP` comments in the code are the map:
+`synthesize_array_in_hfss` builds, sets up the reports (`create_post_processing_reports`) and asks
+to solve (`run_solve`). The CLI mirrors `sbr_simulator`'s: `--output-design` names the design
+it creates, and `--use-existing-cs`, `--overwrite`, `--simulate`/`--no-simulate` are only prompt
+presets. The numbered `STEP` comments in the code are the map:
 
 * **Steps 1–3:** classify the objects of every template by name convention and plan the
   elements, create or reuse the target design (variables merged from all templates, setup from
