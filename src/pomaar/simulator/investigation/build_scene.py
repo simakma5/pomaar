@@ -11,10 +11,23 @@ Builds a multi-receiver bistaticity scene as a new SBR+ design of the sandbox pr
   0: on boresight like a real array);
 * H at z = +spacingHV/2 and V at z = -spacingHV/2 in every site;
 * TargetCS and the canonical target as `sbr_simulator` builds them (or a thin PEC strip along
-  H for the polarization-label check), and an SBR+ setup like the original design's.
+  H for the polarization-label check, or a square PEC plate of edge targetSize facing the
+  radar), and an SBR+ setup like the original design's.
 
     ansys-vnc exec python src/pomaar/simulator/investigation/build_scene.py MultiRxTrihedral \
         --target trihedral [--rx-count 3] [--bistatic-angle 1deg] [--overwrite]
+
+`--layout pairs` builds the split-pair scene for the differential reflectivity instead: four
+single-polarized antennas on the y axis in the order TxV, RxV, (gap), TxH, RxH,
+
+    TxV at y = g/2 + b,  RxV at g/2,  TxH at -g/2,  RxH at -g/2 - b,
+
+with the pair base b = 2 targetRange tan(pairAngle / 2) and the gap g = gapRatio b, so that VV
+and HH are each measured by one pair of base b (bistatic angle about pairAngle) whose bisectors
+lie (b + g) / targetRange apart. The VV pair is the mirror image of the HH pair about the x-z
+plane, so both have the same path length and the same beam gains for a boresight target. A
+co-located dual-polarized reference pair of the same base (Tx_R at y = b/2, Rx_R at -b/2)
+measures the full matrix with its bisector on boresight. All antennas look along boresight.
 """
 
 import argparse
@@ -38,7 +51,7 @@ from pomaar.simulator.sbr_simulator import (
     _euler_zyz_cs_args,
 )
 
-TARGETS = tuple(t for t in TARGET_TYPES if t != "none") + ("strip", "none")
+TARGETS = tuple(t for t in TARGET_TYPES if t != "none") + ("strip", "plate", "none")
 POLARIZATIONS = {"H": "Horizontal", "V": "Vertical"}
 REFERENCE_DESIGN = "BistaticityAnalysis"
 
@@ -71,15 +84,18 @@ def replace_design(desktop, project_app, name, overwrite):
     return app
 
 
-def create_strip(app, length="targetSize", width="0.5mm"):
-    """A thin PEC strip in TargetCS along its local x axis (H at zero roll), facing the radar."""
+def create_strip(app, length="targetSize", width="0.5mm", name="TargetStrip"):
+    """
+    A PEC rectangle in TargetCS, centred, along its local x axis (H at zero roll) and facing
+    the radar: a thin strip by default, a square plate with width = length.
+    """
     modeler = app.modeler
     modeler.set_working_coordinate_system(TARGET_CS)
     strip = modeler.create_rectangle(
-        Plane.XY, [f"-{length}/2", f"-{width}/2", "0mm"], [length, width], name="TargetStrip"
+        Plane.XY, [f"-{length}/2", f"-({width})/2", "0mm"], [length, width], name=name
     )
     modeler.set_working_coordinate_system("Global")
-    app.assign_perfect_e(strip.name, name="TargetStripPerfectE")
+    app.assign_perfect_e(strip.name, name=f"{name}PerfectE")
 
 
 def create_antennas(app, rx_count):
@@ -112,6 +128,46 @@ def create_antennas(app, rx_count):
             )
             sites[site][pol] = antenna.name
     return sites
+
+
+def create_pair_antennas(app):
+    """
+    The split pairs (Tx_A_V, Rx_A_V; Tx_B_H, Rx_B_H) and the co-located reference pair (Tx_R
+    and Rx_R, H and V each) of `--layout pairs`, all on boresight; returns {instance: y}.
+    """
+    editor = app.modeler.oeditor
+    base = "(2*targetRange*tan(pairAngle/2))"
+    gap = f"(gapRatio*{base})"
+    placements = {
+        "Tx_A_V": f"{gap}/2+{base}",
+        "Rx_A_V": f"{gap}/2",
+        "Tx_B_H": f"-{gap}/2",
+        "Rx_B_H": f"-{gap}/2-{base}",
+        "Tx_R_H": f"{base}/2",
+        "Tx_R_V": f"{base}/2",
+        "Rx_R_H": f"-{base}/2",
+        "Rx_R_V": f"-{base}/2",
+    }
+    for name, y in placements.items():
+        cs = f"{name}_CS"
+        app.modeler.set_working_coordinate_system("Global")
+        editor.CreateRelativeCS(
+            _euler_zyz_cs_args(["0mm", y, "0mm"], ["0deg", "0deg", "0deg"]),
+            ["NAME:Attributes", "Name:=", cs],
+        )
+        app.modeler.set_working_coordinate_system("Global")
+        app.create_sbr_antenna(
+            app.SbrAntennas.ParametricBeam,
+            target_cs=cs,
+            parameters={
+                "Size": "0.1mm",
+                "Polarization": POLARIZATIONS[name[-1]],
+                "Vertical BeamWidth": "verticalBeamWidth",
+                "Horizontal BeamWidth": "horizontalBeamWidth",
+            },
+            name=name,
+        )
+    return placements
 
 
 def assign_tx_rx(app):
@@ -160,7 +216,15 @@ def main(argv=None):
     parser.add_argument("--size", default="40mm", help="Target size (sbr_simulator's meaning)")
     parser.add_argument("--range", default="4m", help="targetRange (default: 4m)")
     parser.add_argument("--roll", default="0deg", help="targetRoll (default: 0deg)")
+    parser.add_argument(
+        "--layout",
+        choices=("ladder", "pairs"),
+        default="ladder",
+        help="Receiver ladder (default) or the split pairs for the differential reflectivity",
+    )
     parser.add_argument("--rx-count", type=int, default=3, help="Rx sites (default: 3)")
+    parser.add_argument("--pair-angle", default="1deg", help="pairAngle (pairs; default: 1deg)")
+    parser.add_argument("--gap-ratio", default="0", help="gapRatio (pairs; default: 0)")
     parser.add_argument("--bistatic-angle", default="1deg", help="bistaticAngle (default: 1deg)")
     parser.add_argument("--rx-aim", type=int, choices=(0, 1), default=1, help="rxAim (default: 1)")
     parser.add_argument("--spacing-hv", default="0mm", help="spacingHV (default: 0mm, type 2)")
@@ -176,13 +240,19 @@ def main(argv=None):
     desktop, reference = open_sandbox(REFERENCE_DESIGN)
     try:
         app = replace_design(desktop, reference, args.design, args.overwrite)
-        for name, value in (
+        if args.layout == "pairs":
+            variables = (("pairAngle", args.pair_angle), ("gapRatio", args.gap_ratio))
+        else:
+            variables = (
+                ("spacingHV", args.spacing_hv),
+                ("bistaticAngle", args.bistatic_angle),
+                ("rxAim", str(args.rx_aim)),
+            )
+        variables = (
             ("verticalBeamWidth", args.beam_width),
             ("horizontalBeamWidth", args.beam_width),
-            ("spacingHV", args.spacing_hv),
-            ("bistaticAngle", args.bistatic_angle),
-            ("rxAim", str(args.rx_aim)),
-        ):
+        ) + variables
+        for name, value in variables:
             app[name] = value
 
         manager = SbrSimulationManager(
@@ -192,13 +262,19 @@ def main(argv=None):
         manager.create_coordinate_systems(
             target_range=args.range, target_roll=args.roll, create_antenna_cs=False
         )
-        if args.target == "strip":
+        if args.target in ("strip", "plate"):
             app["targetSize"] = args.size
-            create_strip(app)
+            if args.target == "strip":
+                create_strip(app)
+            else:
+                create_strip(app, width="targetSize", name="TargetPlate")
         else:
             manager.create_target(target_type=args.target, size=args.size)
 
-        sites = create_antennas(app, args.rx_count)
+        if args.layout == "pairs":
+            sites = create_pair_antennas(app)
+        else:
+            sites = create_antennas(app, args.rx_count)
         tx, rx = assign_tx_rx(app)
         solution = create_setup(
             app, args.start, args.stop, args.step, args.ray_density, args.max_bounces

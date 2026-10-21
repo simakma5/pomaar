@@ -33,12 +33,36 @@ def value(text):
     return float(match[1]) * UNITS[match[2]]
 
 
+def pair_geometry(port, variables):
+    """
+    Phase-centre position (m, ISO frame) of a port of `build_scene --layout pairs`: base
+    b = 2 targetRange tan(pairAngle / 2), gap g = gapRatio b; split pairs A (V) and B (H),
+    co-located reference pair R.
+    """
+    role, _, key = parse_port(port)
+    base = (
+        2 * value(variables["targetRange"]) * np.tan(np.radians(value(variables["pairAngle"])) / 2)
+    )
+    gap = value(variables["gapRatio"]) * base
+    y = {
+        ("Tx", "A"): gap / 2 + base,
+        ("Rx", "A"): gap / 2,
+        ("Tx", "B"): -gap / 2,
+        ("Rx", "B"): -gap / 2 - base,
+        ("Tx", "R"): base / 2,
+        ("Rx", "R"): -base / 2,
+    }[(role, key.strip("_").split("_")[1])]
+    return [0.0, y, 0.0]
+
+
 def scene_geometry(port, variables):
     """
     Phase-centre position (m, ISO frame) of a port of `build_scene`'s scene: the Tx site at the
     origin, Rx site k at y = targetRange tan(k bistaticAngle), H at z = +spacingHV/2 and V at
-    -spacingHV/2.
+    -spacingHV/2 (the split-pair layout: `pair_geometry`).
     """
+    if "pairAngle" in variables:
+        return pair_geometry(port, variables)
     role, pol, key = parse_port(port)
     k = int(key.strip("_").split("_")[1]) if role == "Rx" else 0
     y = value(variables["targetRange"]) * np.tan(np.radians(k * value(variables["bistaticAngle"])))
