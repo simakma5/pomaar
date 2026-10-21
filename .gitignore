@@ -30,6 +30,10 @@ site/
 data/*
 !data/**/*.gitkeep
 
+# Agent scratch space (logs, screenshots, throwaway exports); AEDT projects go to ~/Projects/AEDT
+/sandbox/*
+!/sandbox/.gitkeep
+
 # --- Jupyter ---
 .ipynb_checkpoints
 
