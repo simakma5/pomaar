@@ -36,6 +36,7 @@ from pomaar.simulator.hfss_array_builder import (
     BuildAbortedError,
     NativeAedtRefusedError,
     NoLiveSessionError,
+    SolveFailedError,
     _confirm,
     _find_by_spelling,
     _length_mm,
@@ -833,8 +834,13 @@ class SbrSimulationManager:
             return
         self.analysis_solution()
         print(f"Solving SBR+ design '{self.sbr_design_name}' ({self.setup_name})...")
-        self.sbr_app.analyze_setup(self.setup_name)
+        solved = self.sbr_app.analyze_setup(self.setup_name)
         self.sbr_app.save_project()
+        if not solved:
+            raise SolveFailedError(
+                f"Solving '{self.sbr_design_name}' ({self.setup_name}) failed; see AEDT's "
+                "message window."
+            )
 
     # ------------------------------------------------------------------------------------------
     # Helpers
@@ -1177,6 +1183,9 @@ def main(argv=None):
     except (NativeAedtRefusedError, NoLiveSessionError, UnlinkableSolutionError) as e:
         print(f"[ERROR] {e}")
         return 2
+    except SolveFailedError as e:
+        print(f"[ERROR] {e}")
+        return 3
     except ValueError as e:
         # Invalid arguments, e.g. a mapped variable that the HFSS design lacks
         print(f"[ERROR] {e}")

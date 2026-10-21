@@ -92,6 +92,10 @@ class NoLiveSessionError(RuntimeError):
     """Raised when no AEDT GUI session is running to attach to."""
 
 
+class SolveFailedError(RuntimeError):
+    """Raised when AEDT reports a failed solve (its message window says why)."""
+
+
 class MissingDesignError(ValueError):
     """Raised when a design named by the user is not in the project."""
 
@@ -1863,8 +1867,13 @@ class MimoHfssBuilder:
         # together with their solutions
         self.array_solution()
         print(f"Solving HFSS array design '{self.target_design_name}' ('{self.setup_name}')...")
-        self.target_design_app.analyze_setup(self.setup_name)
+        solved = self.target_design_app.analyze_setup(self.setup_name)
         self.target_design_app.save_project()
+        if not solved:
+            raise SolveFailedError(
+                f"Solving '{self.target_design_name}' ({self.setup_name}) failed; see AEDT's "
+                "message window."
+            )
 
     def array_solution(self):
         """
@@ -2242,6 +2251,9 @@ def main(argv=None):
     except (NativeAedtRefusedError, NoLiveSessionError) as e:
         print(f"[ERROR] {e}")
         return 2
+    except SolveFailedError as e:
+        print(f"[ERROR] {e}")
+        return 3
     finally:
         if "builder" in locals():
             builder.close()
