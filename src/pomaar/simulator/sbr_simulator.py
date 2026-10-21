@@ -227,6 +227,7 @@ class SbrSimulationManager:
         self.open_source_design()
         self.source_solution = self.linkable_solution(source_solution)
         self.mapped_source_variables(mapped_variables)
+        self.warn_unsolved_source()
         self.create_sbr_design(overwrite=overwrite)
         self.create_coordinate_systems(
             target_range=target_range,
@@ -503,6 +504,22 @@ class SbrSimulationManager:
             name=f"{target.name}PerfectE",
         )
         self.target_object_names = [target.name]
+
+    def warn_unsolved_source(self):
+        """
+        Warns when the linked solution has no results yet: the link simulates the source design
+        as needed, so the first SBR+ solve would start the full-wave solve of the whole array.
+        """
+        setup_name = self.source_solution.split(" : ")[0]
+        try:
+            solved = self.source_app.get_setup(setup_name).is_solved
+        except Exception:  # noqa: BLE001 (a warning only)
+            return
+        if not solved:
+            print(
+                f"  Warning: '{self.source_solution}' of '{self.source_design_name}' has no "
+                "results yet; the first SBR+ solve will run its full-wave solve first."
+            )
 
     def mapped_source_variables(self, mapped_variables):
         """
