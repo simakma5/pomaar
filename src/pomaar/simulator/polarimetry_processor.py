@@ -880,7 +880,9 @@ class CanonicalTargetProcessor(MimoPolarimetryProcessor):
 
         * `power_<pq>_db`: |S_pq|^2 of every channel, and `span_db`: the total |S|_F^2;
         * `copol_ratio_db`, `copol_phase_difference_deg`: |S_VV / S_HH|, arg(S_VV S_HH*);
-        * `co_minus_cross_tx<h|v>_db`: co- minus cross-polar return per transmit polarization;
+        * `co_minus_cross_tx<h|v>_db`, `co_cross_phase_tx<h|v>_deg`: co- to cross-polar ratio
+          per transmit polarization (the two receivers of one transmission, as in a weather
+          radar's linear depolarization ratio), |S_co / S_cross| and arg(S_co S_cross*);
         * `reciprocity_db`, `reciprocity_phase_deg`, `asymmetry_db`: S_HV / S_VH and
           |S_HV - S_VH| / |S|_F;
         * `pauli_fractions_db`: the four bistatic Pauli power fractions;
@@ -890,6 +892,8 @@ class CanonicalTargetProcessor(MimoPolarimetryProcessor):
         """
         s = self.target_matrices(azimuth_deg, elevation_deg) if matrices is None else matrices
         co_minus_cross_h, co_minus_cross_v = self.copol_crosspol_difference_db(s)
+        # arg(S_co S_cross*) = -arg(S_cross / S_co)
+        cross_h, cross_v = crosspolar_isolation(s)
         entropy, anisotropy, mean_alpha = cloude_pottier(
             coherency_matrix(pauli_vector(s, bistatic=True))
         )
@@ -905,7 +909,9 @@ class CanonicalTargetProcessor(MimoPolarimetryProcessor):
             "copol_ratio_db": db20(ratio),
             "copol_phase_difference_deg": np.angle(ratio, deg=True),
             "co_minus_cross_txh_db": co_minus_cross_h,
+            "co_cross_phase_txh_deg": -np.angle(cross_h, deg=True),
             "co_minus_cross_txv_db": co_minus_cross_v,
+            "co_cross_phase_txv_deg": -np.angle(cross_v, deg=True),
             "reciprocity_db": db20(reciprocity),
             "reciprocity_phase_deg": np.angle(reciprocity, deg=True),
             "asymmetry_db": db20(normalized_asymmetry(s)),

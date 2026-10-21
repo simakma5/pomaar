@@ -246,7 +246,16 @@ It writes:
 * `signatures_vs_sweep.png` and `signatures_vs_sweep.csv`: the signatures of §4.5 against the
   swept variable; per-frequency quantities as a line at the centre frequency with a band spanning
   their minimum and maximum over the frequency sweep (not a confidence interval), band-averaged
-  ones as a line;
+  ones as a line. Phase differences are circular: their band is the line plus the min–max of each
+  phase's deviation from it, wrapped to ±180°, drawn on a [−180°, 180°] axis and repeated 360° up
+  and down (a phase scattered around ±180° would otherwise span the whole circle). Bounded
+  quantities use their whole domain (H, A ∈ [0, 1], ᾱ ∈ [0°, 90°], Pauli fractions up to 0 dB),
+  so noise is not zoomed into structure; the other axes fit the data, bands included;
+* `signatures_vs_frequency.png`: every per-frequency signature as a frequency × swept-variable map,
+  the unsummarized data behind the bands, which shows whether a wide band comes from a narrow
+  null, a slope or ripple across the band, or the swept variable. Each panel has its own colour
+  scale over its data (ratios symmetric about 0 dB); phases are shown as their circular mean plus
+  the wrapped deviation, on a cyclic scale when the deviations reach around the circle;
 * `range_profiles.png`: the beamformed range profiles of the total power and of every
   polarimetric channel towards the target;
 * `azimuth_elevation_maps.png`: total power and Pauli powers at the target range, only for arrays
@@ -385,11 +394,11 @@ steering direction (at boresight: as exported). None of them refers to a particu
 | 2 | Span ‖S‖²_F | `span_db` | frequency |
 | 3 | Co-pol ratio \|S_VV/S_HH\| | `copol_ratio_db` | frequency |
 | 4 | Co-pol phase difference ∠(S_VV S_HH*) | `copol_phase_difference_deg` | frequency |
-| 5 | Co- minus cross-pol return per Tx pol: \|S_HH\| − \|S_VH\| (Tx H), \|S_VV\| − \|S_HV\| (Tx V) | `co_minus_cross_tx<h\|v>_db` | frequency |
-| 6, 7 | Cross-pol ratio S_HV/S_VH: magnitude and phase difference | `reciprocity_db`, `reciprocity_phase_deg` | frequency |
-| 8 | Normalized asymmetry \|S_HV − S_VH\| / ‖S‖_F | `asymmetry_db` | frequency |
-| 9 | Bistatic Pauli power fractions of k = [HH+VV, HH−VV, HV+VH, j(HV−VH)]/√2 | `pauli_fractions_db` | frequency |
-| 10–12 | Cloude–Pottier entropy H, anisotropy A = (λ₂−λ₃)/(λ₂+λ₃) and mean α of the bistatic 4×4 coherency matrix | `entropy`, `anisotropy`, `mean_alpha_deg` | variation (averaged over the band) |
+| 5, 6 | Co- to cross-pol ratio per Tx pol, the two receivers of one transmission (as in a weather radar's linear depolarization ratio): magnitude \|S_co / S_cross\| and phase difference ∠(S_co S_cross*), with S_HH/S_VH for Tx H and S_VV/S_HV for Tx V | `co_minus_cross_tx<h\|v>_db`, `co_cross_phase_tx<h\|v>_deg` | frequency |
+| 7, 8 | Cross-pol ratio S_HV/S_VH: magnitude and phase difference | `reciprocity_db`, `reciprocity_phase_deg` | frequency |
+| 9 | Normalized asymmetry \|S_HV − S_VH\| / ‖S‖_F | `asymmetry_db` | frequency |
+| 10 | Bistatic Pauli power fractions of k = [HH+VV, HH−VV, HV+VH, j(HV−VH)]/√2 | `pauli_fractions_db` | frequency |
+| 11, 12 | Cloude–Pottier entropy H and anisotropy A = (λ₂−λ₃)/(λ₂+λ₃) (one panel, both in [0, 1]), and mean α of the bistatic 4×4 coherency matrix | `entropy`, `anisotropy`, `mean_alpha_deg` | variation (averaged over the band) |
 | (CSV) | Pauli angle of the single matrix, cos α = \|k₁\|/‖k‖ | `alpha_deg` | frequency |
 
 Notes on the table:

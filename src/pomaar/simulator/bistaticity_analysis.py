@@ -10,8 +10,12 @@ All processing is `CanonicalTargetProcessor`'s: the target's scattering matrices
 towards (azimuth, elevation) (boresight by default, where no geometry is needed), range profiles
 and, for arrays with several virtual channels per polarization, azimuth-elevation maps. This
 script only combines and plots them, and shows only target-agnostic quantities: no reference
-target, no thresholds, no classification. Figures and a CSV land in --out; the README
-("Bistaticity study") explains the signatures.
+target, no thresholds, no classification. The signatures are plotted twice: against the swept
+variable (a line at the centre frequency and a min-max band over the sweep) and as frequency x
+swept-variable maps, which show where in the band the spread lies. Figures and a CSV land in
+<out>/<sweep>/, one folder per export (named after the .npz file, created if needed), with <out>
+defaulting to the project's data/processed/bistaticity; the README ("Bistaticity study")
+explains the signatures.
 """
 
 import argparse
@@ -41,6 +45,15 @@ DEFAULT_OUTPUT_ROOT = PROCESSED_DATA_DIR / "bistaticity"
 SERIES_COLOURS = ["#2a78d6", "#eb6834", "#1baf7a", "#eda100"]
 INK, MUTED, GRID = "#222222", "#6b6b6b", "#e4e4e4"
 PAULI_NAMES = ["k₁ ∝ HH+VV", "k₂ ∝ HH−VV", "k₃ ∝ HV+VH", "k₄ ∝ j(HV−VH)"]
+# Phase differences (deg) are circular: their bands are taken around the centre-frequency value
+PHASE_KEYS = {
+    "copol_phase_difference_deg",
+    "co_cross_phase_txh_deg",
+    "co_cross_phase_txv_deg",
+    "reciprocity_phase_deg",
+}
+# Bounded quantities are shown over their whole domain, so that noise is not magnified
+DOMAINS = {"entropy": (0.0, 1.0), "anisotropy": (0.0, 1.0), "mean_alpha_deg": (0.0, 90.0)}
 
 
 def style_axis(ax, title, ylabel):
@@ -54,10 +67,42 @@ def style_axis(ax, title, ylabel):
         ax.spines[side].set_color(GRID)
 
 
-def band_plot(ax, x, values, centre_index, colour, label):
-    """Centre-frequency line plus min-max envelope over the band (values: n_var x n_freq)."""
-    ax.fill_between(x, values.min(axis=1), values.max(axis=1), color=colour, alpha=0.18, lw=0)
+def wrap_deg(angle):
+    """Angles (deg) wrapped to [-180, 180)."""
+    return (np.asarray(angle) + 180.0) % 360.0 - 180.0
+
+
+def band_limits(values, centre_index, circular=False):
+    """
+    Min-max over the band of `values` (n_var x n_freq). For a phase (deg, `circular`) it is the
+    min-max of the deviation from the centre-frequency value, wrapped to +-180 deg and added to
+    that value, so a phase scattered around +-180 deg does not span the whole circle.
+    """
+    if not circular:
+        return values.min(axis=1), values.max(axis=1)
+    line = values[:, centre_index]
+    deviation = wrap_deg(values - line[:, None])
+    return line + deviation.min(axis=1), line + deviation.max(axis=1)
+
+
+def set_domain(ax, low, high, margin=0.03):
+    pad = margin * (high - low)
+    ax.set_ylim(low - pad, high + pad)
+
+
+def band_plot(ax, x, values, centre_index, colour, label, circular=False):
+    """
+    Centre-frequency line plus min-max envelope over the band (values: n_var x n_freq). A
+    circular band is drawn on a [-180, 180] deg axis and repeated 360 deg up and down, so the
+    part that crosses +-180 deg reappears at the other edge.
+    """
+    low, high = band_limits(values, centre_index, circular)
+    for shift in (-360.0, 0.0, 360.0) if circular else (0.0,):
+        ax.fill_between(x, low + shift, high + shift, color=colour, alpha=0.18, lw=0)
     ax.plot(x, values[:, centre_index], color=colour, lw=2, marker="o", markersize=5, label=label)
+    if circular:
+        ax.set_ylim(-180, 180)
+        ax.set_yticks(np.arange(-180, 181, 90))
 
 
 def plot_range_profiles(out_dir, maps, x, x_label, picks):
@@ -131,7 +176,9 @@ def plot_maps(out_dir, maps, index, x_label, x_value):
 def plot_signatures(out_dir, features, x, x_label, centre_index, frequencies, title):
     """
     Target-agnostic signatures against the swept variable: a line at the centre frequency and,
-    for per-frequency quantities, the min-max band over the sweep.
+    for per-frequency quantities, the min-max band over the sweep (around the line for phases).
+    Phases span [-180, 180] deg, Pauli fractions end at 0 dB and H, A and mean alpha span their
+    whole domain; the other axes fit the data.
     """
     fig, axes = plt.subplots(3, 4, figsize=(20, 11.5), constrained_layout=True)
     axes = axes.ravel()
@@ -149,18 +196,26 @@ def plot_signatures(out_dir, features, x, x_label, centre_index, frequencies, ti
             [("copol_phase_difference_deg", None)],
         ),
         (
-            "(5) Co-pol minus cross-pol return per Tx polarization",
+            "(5) Co- to cross-pol ratio per Tx polarization",
             "dB",
             [
-                ("co_minus_cross_txh_db", "Tx H: |S_HH| − |S_VH|"),
-                ("co_minus_cross_txv_db", "Tx V: |S_VV| − |S_HV|"),
+                ("co_minus_cross_txh_db", "Tx H: |S_HH / S_VH|"),
+                ("co_minus_cross_txv_db", "Tx V: |S_VV / S_HV|"),
             ],
         ),
-        ("(6) Cross-pol ratio |S_HV / S_VH|", "dB", [("reciprocity_db", None)]),
-        ("(7) Cross-pol phase difference ∠(S_HV S_VH*)", "deg", [("reciprocity_phase_deg", None)]),
-        ("(8) Normalized asymmetry |S_HV − S_VH| / ‖S‖", "dB", [("asymmetry_db", None)]),
         (
-            "(9) Bistatic Pauli power fractions |k_i|² / ‖k‖²",
+            "(6) Co- to cross-pol phase difference per Tx polarization",
+            "deg",
+            [
+                ("co_cross_phase_txh_deg", "Tx H: ∠(S_HH S_VH*)"),
+                ("co_cross_phase_txv_deg", "Tx V: ∠(S_VV S_HV*)"),
+            ],
+        ),
+        ("(7) Cross-pol ratio |S_HV / S_VH|", "dB", [("reciprocity_db", None)]),
+        ("(8) Cross-pol phase difference ∠(S_HV S_VH*)", "deg", [("reciprocity_phase_deg", None)]),
+        ("(9) Normalized asymmetry |S_HV − S_VH| / ‖S‖", "dB", [("asymmetry_db", None)]),
+        (
+            "(10) Bistatic Pauli power fractions |k_i|² / ‖k‖²",
             "dB",
             [(("pauli_fractions_db", i), name) for i, name in enumerate(PAULI_NAMES)],
         ),
@@ -168,25 +223,37 @@ def plot_signatures(out_dir, features, x, x_label, centre_index, frequencies, ti
     for ax, (panel_title, unit, series) in zip(axes, panels):
         for colour, (key, label) in zip(SERIES_COLOURS, series):
             values = features[key[0]][..., key[1]] if isinstance(key, tuple) else features[key]
-            band_plot(ax, x, values, centre_index, colour, label)
+            band_plot(ax, x, values, centre_index, colour, label, circular=key in PHASE_KEYS)
         style_axis(ax, panel_title, unit)
+        if series[0][0][0] == "pauli_fractions_db":
+            low = ax.get_ylim()[0]
+            set_domain(ax, low, 0.0)
         if len(series) > 1:
             ax.legend(fontsize=7, frameon=False)
 
+    # H and A share the domain [0, 1], so they share a panel
     cloude = [
-        ("(10) Cloude–Pottier entropy H (4×4, band-averaged)", "H", "entropy"),
-        ("(11) Cloude–Pottier anisotropy A (4×4, band-averaged)", "A", "anisotropy"),
-        ("(12) Cloude–Pottier mean α (4×4, band-averaged)", "deg", "mean_alpha_deg"),
+        (
+            "(11) Cloude–Pottier entropy H and anisotropy A (4×4, band-averaged)",
+            "",
+            [("entropy", "H"), ("anisotropy", "A")],
+        ),
+        ("(12) Cloude–Pottier mean α (4×4, band-averaged)", "deg", [("mean_alpha_deg", None)]),
     ]
-    for ax, (panel_title, unit, key) in zip(axes[9:], cloude):
-        ax.plot(x, features[key], color=SERIES_COLOURS[0], lw=2, marker="o", markersize=5)
+    for ax, (panel_title, unit, series) in zip(axes[10:], cloude):
+        for colour, (key, label) in zip(SERIES_COLOURS, series):
+            ax.plot(x, features[key], color=colour, lw=2, marker="o", markersize=5, label=label)
         style_axis(ax, panel_title, unit)
+        set_domain(ax, *DOMAINS[series[0][0]])
+        if len(series) > 1:
+            ax.legend(fontsize=7, frameon=False)
 
     for ax in axes:
         ax.set_xlabel(x_label, fontsize=8.5, color=MUTED)
     fig.suptitle(
         f"{title}. Line: {frequencies[centre_index] / 1e9:.2f} GHz; band: min–max over "
-        f"{frequencies[0] / 1e9:.2f}–{frequencies[-1] / 1e9:.2f} GHz.",
+        f"{frequencies[0] / 1e9:.2f}–{frequencies[-1] / 1e9:.2f} GHz (phases: of the wrapped "
+        "deviation from the line).",
         fontsize=10,
         color=INK,
         x=0.01,
@@ -196,10 +263,104 @@ def plot_signatures(out_dir, features, x, x_label, centre_index, frequencies, ti
     plt.close(fig)
 
 
+def cell_edges(centres):
+    """Cell edges around (sorted) cell centres, for pcolormesh."""
+    centres = np.asarray(centres, dtype=float)
+    if centres.size == 1:
+        return np.array([centres[0] - 0.5, centres[0] + 0.5])
+    middle = (centres[1:] + centres[:-1]) / 2
+    return np.concatenate([[2 * centres[0] - middle[0]], middle, [2 * centres[-1] - middle[-1]]])
+
+
+def finite_limits(*arrays):
+    finite = np.concatenate([np.asarray(a)[np.isfinite(a)] for a in arrays])
+    return (finite.min(), finite.max()) if finite.size else (-1.0, 1.0)
+
+
+def plot_signature_maps(out_dir, features, x, x_label, frequencies, title):
+    """
+    Every per-frequency signature as a frequency x swept-variable map: the unsummarized data
+    behind the bands of `plot_signatures`. Every panel has its own colour scale over its data's
+    min and max, so the variation within each quantity stays visible; ratios use a scale
+    symmetric about 0 dB. Phases are shown as their circular mean plus the wrapped deviation
+    from it, on a cyclic scale when the deviations reach around the circle.
+    """
+    order = np.argsort(x)
+    x_edges = cell_edges(np.asarray(x)[order])
+    f_edges = cell_edges(np.asarray(frequencies) / 1e9)
+    channels = [(f"power_{q.lower()}_db", f"|S_{q}|² (dB)", None) for q in POLARIMETRIC_CHANNELS]
+    panels = (
+        channels
+        + [
+            ("span_db", "Span ‖S‖² (dB)", None),
+            ("copol_ratio_db", "Co-pol ratio |S_VV / S_HH| (dB)", "ratio"),
+            ("copol_phase_difference_deg", "Co-pol phase difference ∠(S_VV S_HH*) (deg)", "phase"),
+            ("co_minus_cross_txh_db", "Tx H: |S_HH / S_VH| (dB)", None),
+            ("co_cross_phase_txh_deg", "Tx H: ∠(S_HH S_VH*) (deg)", "phase"),
+            ("co_minus_cross_txv_db", "Tx V: |S_VV / S_HV| (dB)", None),
+            ("co_cross_phase_txv_deg", "Tx V: ∠(S_VV S_HV*) (deg)", "phase"),
+            ("reciprocity_db", "Cross-pol ratio |S_HV / S_VH| (dB)", "ratio"),
+            ("reciprocity_phase_deg", "Cross-pol phase difference ∠(S_HV S_VH*) (deg)", "phase"),
+            ("asymmetry_db", "Normalized asymmetry |S_HV − S_VH| / ‖S‖ (dB)", None),
+        ]
+        + [
+            (("pauli_fractions_db", i), f"Pauli fraction |{name.split()[0]}|² / ‖k‖² (dB)", None)
+            for i, name in enumerate(PAULI_NAMES)
+        ]
+    )
+
+    def values_of(key):
+        values = features[key[0]][..., key[1]] if isinstance(key, tuple) else features[key]
+        return values[order]
+
+    n_columns = 4
+    n_rows = -(-len(panels) // n_columns)
+    fig, axes = plt.subplots(
+        n_rows, n_columns, figsize=(20, 3.6 * n_rows), constrained_layout=True, sharey=True
+    )
+    for ax, (key, panel_title, group) in zip(axes.ravel(), panels):
+        values = values_of(key)
+        if group == "phase":
+            mean = np.degrees(np.angle(np.mean(np.exp(1j * np.radians(values)))))
+            values = mean + wrap_deg(values - mean)
+            extent = np.max(np.abs(values - mean))
+            if extent > 170.0:
+                cmap, limits = "twilight", (mean - 180.0, mean + 180.0)
+            else:
+                cmap, limits = "viridis", (mean - extent, mean + extent)
+        elif group == "ratio":
+            extent = np.max(np.abs(finite_limits(values)))
+            cmap, limits = "RdBu_r", (-extent, extent)
+        else:
+            cmap, limits = "viridis", finite_limits(values)
+        shown = ax.pcolormesh(
+            x_edges, f_edges, values.T, cmap=cmap, vmin=limits[0], vmax=limits[1], rasterized=True
+        )
+        fig.colorbar(shown, ax=ax, shrink=0.9)
+        style_axis(ax, panel_title, "frequency (GHz)")
+        ax.grid(False)
+        ax.set_xlabel(x_label, fontsize=8.5, color=MUTED)
+    for ax in axes.ravel()[len(panels) :]:
+        ax.set_visible(False)
+    fig.suptitle(
+        f"{title}. Signatures over frequency and {x_label}.",
+        fontsize=10,
+        color=INK,
+        x=0.01,
+        ha="left",
+    )
+    fig.savefig(os.path.join(out_dir, "signatures_vs_frequency.png"), dpi=150)
+    plt.close(fig)
+
+
 def write_csv(out_dir, features, x, x_label, centre_index):
-    """Every signature: per-frequency ones at the centre frequency and their band min/max."""
+    """
+    Every signature: per-frequency ones at the centre frequency and their band min/max (for
+    phases, the line plus the min/max of the wrapped deviation from it, as plotted).
+    """
     per_frequency = [k for k, v in features.items() if np.ndim(v) == 2]
     per_variation = [k for k, v in features.items() if np.ndim(v) == 1]
+    bands = {k: band_limits(features[k], centre_index, k in PHASE_KEYS) for k in per_frequency}
     with open(os.path.join(out_dir, "signatures_vs_sweep.csv"), "w", newline="") as handle:
         writer = csv.writer(handle)
         writer.writerow(
@@ -213,7 +374,7 @@ def write_csv(out_dir, features, x, x_label, centre_index):
             writer.writerow(
                 [value]
                 + [features[k][index, centre_index] for k in per_frequency]
-                + [f(features[k][index]) for k in per_frequency for f in (np.min, np.max)]
+                + [bands[k][e][index] for k in per_frequency for e in (0, 1)]
                 + list(features["pauli_fractions_db"][index, centre_index])
                 + [features[k][index] for k in per_variation]
             )
@@ -302,6 +463,7 @@ def main(argv=None):
         print("One virtual channel per polarization: no angular resolution, so no maps.")
     title = f"{design}, steered to ({args.azimuth:g}°, {args.elevation:g}°)"
     plot_signatures(args.out, features, x, x_label, centre_index, frequencies, title)
+    plot_signature_maps(args.out, features, x, x_label, frequencies, title)
     write_csv(args.out, features, x, x_label, centre_index)
     print(f"Figures and CSV written to {args.out}")
 

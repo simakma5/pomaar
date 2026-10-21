@@ -80,10 +80,11 @@ There are three stages, each a class re-exported by `pomaar.simulator`:
    `raw()` forwards the export. No gating and no Doppler (static frequency sweeps).
    `CanonicalTargetProcessor` adds `target_matrices` (frequency-domain beamforming towards the
    target) and target-agnostic `signatures` (channel powers, span, co-pol ratio/phase difference,
-   co−cross dB, cross-pol ratio, asymmetry, bistatic Pauli fractions, Cloude–Pottier H/A/ᾱ of
-   the 4×4 band-averaged coherency matrix); `fidelity`, `bounce_parity` and the reference
-   matrices are opt-ins the analysis never uses. Exports are always the scattered solution:
-   neither the processor nor the analysis handles total fields or background subtraction.
+   co/cross ratio and phase per Tx polarization, cross-pol ratio, asymmetry, bistatic Pauli
+   fractions, Cloude–Pottier H/A/ᾱ of the 4×4 band-averaged coherency matrix); `fidelity`,
+   `bounce_parity` and the reference matrices are opt-ins the analysis never uses. Exports are
+   always the scattered solution: neither the processor nor the analysis handles total fields or
+   background subtraction.
    `bistaticity_analysis.py` only combines and plots those products against the swept variable.
 
 ### Layouts
@@ -255,7 +256,10 @@ presets. The numbered `STEP` comments in the code are the map:
   the target or the scene: no reference target or fidelity to one, no "ideal" values, threshold
   lines or classifications, no titles naming the target. Interpretation belongs in the README
   text or in explicit opt-in functions (e.g. `CanonicalTargetProcessor.fidelity`). Bands in the
-  signature plots are the min–max over the frequency sweep, not confidence intervals.
+  signature plots are the min–max over the frequency sweep, not confidence intervals (for
+  phases, of the wrapped deviation from the centre-frequency line); bounded quantities are
+  plotted over their whole domain, and `signatures_vs_frequency.png` shows the data behind the
+  bands unsummarized.
 
 * British spelling with Oxford -ize in code and docs (centre, metre, polarization). Keep AEDT,
   PyAEDT and matplotlib names as they are (`SetPhaseCenterPerPort`, `analyze()`, the `meter`

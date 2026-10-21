@@ -317,6 +317,26 @@ def test_signatures_are_target_agnostic_quantities(tmp_path):
     assert features["entropy"].shape == (2,) and features["pauli_fractions_db"].shape[-1] == 4
 
 
+def test_co_cross_signatures_pair_the_receivers_of_one_transmission(tmp_path):
+    # S_HH = 1, S_HV = 0.1j, S_VH = 0.01, S_VV = -1, times a common path phase
+    channels = np.array([1.0, 0.1j, 0.01, -1.0])
+    s = 1e-5 * channels[None, :, None] * np.exp(-1j * WAVENUMBER * 5.85)[None, None, :]
+    np.savez(
+        tmp_path / "leaky.npz",
+        s=s,
+        frequencies_hz=FREQUENCIES,
+        sweep_values=np.array([1.0]),
+        expressions=np.asarray(EXPRESSIONS),
+        metadata=json.dumps({"setup_sweep": "Setup : Sweep_Scattered"}),
+    )
+    features = CanonicalTargetProcessor.from_npz(tmp_path / "leaky.npz").signatures()
+    expected = {"txh": (40.0, 0.0), "txv": (20.0, 90.0)}
+    for side, (ratio_db, phase_deg) in expected.items():
+        np.testing.assert_allclose(features[f"co_minus_cross_{side}_db"], ratio_db, atol=1e-9)
+        phase = features[f"co_cross_phase_{side}_deg"]
+        np.testing.assert_allclose(np.cos(np.radians(phase - phase_deg)), 1.0, atol=1e-9)
+
+
 # --- builder exports ----------------------------------------------------------------------------
 
 
@@ -448,3 +468,43 @@ def test_identical_variations_are_named():
     s[2] = s[0]
     assert "(1, 3)" in identical_variations(s, [1.0, 2.0, 3.0], "spacing")
     assert identical_variations(s[:1], [1.0]) is None
+
+
+# --- analysis plots -----------------------------------------------------------------------------
+
+
+def test_phase_bands_are_taken_around_the_line():
+    from pomaar.simulator.bistaticity_analysis import band_limits
+
+    # A phase scattered around +-180 deg: plain min-max spans the circle, the wrapped one does not
+    phase = np.array([[178.0, -179.0, 179.5, -177.0]])
+    low, high = band_limits(phase, 2, circular=True)
+    np.testing.assert_allclose([low[0], high[0]], [178.0, 183.0])
+    low, high = band_limits(phase, 2)
+    np.testing.assert_allclose([low[0], high[0]], [-179.0, 179.5])
+
+
+def test_analysis_writes_its_figures_and_warns_on_identical_variations(tmp_path, capsys):
+    from pomaar.simulator.bistaticity_analysis import main
+
+    dihedral = np.zeros((3, 4, len(FREQUENCIES)), dtype=complex)
+    dihedral[:, 0] = 1e-5 * np.exp(-1j * WAVENUMBER * 8.0)
+    dihedral[:, 3] = -dihedral[:, 0]
+    dihedral[:, 1:3] = 1e-8
+    np.savez(
+        tmp_path / "dihedral.npz",
+        s=dihedral,
+        frequencies_hz=FREQUENCIES,
+        sweep_values=np.array([1.41, 1.91, 2.41]),
+        expressions=np.asarray(EXPRESSIONS),
+        metadata=json.dumps({"sweep_variable": "copolarSpacingLambda"}),
+    )
+    main([str(tmp_path / "dihedral.npz"), "--out", str(tmp_path)])
+    assert "All 3 values of copolarSpacingLambda give identical data" in capsys.readouterr().out
+    written = {p.name for p in (tmp_path / "dihedral").iterdir()}
+    assert {
+        "signatures_vs_sweep.png",
+        "signatures_vs_frequency.png",
+        "signatures_vs_sweep.csv",
+        "range_profiles.png",
+    } <= written
