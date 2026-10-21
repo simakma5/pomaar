@@ -3,7 +3,7 @@
 Bistaticity study: polarimetric signatures of one target against a swept variable (e.g. the
 Tx-Rx spacing), from an SBR+ sweep exported by `sbr_results` (scattered solution).
 
-    bistaticity_analysis data/interim/bistatic_sweep/<sweep>.npz \
+    bistaticity_analysis data/interim/bistaticity/<sweep>.npz \
         [--out <folder>] [--azimuth DEG] [--elevation DEG] [--quad NAME]
 
 All processing is `CanonicalTargetProcessor`'s: the target's scattering matrices beamformed

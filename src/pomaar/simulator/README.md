@@ -228,10 +228,11 @@ The routines are the functions of `polarimetry_processor.py` (pure NumPy, no AED
 # 1. Export the scattered-field solution, the default (in the container via the `ansys-vnc link`
 #    wrapper, attached to the GUI session; refuses to start an AEDT)
 sbr_results mimo_polarimetry \
-    LinkedDualPolHornCluster data/interim/bistatic_sweep/sphere_boresight_3m.npz \
+    LinkedDualPolHornCluster data/interim/bistaticity/horn_cluster_sphere_boresight_3m.npz \
     --sweep-variable copolarSpacingLambda
-# 2. Analyse (host or container); figures + CSV go to data/processed/bistaticity/sphere_boresight_3m/
-bistaticity_analysis data/interim/bistatic_sweep/sphere_boresight_3m.npz
+# 2. Analyse (host or container); figures + CSV go to
+#    data/processed/bistaticity/horn_cluster_sphere_boresight_3m/
+bistaticity_analysis data/interim/bistaticity/horn_cluster_sphere_boresight_3m.npz
 ```
 
 `bistaticity_analysis` options: `--azimuth`/`--elevation` (deg) steer towards an off-boresight
@@ -306,7 +307,7 @@ docstring).
 ```python
 from pomaar.simulator.polarimetry_processor import CanonicalTargetProcessor
 
-processor = CanonicalTargetProcessor.from_npz("sphere_boresight_3m.npz")
+processor = CanonicalTargetProcessor.from_npz("horn_cluster_sphere_boresight_3m.npz")
 matrices = processor.target_matrices()                         # boresight
 features = processor.signatures(matrices=matrices)
 range_m, profiles = processor.range_profiles()                 # raw channel range profiles
@@ -490,8 +491,8 @@ processing error, not a limit of the configuration.**
 > before relying on them.
 
 From the original 201-point export (8 spacings, 50 MHz steps; since replaced in
-`data/interim/bistatic_sweep/sphere_boresight_3m.npz` by a 1001-point, 20-spacing sweep). The
-values are at 79 GHz, with H, A and ᾱ taken over the band; β = 2·atan(d/2R) is the co-polar
+`data/interim/bistaticity/horn_cluster_sphere_boresight_3m.npz` by a 1001-point, 20-spacing sweep).
+The values are at 79 GHz, with H, A and ᾱ taken over the band; β = 2·atan(d/2R) is the co-polar
 bistatic angle of this scene:
 
 | d (λ₀) | β (°) | \|S_VV/S_HH\| (dB) | ∠(S_VV S_HH*) (°) | Co − cross, Tx H (dB) | Co − cross, Tx V (dB) | \|S_HV/S_VH\| (dB) | H (10⁻⁴) | A | ᾱ (°) |
