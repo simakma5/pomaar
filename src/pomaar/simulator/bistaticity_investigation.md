@@ -198,7 +198,7 @@ Working notes of the sandboxed investigation behind the task note "Bistaticity a
   +-50 dB, so a cross-pol rising out of the floor counts from there; 20 dB = the former
   "below 30 dB"); 'absolute' / 'above' only for HV/VH and the asymmetry, which reciprocity
   fixes monostatically. A descriptor whose monostatic value is a floor or a reciprocity zero is
-  'undefined' (and is left out of `summary_change_*.png` per design).
+  'undefined' (and is left out of `summary_change_<family>_aim<a>.png` per design).
 * The floor masks are now absolute: each cross-pol (co-pol) channel must lie within 50 dB of
   the target's monostatic span. The floor is fixed relative to that span, not to the local
   co-pol: about -60 dB for the trihedral and -85 ... -100 dB for the sphere and the dihedral,

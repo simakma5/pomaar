@@ -150,6 +150,9 @@ def main(argv=None):
             name = design.removeprefix("Pairs").replace("_targetRoll", ", roll ")
             style_axis(ax, f"{name}: {title}", unit)
             ax.set_xlabel(r"pair bistatic angle $\beta$ (deg)")
+            if "phase" in key:
+                ax.set_ylim(-180, 180)
+                ax.set_yticks(np.arange(-180, 181, 90))
         row[0].legend(fontsize=7, frameon=False)
     fig.suptitle(
         "Split antenna pairs (TxV–RxV, gap, TxH–RxH) against a co-located dual-polarized pair of "

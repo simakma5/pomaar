@@ -7,15 +7,17 @@ band over the sweep:
 
     python src/pomaar/simulator/investigation/summarize.py --aim 1 [--out <folder>]
 
-Figures (in <sandbox>/summary/):
-* `summary_signatures_aim<a>.png`: selected signatures against the bistatic angle, one series
-  per design and roll;
-* `summary_change_aim<a>.png`: each signature minus its monostatic value, i.e. the change that
-  the bistatic geometry alone causes, drawn per design only where that monostatic value is the
-  target's own (not a numerical floor or a reciprocity zero, `monostatic_defined`);
-* `summary_aim_difference.png`: rxAim 1 minus rxAim 0 (receivers aimed at the target against
-  receivers on boresight), i.e. the antenna-pattern and geometric-squint part;
-* `summary_aim<a>.csv`: the centre-frequency values and band limits behind the figures;
+Figures (in <sandbox>/summary/), one per target family (`FAMILIES`: dihedral, trihedral,
+sphere_plate), so that every series gets its own colour:
+* `summary_signatures_<family>_aim<a>.png`: selected signatures against the bistatic angle, one
+  series per design and roll;
+* `summary_change_<family>_aim<a>.png`: each signature minus its monostatic value, i.e. the
+  change that the bistatic geometry alone causes, drawn per design only where that monostatic
+  value is the target's own (not a numerical floor or a reciprocity zero, `monostatic_defined`);
+* `summary_aim_difference_<family>.png`: rxAim 1 minus rxAim 0 (receivers aimed at the target
+  against receivers on boresight), i.e. the antenna-pattern and geometric-squint part;
+* `summary_aim<a>.csv` (all families): the centre-frequency values and band limits behind the
+  figures;
 * `summary_departures_aim<a>.csv`: per design, the first bistatic angle at which each
   descriptor departs from its monostatic value by the levels of `DEPARTURES`, at the centre
   frequency and anywhere in the band ('undefined' where the monostatic value is a floor);
@@ -79,6 +81,19 @@ COLOURS = [
 ]  # fmt: skip
 
 
+# Target families of the summary figures, by the design name's start (after 'MultiRx')
+FAMILIES = {
+    "dihedral": ("Dihedral",),
+    "trihedral": ("Trihedral",),
+    "sphere_plate": ("Sphere", "Plate"),
+}
+
+
+def family_of(stem):
+    design = re.sub(r"^MultiRx", "", stem.split("_")[0])
+    return next((f for f, starts in FAMILIES.items() if design.startswith(starts)), design.lower())
+
+
 def label_of(stem):
     """'MultiRxDihedral_rxAim1_targetRoll22.5' -> 'Dihedral, roll 22.5°'."""
     design = re.sub(r"^MultiRx", "", stem.split("_")[0])
@@ -110,6 +125,8 @@ def draw(ax, x, values, centre, colour, label, circular):
 
 
 def figure(pooled, centre, transform, title, path, panels=PANELS, keep=None):
+    if len(pooled) > len(COLOURS):
+        raise ValueError(f"{len(pooled)} series but only {len(COLOURS)} colours: {list(pooled)}")
     columns = 4
     rows = -(-len(panels) // columns)
     fig, axes = plt.subplots(
@@ -133,6 +150,7 @@ def figure(pooled, centre, transform, title, path, panels=PANELS, keep=None):
     axes.ravel()[0].legend(fontsize=7.5, frameon=False)
     fig.suptitle(title, fontsize=10, color=INK, x=0.01, ha="left")
     fig.savefig(path, dpi=140)
+    plt.close(fig)
     plt.close(fig)
     print(f"Wrote {path}")
 
@@ -330,24 +348,33 @@ def main(argv=None):
         f"{some[0] / 1e9:.0f}–{some[-1] / 1e9:.0f} GHz"
     )
     aim = "aimed at the target" if args.aim else "on boresight"
-    figure(
-        pooled,
-        centre,
-        identity,
-        f"Signatures against the bistatic angle, receivers {aim} ({band})",
-        out / f"summary_signatures_aim{args.aim}.png",
-    )
-    figure(
-        pooled,
-        centre,
-        change_from_monostatic,
-        f"Change from the monostatic value, receivers {aim} ({band}; phases wrapped; per "
-        "design only the signatures whose monostatic value is the target's own, not a numerical "
-        "floor or a reciprocity zero)",
-        out / f"summary_change_aim{args.aim}.png",
-        [p for p in PANELS if any(monostatic_defined(f, p[2], centre) for f, _ in pooled.values())],
-        keep=lambda features, key: monostatic_defined(features, key, centre),
-    )
+    families = {}
+    for stem in stems:
+        families.setdefault(family_of(stem), []).append(stem)
+    for family, members in families.items():
+        part = {stem: pooled[stem] for stem in members}
+        figure(
+            part,
+            centre,
+            identity,
+            f"Signatures against the bistatic angle, receivers {aim} ({band})",
+            out / f"summary_signatures_{family}_aim{args.aim}.png",
+        )
+        figure(
+            part,
+            centre,
+            change_from_monostatic,
+            f"Change from the monostatic value, receivers {aim} ({band}; phases wrapped; per "
+            "design only the signatures whose monostatic value is the target's own, not a "
+            "numerical floor or a reciprocity zero)",
+            out / f"summary_change_{family}_aim{args.aim}.png",
+            [
+                p
+                for p in PANELS
+                if any(monostatic_defined(f, p[2], centre) for f, _ in part.values())
+            ],
+            keep=lambda features, key: monostatic_defined(features, key, centre),
+        )
     write_csv(pooled, centre, out / f"summary_aim{args.aim}.csv")
     write_departures(pooled, centre, out / f"summary_departures_aim{args.aim}.csv")
 
@@ -356,28 +383,31 @@ def main(argv=None):
         for s in stems
         if args.aim == 1 and (EXPORTS / f"{s.replace('rxAim1', 'rxAim0')}.npz").exists()
     ]
-    if pairs:
-        difference = {}
-        for aimed, boresight in pairs:
-            f1, a1 = load([aimed])[aimed]
-            f0, a0 = load([boresight])[boresight]
-            if not np.allclose(a1, a0):
+    difference = {}
+    for aimed, boresight in pairs:
+        f1, a1 = pooled[aimed]
+        f0, a0 = load([boresight])[boresight]
+        if not np.allclose(a1, a0):
+            continue
+        diff = {}
+        for _, _, key, circular, _ in PANELS:
+            name = key if isinstance(key, str) else key[0]
+            if name in diff:
                 continue
-            diff = {}
-            for _, _, key, circular, _ in PANELS:
-                name = key if isinstance(key, str) else key[0]
-                if name in diff:
-                    continue
-                d = f1[name] - f0[name]
-                diff[name] = wrap_deg(d) if "phase" in name else d
-            difference[aimed] = (diff, a1)
-        figure(
-            difference,
-            centre,
-            identity,
-            f"rxAim 1 minus rxAim 0: receivers aimed at the target against on boresight ({band})",
-            out / "summary_aim_difference.png",
-        )
+            d = f1[name] - f0[name]
+            diff[name] = wrap_deg(d) if "phase" in name else d
+        difference[aimed] = (diff, a1)
+    for family in families:
+        part = {s: v for s, v in difference.items() if family_of(s) == family}
+        if part:
+            figure(
+                part,
+                centre,
+                identity,
+                "rxAim 1 minus rxAim 0: receivers aimed at the target against on boresight "
+                f"({band})",
+                out / f"summary_aim_difference_{family}.png",
+            )
 
 
 if __name__ == "__main__":
