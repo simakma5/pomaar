@@ -3,7 +3,7 @@
 
 This chapter establishes the operational roadmap for the doctoral project, bridging the theoretical problem formulation presented in \cref{chap:research-gap-analysis} and the technical feasibility baselines established in \cref{chap:feasibility-study} with a structured four-year execution strategy.
 To guarantee both scientific rigour and formal academic progression, the planning is structured into two main tracks:
-\cref{sec:publication-plan} outlines the scientific dissemination plan, mapping the core research questions to discrete publishable topics across premier journals and conferences, alongside a top-down project execution timeline.
+\cref{sec:publication-plan} outlines the scientific dissemination plan, mapping the core and intermediate research questions to discrete, tiered publishable topics across premier journals and conferences, alongside a yearly plan with go/no-go decision points and a project execution timeline.
 Subsequently, \cref{sec:doctoral-education-plan} details the formal doctoral education plan formulated in accordance with the regulations of the EEMCS Graduate School, demonstrating the fulfilment of transferable, research, and discipline-specific credit requirements.
 
 
@@ -11,7 +11,28 @@ Subsequently, \cref{sec:doctoral-education-plan} details the formal doctoral edu
 \label{sec:publication-plan}
 
 The primary mechanism for validating and disseminating the contributions of this doctoral work is the publication of peer-reviewed conference proceedings and journal articles.
-Following the research gaps identified in \cref{chap:literature-review} and the problem formulation in \cref{sec:research-questions}, the overarching doctoral research is partitioned into ten publishable topics categorized under the four central research questions.
+Following the research gaps identified in \cref{chap:literature-review} and the problem formulation in \cref{sec:research-questions}, the overarching doctoral research is partitioned into ten publishable topics categorized under the four central research questions, complemented by two intermediate topics, A and B, that address the intermediate research questions.
+To keep the programme achievable within the doctoral trajectory, every topic is assigned to one of three tiers (\cref{sec:scope-tiers}), and the progression to the automotive band is tied to explicit go/no-go decision points (\cref{sec:yearly-plan}).
+
+
+\subsection{Scope tiers and hardware roadmap}
+\label{sec:scope-tiers}
+
+Following the delimitation of the basic frame in \cref{sec:research-questions}, the topics are grouped into three tiers:
+\begin{itemize}
+    \item \textbf{Core frame.} Topics 1.1, 1.2, 1.3, 2.1, 2.2, 2.3, 3.1, and 4.1: the hardware iterations, the simulation platform, the perturbation analysis and its mapping onto antenna figures of merit, the comparison of established uniform layouts, and the Doppler-resolved \gls{vru} classification that answers research question 1.
+    \item \textbf{Intermediate topics.} Topics A and B: static material discrimination and power-only polarimetry in multiple linear bases, both at X-band.
+    They lie on the critical path and inform the first go/no-go decision.
+    \item \textbf{Beyond the basic frame.} Topics 3.2 and 4.2, together with two extensions of Topic B -- completing the power-only measurement with a circular polarization state, and polarization-agile antenna elements.
+    These are pursued as the progress of the core work allows; the conclusions of the core frame do not depend on them.
+\end{itemize}
+
+The hardware follows an iterative roadmap built on established technology at every stage:
+\begin{enumerate}
+    \item \textit{X-band prototype} (Topic 1.1): the aperture-coupled, centre-fed buried-stripline sub-array of \cref{sec:architectural-transition}, integrated into an X-band demonstrator called ASTAP, a coherent digital \gls{mimo} radar -- first as a single-polarized array, then as the full-polarimetric array selected at the first go/no-go point.
+    \item \textit{Design 1} (Topic 1.2): the same architecture scaled to \qtyrange{77}{79}{\giga\hertz} and connected to a $12 \times 16$ cascade of Texas Instruments transceivers and its digital back-end, with support on millimetre-wave chip-to-antenna transitions offered by Huawei Munich.
+    \item \textit{Design 2} (Topic 1.3): the \gls{siw} stack-up of \cref{sec:element-choice}, a de-risking iteration that folds in the lessons of the Design 1 campaigns.
+\end{enumerate}
 
 
 \subsection{Research-question breakdown and candidate venues}
@@ -24,19 +45,19 @@ This research epoch focuses on whether integrating a high-resolution architectur
 \begin{itemize}
     \item \textbf{Topic 1.1:} Design an X-band prototype of a large-aperture MIMO array with enhanced polarization purity.
     \begin{itemize}
-        \item \textit{Focus:} Validating the baseline planar aperture-coupled series patch topology and stripline feeding network designed in \cref{sec:preliminary-antenna-design}.
+        \item \textit{Focus:} Validating the baseline planar aperture-coupled series patch topology and stripline feeding network designed in \cref{sec:preliminary-antenna-design}, first as a single-polarized array in the ASTAP demonstrator and then as its full-polarimetric array.
         \item \textit{Candidate venues:} European Conference on Antennas and Propagation (EuCAP), European Microwave Week (EuMW), IEEE International Symposium on Antennas and Propagation (IEEE ISAP).
     \end{itemize}
-        
+
     \item \textbf{Topic 1.2:} Design a first-iteration system leveraging mature technology platforms and uniform array synthesis.
     \begin{itemize}
-        \item \textit{Focus:} Extends the validated X-band baseline to a \qty{79}{\giga\hertz} \gls{siw}/planar demonstrator, establishing a uniform dual-polarized array for initial radar measurement campaigns.
+        \item \textit{Focus:} Scales the validated X-band architecture to a \qty{79}{\giga\hertz} demonstrator (Design 1) on the $12 \times 16$ transceiver cascade, establishing a uniform polarimetric array for initial radar measurement campaigns.
         \item \textit{Candidate venues:} IEEE Transactions on Antennas and Propagation (IEEE TAP), IEEE Antennas and Wireless Propagation Letters (IEEE AWPL), EuCAP.
     \end{itemize}
-    
+
     \item \textbf{Topic 1.3:} Design a second-iteration system leveraging acquired experience and measurement campaign insights.
     \begin{itemize}
-        \item \textit{Focus:} Refines the front-end architecture by integrating optimized polarimetric topologies and calibrated feed networks derived from initial experimental campaigns.
+        \item \textit{Focus:} Moves the front end to the \gls{siw} stack-up (Design 2) as a de-risking iteration, refining the feed network and polarimetric layout with the insights of the Design 1 measurement campaigns.
         \item \textit{Candidate venues:} IEEE TAP, IEEE Transactions on Microwave Theory and Techniques (IEEE T-MTT).
     \end{itemize}
 \end{itemize}
@@ -49,13 +70,13 @@ This epoch investigates which polarimetric decomposition methods are most robust
         \item \textit{Focus:} Establishes the hybrid simulation framework in Ansys Electronics Desktop presented in \cref{sec:simulation-platform}.
         \item \textit{Candidate venues:} IEEE RadarConf, EuMW / EuRAD, International Radar Symposium (IRS).
     \end{itemize}
-    
+
     \item \textbf{Topic 2.2:} Perform perturbation analysis of polarimetric decomposition methods applicable to automotive imaging.
     \begin{itemize}
-        \item \textit{Focus:} Maps algorithm breakdown thresholds against amplitude imbalances, phase errors, and cross-polar leakage injected into scattering matrices.
+        \item \textit{Focus:} Maps algorithm breakdown thresholds against amplitude imbalances, phase errors, and cross-polar leakage injected into scattering matrices, for coherent as well as power-only estimation.
         \item \textit{Candidate venues:} IEEE Transactions on Radar Systems (IEEE T-RS), International Geoscience and Remote Sensing Symposium (IEEE IGARSS).
     \end{itemize}
-    
+
     \item \textbf{Topic 2.3:} Adapt polarimetric processing algorithms to exploit Doppler-resolved features for VRU classification.
     \begin{itemize}
         \item \textit{Focus:} Formulates dynamic polarimetric-Doppler feature maps and validates classification performance on empirical pedestrian and cyclist radar data.
@@ -71,8 +92,8 @@ This epoch links algorithm sensitivity directly to front-end electromagnetic fig
         \item \textit{Focus:} Quantifies the mathematical mapping between front-end non-idealities (\gls{xpd}, port isolation, squint) and decomposition parameter variances.
         \item \textit{Candidate venues:} IEEE T-RS, EuCAP, EuMW, IEEE ISAP.
     \end{itemize}
-    
-    \item \textbf{Topic 3.2}: Derive fundamental lower bounds on polarimetric antenna requirements based on sensitivity analyses.
+
+    \item \textbf{Topic 3.2} (beyond the basic frame): Derive fundamental lower bounds on polarimetric antenna requirements based on sensitivity analyses.
     \begin{itemize}
         \item \textit{Focus:} Formulates explicit minimum hardware bounds (e.g. minimum allowable \gls{xpd} across scan angle) required to prevent classification breakdown.
         \item \textit{Candidate venues:} IEEE TGRS, IEEE T-RS.
@@ -84,47 +105,89 @@ This epoch addresses how \gls{mimo} virtual array manifolds can be optimized spe
 \begin{itemize}
     \item \textbf{Topic 4.1}: Explore the effects of bistatic phase centre displacement of antenna pairs on polarimetric phase distortion.
     \begin{itemize}
-        \item \textit{Focus:} Analyses virtual channel parallax and angle-dependent phase squint in interleaved single-polarized and dual-polarized \gls{mimo} arrays.
+        \item \textit{Focus:} Analyses virtual channel parallax and angle-dependent phase squint in interleaved single-polarized (type 1) and dual-polarized (type 2) \gls{mimo} arrays, and the allocation of polarization states within uniform layouts.
         \item \textit{Candidate venues:} EuCAP, IEEE RadarConf, IRS, IEEE ISAP.
     \end{itemize}
-    
-    \item \textbf{Topic 4.2}: Construct objective functions accounting for polarimetric distortion for 'polarimetry-first' MIMO layouts.
+
+    \item \textbf{Topic 4.2} (beyond the basic frame): Construct objective functions accounting for polarimetric distortion for 'polarimetry-first' MIMO layouts.
     \begin{itemize}
         \item \textit{Focus:} Develops mathematical optimization frameworks for virtual array synthesis that minimize phase centre disparity across co- and cross-polar channels.
         \item \textit{Candidate venues:} IEEE AWPL, IEEE T-RS, EuMW / EuRAD, IEEE RadarConference
     \end{itemize}
 \end{itemize}
 
-The complete mapping of research questions, publishable topics, target publication types, candidate venues, and temporal milestones is presented in the landscape overview on the following page (\cref{tab:publication-venues-summary,fig:publication-gantt}).
+\paragraph{Intermediate research questions.}
+These topics answer the intermediate questions A and B at X-band and inform the first go/no-go decision.
+\begin{itemize}
+    \item \textbf{Topic A:} Discriminate metallic from dielectric roadside objects with an X-band polarimetric MIMO radar.
+    \begin{itemize}
+        \item \textit{Focus:} Static measurements of targets resembling lamp posts and trees with the full-polarimetric ASTAP array, processed coherently and from powers only, and compared with a single-polarized baseline of equal aperture.
+        \item \textit{Candidate venues:} EuMW / EuRAD, IEEE RadarConf, IEEE IGARSS, IEEE T-RS.
+    \end{itemize}
+
+    \item \textbf{Topic B:} Compare power-only polarimetry in multiple linear bases with coherent $(\H, \V)$ polarimetry.
+    \begin{itemize}
+        \item \textit{Focus:} Recoverable information, estimator variance, and sensitivity to hardware errors for a fixed channel budget (\cref{sec:multibasis-polarimetry}), first in simulation and then on ASTAP data.
+        Its extensions -- completion with a circular state and polarization-agile elements -- lie beyond the basic frame.
+        \item \textit{Candidate venues:} IEEE RadarConf, EuMW / EuRAD, IRS, IEEE T-RS, IEEE TGRS.
+    \end{itemize}
+\end{itemize}
+
+
+\subsection{Yearly plan and go/no-go decision points}
+\label{sec:yearly-plan}
+
+The first year established the literature basis, the simulation platform, and the X-band antenna baseline presented in \cref{chap:feasibility-study}.
+The remaining three years are structured around two go/no-go decision points:
+\begin{itemize}
+    \item \textbf{Year 2 (September 2026 -- August 2027).}
+    Complete the type 1 and type 2 \gls{mimo} simulations (Topic 4.1) and the power-only comparison in simulation (Topic B), supported by the perturbation analysis (Topic 2.2).
+    Finish, fabricate, and measure the single-polarized X-band antenna and integrate it into ASTAP (Topic 1.1); publish the simulation platform (Topic 2.1).
+    \item \textbf{Decision point G1 (July 2027): polarimetric architecture.}
+    Select architecture A (type 1, single-polarized elements in four orientations, power-only) or B (type 2, dual-polarized elements, coherent) for the full-polarimetric ASTAP array (\cref{sec:multibasis-polarimetry}).
+    Criteria: the classification gap between power-only and coherent processing in simulation, the cost in virtual channels per polarization pair, the sensitivity to hardware errors, and the performance of the single-polarized prototype in ASTAP.
+    Coherent processing remains the reference in either case.
+    \item \textbf{Year 3 (September 2027 -- August 2028).}
+    Build and calibrate the full-polarimetric ASTAP array and carry out the material-discrimination experiments (Topic A); map antenna figures of merit onto algorithm sensitivity (Topic 3.1); start Design 1 in parallel (Topic 1.2).
+    \item \textbf{Decision point G2 (May 2028): scaling to the automotive band.}
+    \textit{Go} if the full-polarimetric ASTAP array is calibrated and polarimetric features separate metallic from dielectric objects beyond the single-polarized baseline of equal aperture: Design 1 is fabricated for the $12 \times 16$ transceiver cascade.
+    \textit{No-go}: the remaining effort concentrates on X-band experiments, including moving targets, while Design 1 is completed in simulation.
+    \item \textbf{Year 4 (September 2028 -- August 2029).}
+    Doppler-resolved \gls{vru} measurement campaigns and classification with Design 1 (Topic 2.3), Design 2 as the de-risking iteration (Topic 1.3), and the thesis.
+    Topics beyond the basic frame (3.2, 4.2, and the extensions of Topic B) are scheduled where the core work leaves room.
+\end{itemize}
+
+The complete mapping of research questions, publishable topics, tiers, target publication types, candidate venues, and temporal milestones is presented in the landscape overview on the following pages (\cref{tab:publication-venues-summary,fig:publication-gantt}).
 
 \begin{landscape}
 \begin{table}[!p]
     \centering
-    \caption{Summary of research questions, publishable topics, and candidate dissemination venues.}
+    \caption{Summary of research questions, publishable topics, scope tiers, and candidate dissemination venues.}
     \label{tab:publication-venues-summary}
     \small
-    \begin{tabularx}{\linewidth}{lXXl}
+    \begin{tabularx}{\linewidth}{lXllX}
         \toprule
-        \textbf{Topic} & \textbf{Focus / Title} & \textbf{Target output} & \textbf{Candidate venues} \\
+        \textbf{Topic} & \textbf{Focus / Title} & \textbf{Tier} & \textbf{Target output} & \textbf{Candidate venues} \\
         \midrule
-        Topic 1.1 & X-band prototype array & Conference paper & EuCAP, EuMW, IEEE ISAP \\
-        Topic 1.2 & 1st iteration \qty{79}{GHz} system & Letter / journal & IEEE AWPL, IEEE TAP, EuCAP \\
-        Topic 1.3 & 2nd iteration refined system & Journal paper & IEEE TAP, IEEE T-MTT \\
+        Topic 1.1 & X-band prototype array (ASTAP) & Core & Conference paper & EuCAP, EuMW, IEEE ISAP \\
+        Topic 1.2 & Design 1: buried-stripline \qty{79}{GHz} system & Core & Letter / journal & IEEE AWPL, IEEE TAP, EuCAP \\
+        Topic 1.3 & Design 2: \gls{siw} de-risking iteration & Core & Journal paper & IEEE TAP, IEEE T-MTT \\
         \midrule
-        Topic 2.1 & Hybrid SBR+ simulation platform & Conference paper & IEEE RadarConf, EuMW, IRS \\
-        Topic 2.2 & Decomposition perturbation analysis & Journal / Conference & IEEE T-RS, IEEE IGARSS \\
-        Topic 2.3 & Doppler-resolved VRU classification & Journal paper & IEEE TGRS, IEEE IGARSS, IEEE T-ITS, IEEE IV \\
+        Topic 2.1 & Hybrid SBR+ simulation platform & Core & Conference paper & IEEE RadarConf, EuMW, IRS \\
+        Topic 2.2 & Decomposition perturbation analysis & Core & Journal / Conference & IEEE T-RS, IEEE IGARSS \\
+        Topic 2.3 & Doppler-resolved VRU classification & Core & Journal paper & IEEE TGRS, IEEE IGARSS, IEEE T-ITS, IEEE IV \\
         \midrule
-        Topic 3.1 & Antenna metrics vs sensitivity & Conference / Journal & IEEE T-RS, EuCAP, EuMW, IEEE ISAP \\
-        Topic 3.2 & Fundamental hardware lower bounds & Journal paper & IEEE TGRS, IEEE T-RS \\
+        Topic 3.1 & Antenna metrics vs sensitivity & Core & Conference / Journal & IEEE T-RS, EuCAP, EuMW, IEEE ISAP \\
+        Topic 3.2 & Fundamental hardware lower bounds & Beyond frame & Journal paper & IEEE TGRS, IEEE T-RS \\
         \midrule
-        Topic 4.1 & Phase centre displacement distortion & Conference paper & EuCAP, IEEE RadarConf, IRS, IEEE ISAP \\
-        Topic 4.2 & Polarimetry-first topology synthesis & Letter / Journal & IEEE AWPL, IEEE T-RS, EuMW, IEEE RadarConf \\
+        Topic 4.1 & Phase centre displacement; type 1 vs type 2 & Core & Conference paper & EuCAP, IEEE RadarConf, IRS, IEEE ISAP \\
+        Topic 4.2 & Polarimetry-first topology synthesis & Beyond frame & Letter / Journal & IEEE AWPL, IEEE T-RS, EuMW, IEEE RadarConf \\
+        \midrule
+        Topic A & Metallic vs dielectric roadside objects & Intermediate & Conference / Journal & EuMW, IEEE RadarConf, IEEE IGARSS, IEEE T-RS \\
+        Topic B & Power-only multi-basis polarimetry & Intermediate & Conference / Journal & IEEE RadarConf, EuMW, IRS, IEEE T-RS, IEEE TGRS \\
         \bottomrule
     \end{tabularx}
 \end{table}
-
-\vfill
 
 \begin{figure}[!p]
     \centering
@@ -132,7 +195,7 @@ The complete mapping of research questions, publishable topics, target publicati
     \begin{ganttchart}[
         x unit=0.42cm,
         y unit title=0.55cm,
-        y unit chart=0.45cm,
+        y unit chart=0.42cm,
         vgrid={*1{black!15}},
         hgrid,
         time slot format=isodate,
@@ -153,26 +216,31 @@ The complete mapping of research questions, publishable topics, target publicati
         \ganttbar[bar/.style={fill=gray!30, draw=gray!70}]{Onboarding}{2025-09-01}{2025-09-30} \\
         \ganttbar[bar/.style={fill=gray!30, draw=gray!70}]{Lit. review}{2025-09-01}{2025-12-31} \\
         % RQ1: Integration & VRU (Blue family)
-        \ganttbar[bar/.style={fill=blue!30, draw=blue!75}]{Topic 1.1}{2026-01-01}{2026-10-31} \\
-        \ganttbar[bar/.style={fill=blue!30, draw=blue!75}]{Topic 1.2}{2026-11-01}{2027-03-31} \\
-        \ganttbar[bar/.style={fill=blue!70!black, draw=blue!90!black}]{Design 1}{2027-04-01}{2027-08-31} \\
-
-        \ganttbar[bar/.style={fill=blue!30, draw=blue!75}]{Topic 1.3}{2028-02-01}{2028-03-31} \\
-        \ganttbar[bar/.style={fill=blue!70!black, draw=blue!90!black}]{Design 2}{2028-04-01}{2028-10-31} \\
+        \ganttbar[bar/.style={fill=blue!30, draw=blue!75}]{Topic 1.1}{2026-01-01}{2027-06-30} \\
+        \ganttbar[bar/.style={fill=blue!30, draw=blue!75}]{Topic 1.2}{2027-11-01}{2028-04-30} \\
+        \ganttbar[bar/.style={fill=blue!70!black, draw=blue!90!black}]{Design 1}{2028-05-01}{2028-09-30} \\
+        \ganttbar[bar/.style={fill=blue!30, draw=blue!75}]{Topic 1.3}{2028-08-01}{2028-11-30} \\
+        \ganttbar[bar/.style={fill=blue!70!black, draw=blue!90!black}]{Design 2}{2028-12-01}{2029-03-31} \\
         % RQ2: Robust decomposition & Doppler (Teal)
         \ganttbar[bar/.style={fill=teal!35, draw=teal!75}]{Topic 2.1}{2026-06-01}{2026-12-31} \\
-        \ganttbar[bar/.style={fill=teal!35, draw=teal!75}]{Topic 2.2}{2027-01-01}{2027-04-30} \\
-        \ganttbar[bar/.style={fill=teal!35, draw=teal!75}]{Topic 2.3}{2028-05-01}{2028-11-30} \\
+        \ganttbar[bar/.style={fill=teal!35, draw=teal!75}]{Topic 2.2}{2027-01-01}{2027-06-30} \\
+        \ganttbar[bar/.style={fill=teal!35, draw=teal!75}]{Topic 2.3}{2028-09-01}{2029-02-28} \\
         % RQ3: Fundamental lower bounds (Orange)
-        \ganttbar[bar/.style={fill=orange!35, draw=orange!80}]{Topic 3.1}{2027-05-01}{2027-08-31} \\
-        \ganttbar[bar/.style={fill=orange!35, draw=orange!80}]{Topic 3.2}{2027-09-01}{2027-12-31} \\
+        \ganttbar[bar/.style={fill=orange!35, draw=orange!80}]{Topic 3.1}{2027-09-01}{2027-12-31} \\
+        \ganttbar[bar/.style={fill=orange!12, draw=orange!80, dashed}]{Topic 3.2}{2028-01-01}{2028-04-30} \\
         % RQ4: Topology optimization (Violet)
-        \ganttbar[bar/.style={fill=violet!30, draw=violet!75}]{Topic 4.1}{2027-04-01}{2027-07-31} \\
-        \ganttbar[bar/.style={fill=violet!30, draw=violet!75}]{Topic 4.2}{2027-08-01}{2028-01-31} \\
+        \ganttbar[bar/.style={fill=violet!30, draw=violet!75}]{Topic 4.1}{2026-10-01}{2027-05-31} \\
+        \ganttbar[bar/.style={fill=violet!12, draw=violet!75, dashed}]{Topic 4.2}{2028-05-01}{2028-09-30} \\
+        % Intermediate topics (Brown)
+        \ganttbar[bar/.style={fill=brown!35, draw=brown!80}]{Topic A}{2027-08-01}{2028-04-30} \\
+        \ganttbar[bar/.style={fill=brown!35, draw=brown!80}]{Topic B}{2026-11-01}{2027-06-30} \\
+        % Go/no-go decision points (Red)
+        \ganttmilestone{G1: architecture}{2027-07-01} \\
+        \ganttmilestone{G2: automotive band}{2028-05-01} \\
         % Thesis (Dark Blue / Navy)
         \ganttbar[bar/.style={fill=blue!70!black, draw=black}]{Thesis}{2029-03-01}{2029-08-31}
     \end{ganttchart}
-    \caption{Four-year PhD publication and project execution timeline (colour-coded by research question).}
+    \caption{Four-year PhD publication and project execution timeline (colour-coded by research question; brown: intermediate topics; dashed: beyond the basic frame; red markers: go/no-go decision points).}
     \label{fig:publication-gantt}
 \end{figure}
 \end{landscape}

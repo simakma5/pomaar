@@ -4,7 +4,7 @@
 Building upon the research gaps and problem formulation established in \cref{chap:research-gap-analysis}, this chapter presents the technical methodology, system architecture, and preliminary feasibility studies of the doctoral project.
 To systematically address the challenges of automotive polarimetry without relying on trial-and-error hardware iteration, a top-down engineering methodology is adopted.
 
-First, \cref{sec:proposed-solutions} outlines the proposed technical methodology, including algorithm-driven perturbation analysis, a hybrid electromagnetic simulation platform in Ansys Electronics Desktop, \enquote{polarimetry-first} virtual array topologies, and radiating element selections.
+First, \cref{sec:proposed-solutions} outlines the proposed technical methodology, including algorithm-driven perturbation analysis, a hybrid electromagnetic simulation platform in Ansys Electronics Desktop, power-only polarimetry in multiple linear bases, \enquote{polarimetry-first} virtual array topologies, and radiating element selections.
 Next, \cref{sec:feasibility-study} presents preliminary simulation and design results: first validating SBR+ ray-tracing polarimetry against canonical dihedral scattering models and aspect-angle projections, and subsequently detailing full-wave design, synthesis, and architectural transitions for an aperture-coupled patch array baseline.
 
 
@@ -21,6 +21,7 @@ Rather than attempting to achieve absolute electromagnetic perfection across all
 To establish rigorous hardware specifications, the research proposes a top-down perturbation analysis on standard polarimetric decomposition algorithms.
 By systematically injecting calibrated noise and measurement errors -- such as amplitude imbalances, absolute phase deviations, and cross-channel phase errors -- into ideal scattering matrices $\vec S$, the sensitivity and breakdown thresholds of target decomposition methods (e.g. Pauli, Cloude--Pottier, Yamaguchi) will be mapped.
 The resulting error bounds will be directly translated into minimum required antenna parameters, such as cross-polarization discrimination (\gls{xpd}), port isolation, and maximum allowable phase centre displacement across the synthesized virtual aperture.
+The same framework serves to compare coherent full-polarimetric estimation with the power-only alternative of \cref{sec:multibasis-polarimetry} (intermediate question~B): the former is sensitive to phase errors between polarimetric channels, the latter to amplitude imbalance, polarization-orientation errors, and noise amplified by differences of measured powers.
 
 
 \subsection{Hybrid polarimetric simulation platform}
@@ -50,6 +51,74 @@ The solver automatically computes the multichannel \gls{fmcw} response and outpu
 This eliminates manual signal synthesis, enabling post-processing scripts to focus directly on virtual array channel recombination, spatial imaging (e.g. back-projection), and target feature extraction.
 
 
+\subsection{Power-only polarimetry in multiple linear bases}
+\label{sec:multibasis-polarimetry}
+
+Intermediate question~B asks whether diagonal ($\pm\ang{45}$) linear polarization states, added to the $(\H, \V)$ states, can replace coherent polarimetry by power measurements.
+The question is approached through the Kennaugh formalism of \cref{sec:stokes-poincare}, with the reciprocal $3 \times 3$ coherency matrix $\vec T = \langle \vec k_P \vec k_P^\dagger \rangle$ of \cref{eq:pauli-coherency-matrix} as the common reference.
+
+\paragraph{Pauli powers from diagonal-basis powers.}
+Let $\vec p_\pm = (\vec e_\H \pm \vec e_\V)/\sqrt 2$ denote the Jones vectors of the $\pm\ang{45}$ states and $V_{qp} = \vec p_q^\T \vec S \vec p_p$ the voltage received in state $q$ while transmitting state $p$ (\gls{bsa} convention).
+Under reciprocity, the Pauli components $a$, $b$, $c$ of \cref{eq:pauli-vector-4d} yield
+\begin{align}
+    V_{-+} &= \frac{b}{\sqrt 2},
+&
+    V_{\pm\pm} &= \frac{a \pm c}{\sqrt 2},
+\end{align}
+and hence
+\begin{align}
+    \label{eq:pauli-powers-from-powers}
+    |b|^2 &= 2|V_{-+}|^2,
+&
+    |a|^2 &= |V_{++}|^2 + |V_{--}|^2 - 2|S_\HV|^2,
+&
+    |c|^2 &= 2|S_\HV|^2.
+\end{align}
+The three Pauli powers -- the features with which \textcite{bouwmeesterClassificationDynamicVulnerable2025} classified \glspl{vru} -- thus follow from received powers alone, without any phase between polarimetric channels.
+Powers in the $(\H, \V)$ basis alone cannot achieve this: a sphere and an aligned dihedral both produce $|S_\HH| = |S_\VV|$ and $S_\HV = 0$, whereas the diagonal powers separate them through $|V_{-+}|^2$.
+
+\paragraph{Recoverable polarimetric information.}
+In general, every measured power $\langle |V_{qp}|^2 \rangle$ is a linear functional of the nine independent real parameters of $\vec T$ (equivalently, of the Kennaugh matrix $\vec K$).
+For a given set of transmit and receive states, the number of parameters that can be recovered is the dimension of the subspace these functionals span; \cref{tab:recoverable-parameters} lists it for several sets.
+Linear states recover the real parts of $\vec T$, but none of its imaginary parts: the sign of the co-polar phase difference, $\Im(T_{12})$,  and the helix term, $\Im(T_{23})$, are lost.
+Circular states recover precisely the helix term together with roll-invariant powers, so the two families complement each other, and a single circular state on one side completes the linear set.
+The real parts recovered by linear states are moreover closed under rotation about the line of sight, which acts on $\vec T$ through a real rotation matrix; orientation compensation and roll-invariant features therefore remain available from powers alone.
+
+\begin{table}[!ht]
+    \centering
+    \caption{Independent parameters of the reciprocal coherency matrix $\vec T$ (out of nine) recoverable from received powers for several sets of transmit and receive polarization states ($\pm$: linear $\pm\ang{45}$; $\mathrm{R}$, $\mathrm{L}$: right- and left-handed circular).}
+    \label{tab:recoverable-parameters}
+    \small
+    \begin{tabularx}{\textwidth}{llcX}
+        \toprule
+        \textbf{Transmit states} & \textbf{Receive states} & \textbf{Recoverable} & \textbf{Identifiable parameters} \\
+        \midrule
+        $\H, \V$ & $\H, \V$ & 3 & $T_{33}$, $\Re(T_{12})$, and only the sum $T_{11} + T_{22}$ (odd and even bounce not separable) \\
+        $\H, \V, +$ (or $\H, \V, \pm$) & same & 6 & $T_{11}$, $T_{22}$, $T_{33}$, $\Re(T_{12})$, $\Re(T_{13})$, $\Re(T_{23})$ \\
+        $\mathrm{L}, \mathrm{R}$ & $\mathrm{L}, \mathrm{R}$ & 3 & $T_{11}$, $\Im(T_{23})$, and the roll-invariant sum $T_{22} + T_{33}$ \\
+        $\H, \V, +, \mathrm{R}$ & $\H, \V, +$ & 9 & all \\
+        \bottomrule
+    \end{tabularx}
+\end{table}
+
+\paragraph{What is gained and what it costs.}
+Each transmit--receive polarization pair remains coherent internally: range, Doppler, and beamforming use phase, and each pair needs only the array calibration of a scalar radar.
+What disappears is the phase \emph{between} polarization pairs, and with it the polarimetric phase calibration, the first-order sensitivity to phase-centre displacement between polarization channels, and the motion-induced phase between \gls{tdm} slots of different polarizations.
+The costs are threefold.
+First, every polarization pair forms its own virtual array: with $12 \times 16$ channels, two states on each side leave $6 \times 8 = 48$ virtual channels per pair, three states about 20, and four states $3 \times 4 = 12$ -- the resolution criticized in \cref{sec:gaps-models}.
+Second, \cref{eq:pauli-powers-from-powers} subtracts measured powers, which amplifies noise and gain errors.
+Third, amplitude balance and the orientation accuracy and \gls{xpd} of the antenna elements become the critical hardware specifications in place of phase balance.
+
+The benefit also requires that the diagonal states be defined physically.
+Synthesizing them by combining the two ports of a dual-polarized element reproduces coherent $(\H, \V)$ polarimetry followed by a basis change, with the same phase calibration, and inherits any phase-centre offset between the ports; \textcite{hambergerMixedCircularLinear2019} measured that a \qty{0.6}{mm} offset of this kind lets the synthesized phase difference vary between \ang{45} and \ang{135} within the main beam.
+Two architectures are therefore compared:
+\begin{enumerate}[label=\Alph*.]
+    \item single-polarized elements in four orientations (\ang{0}, \ang{45}, \ang{90}, \ang{135}), realized as rotated copies of one element design and evaluated from powers;
+    \item dual-polarized $(\H, \V)$ elements evaluated coherently, with the diagonal basis synthesized via \cref{eq:basis-transformation}.
+\end{enumerate}
+The comparison starts in the simulation platform of \cref{sec:simulation-platform}, where the coherent $(\H, \V)$ scattering matrices already available are transformed into diagonal-basis powers, and is decided at the first go/no-go point of \cref{chap:research-planning}.
+
+
 \subsection{Polarimetry-first MIMO topologies}
 \label{sec:polarimetry-first-topologies}
 
@@ -64,12 +133,16 @@ Consequently, the design space splits into two fundamental architectural choices
 Building upon the insights gained from the simulator, this research will pioneer the synthesis of \enquote{polarimetry-first} \gls{mimo} topologies.
 By abandoning legacy scalar optimization techniques, the design space will be constrained to topologies that explicitly minimize the phase centre disparity between orthogonal channels.
 The project will critically analyse the suboptimal characteristics of existing dual-polarized demonstrators to identify specific topological aspects -- such as sub-array interleaving, virtual channel overlapping, and spatial symmetry -- that can be mathematically optimized to ensure true polarimetric alignment across the synthesized virtual aperture.
+Within the basic frame of the project, this analysis stays within established uniform layouts: it compares dual-polarized (type~2) with interleaved single-polarized (type~1) arrangements and allocates the polarization states of \cref{sec:multibasis-polarimetry} over a fixed channel budget.
+The formulation of dedicated objective functions for optimized polarimetry-first layouts extends beyond this frame.
 
 \paragraph{Dual-polarized architectures.}
-The most theoretically robust approach involves the use of dual-polarized elements at each array position (see \cref{fig:dual_pol_elements}).
+The most theoretically robust approach (type~2) involves the use of dual-polarized elements at each array position (see \cref{fig:dual_pol_elements}).
 In this configuration, orthogonal polarizations (typically horizontal and vertical) ideally%
-    \footnote{It is plausible that even with dual-polarized antennas, the phase centres of the co- and cross-polar channels do not perfectly coincide due to manufacturing tolerances, feed network imbalances, or mutual coupling effects.}
+    \footnote{It is plausible that even with dual-polarized antennas, the phase centres of the co- and cross-polar channels do not perfectly coincide due to manufacturing tolerances, feed network imbalances, or mutual coupling effects.
+    \textcite{hambergerMixedCircularLinear2019} report such a case: the phase centres of the two linear ports of their dual-polarized patch array lie \qty{0.6}{mm} apart.}
 share a common phase centre.
+A series-fed candidate is the single-layer array of \textcite{dengSeriesFedDualPolarizedSingleLayer2019}, in which the even and odd modes of two coupled feed lines excite the two orthogonal polarizations.
 The primary advantage of this topology is the maximization of the virtual aperture for all polarization channels simultaneously, ensuring that the polarimetric scattering matrix is measured from an identical spatial perspective.
 This eliminates the \enquote{polarization squint} effects caused by viewing a target from slightly different angles, thereby simplifying the calibration process.
 
@@ -79,10 +152,11 @@ Furthermore, maintaining high isolation between the co-located channels is chall
 Moreover, each dual-polarized antenna element requires two independent channels, effectively halving the number of unique spatial samples achievable with a given number of \gls{rf} chains, which can limit the achievable angular resolution and multiplexing capabilities of the \gls{mimo} system.
 
 \paragraph{Interleaved single-polarized architectures.}
-To mitigate the hardware complexity and coupling issues of dual-polarized designs, an alternative strategy is to spatially interleave single-polarized elements (see \cref{fig:interleaved_single_pol_elements}).
+To mitigate the hardware complexity and coupling issues of dual-polarized designs, an alternative strategy (type~1) is to spatially interleave single-polarized elements (see \cref{fig:interleaved_single_pol_elements}).
 By spatially separating the horizontal and vertical elements, this architecture inherently improves port-to-port isolation, simplifies the routing of feed lines, and does not reduce the virtual aperture.
 While this reduces the cost and complexity of the \gls{pcb} stack-up, this layout introduces a significant spatial disparity between individual polarization channels, exacerbating the issue of polarization squint.
 If not carefully compensated for in the manifold synthesis, this phase centre mismatch can lead to angle-dependent polarization errors, particularly for near-field targets or distributed scatterers.
+Power-only processing (\cref{sec:multibasis-polarimetry}) does not use the phase between polarization channels and is therefore insensitive to this mismatch to first order, which makes the interleaved layout the natural carrier of architecture~A.
 
 \paragraph{Virtual channel overlapping.}
 A hybrid design strategy, which is worthy of investigation, is the exploitation of \gls{mimo} virtual array synthesis to bridge the gap between these two architectures.
@@ -138,14 +212,19 @@ To align with this objective, the following design decisions have been establish
     While acknowledging the superior efficiency of air-filled waveguides, the mature fabrication processes of printed circuits ensure that the large-scale \gls{mimo} array can be produced with consistent tolerances, which is a prerequisite for accurate array manifold calibration.
 
     \item \textbf{Selection of radiating mechanism.}
-    Within the planar domain, the design strategy envisions a multi-layer \gls{siw} stack-up as the high-performance contender.
+    Within the planar domain, the X-band prototype and the first automotive design (Design~1) use the aperture-coupled, centre-fed buried-stripline architecture developed in \cref{sec:preliminary-antenna-design}, scaled to \qtyrange{77}{79}{\giga\hertz} for Design~1.
+    For the second design (Design~2), the strategy envisions a multi-layer \gls{siw} stack-up as the high-performance contender, a mature compromise offering superior \gls{xpd} and port isolation.
     Specifically, slotted radiation serves as the main mechanism, augmented with parasitic patches on the top layer to shape the individual beam pattern and improve impedance bandwidth, a technique supported by recent studies on hybrid \gls{siw}-patch topologies, such as the works of~\textcite{puskely5GSIWBasedPhased2022,yangMillimeterWaveDualPolarizedDifferentially2020}.
     This approach strikes a balance between the isolation benefits of \gls{siw} and the low profile of printed elements.
 
     \item \textbf{Iterative development strategy.}
     To mitigate risk, particularly in the early phases of the project, the front-end design will leverage the established experience of dealing with uniform patch array cascades.
     This approach mirrors the proven architectures employed by industry leaders, such as Texas Instruments~\parencite{texasInstrumentsAwrxCascadedRadar2020} and Continental, for imaging automotive radar.
-    By starting with a known baseline -- standard series-fed microstrip patches -- the research ensures a stable platform for initial data collection and algorithm development, allowing the focus to remain on the signal processing challenges of high-fidelity polarimetric measurements resolved in Doppler.
+    By starting with a known baseline -- series-fed patch sub-arrays, here aperture-coupled to shield the feed -- the research ensures a stable platform for initial data collection and algorithm development, allowing the focus to remain on the signal processing challenges of high-fidelity polarimetric measurements resolved in Doppler.
+    The second design then serves to de-risk the system iteratively, folding in the lessons of the first measurement campaigns rather than adding scope.
+
+    \item \textbf{Polarization states from element orientation.}
+    Polarization states other than $\H$ and $\V$, such as the diagonal states of \cref{sec:multibasis-polarimetry}, are obtained from rotated orientations of the same element -- a rotated patch and slot in the stripline design, inclined slots in \gls{siw} -- so that each platform requires a single element design.
 \end{itemize}
 
 In summary, while the literature points toward \gls{gw} and \gls{med} as the future of automotive electromagnetics, this research purposefully selects established planar implementations to prioritize system-level reliability and the integrity of the polarimetric signal processing pipeline.

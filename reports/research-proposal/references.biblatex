@@ -3757,3 +3757,61 @@
   keywords = {5G communications,antenna synthesis,convex optimization,density taper,linear antenna arrays,multibeam optimization,phased arrays,space taper},
   file = {/home/martin/Zotero/storage/FM99JE46/Aslan et al. - 2018 - Synthesis of multiple beam linear arrays with uniform amplitudes.pdf}
 }
+
+% --- Added during the go/no-go revision (Oct 2026); metadata checked against Crossref.
+% --- Import into Zotero, otherwise the next Better BibTeX export overwrites them.
+
+@article{meadComparisonCoherentNoncoherent1996,
+  title = {Comparison of Coherent and Noncoherent Polarimetric Radar Measurement Techniques at 95 {{GHz}}},
+  author = {Mead, James B. and Pazmany, Andrew L. and Chang, Paul S. and McIntosh, Robert E.},
+  date = {1996-03},
+  journaltitle = {Radio Science},
+  volume = {31},
+  number = {2},
+  pages = {325--333},
+  doi = {10.1029/95RS03597}
+}
+
+@article{souyrisCompactPolarimetryBased2005,
+  title = {Compact Polarimetry Based on Symmetry Properties of Geophysical Media: The $\uppi/4$ Mode},
+  author = {Souyris, J.-C. and Imbo, P. and Fjørtoft, R. and Mingot, S. and Lee, J.-S.},
+  date = {2005-03},
+  journaltitle = {IEEE Transactions on Geoscience and Remote Sensing},
+  volume = {43},
+  number = {3},
+  pages = {634--646},
+  doi = {10.1109/TGRS.2004.842486}
+}
+
+@article{raneyHybridPolaritySARArchitecture2007,
+  title = {Hybrid-Polarity {{SAR}} Architecture},
+  author = {Raney, R. Keith},
+  date = {2007-11},
+  journaltitle = {IEEE Transactions on Geoscience and Remote Sensing},
+  volume = {45},
+  number = {11},
+  pages = {3397--3404},
+  doi = {10.1109/TGRS.2007.895883}
+}
+
+@article{wolffPolarizationbasedMaterialClassification1990,
+  title = {Polarization-Based Material Classification from Specular Reflection},
+  author = {Wolff, Lawrence B.},
+  date = {1990-11},
+  journaltitle = {IEEE Transactions on Pattern Analysis and Machine Intelligence},
+  volume = {12},
+  number = {11},
+  pages = {1059--1071},
+  doi = {10.1109/34.61705}
+}
+
+@article{tyoDesignOptimizationPartial2010,
+  title = {Design and Optimization of Partial {{Mueller}} Matrix Polarimeters},
+  author = {Tyo, J. Scott and Wang, Zhipeng and Johnson, Sergio J. and Hoover, Brian G.},
+  date = {2010-04},
+  journaltitle = {Applied Optics},
+  volume = {49},
+  number = {12},
+  pages = {2326},
+  doi = {10.1364/AO.49.002326}
+}

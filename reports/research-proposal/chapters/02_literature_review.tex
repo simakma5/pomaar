@@ -112,6 +112,7 @@ On one hand, circular polarization bases offer complete roll invariance around t
 This basis is favoured by several researchers~\parencite{zang77GHzFully2024,hambergerMixedCircularLinear2019,tillyRoadUserClassification2021,weishauptCalibrationSignalProcessing2022}, for suppressing specular ground clutter and isolating canonical scatterers.
 On the other hand, linear polarization bases preserve structural target orientation, providing critical classification features for asymmetric scatterers such as vehicle bodies, roadside barriers, and articulate \gls{vru} limbs.
 While most researchers adopt the traditional horizontal-vertical linear basis~\parencite{tintiFullyPolarimetricAutomotive2024,visentinCalibrationFullyPolarimetric2017}, alternative orientations have also been demonstrated, such as the diagonal linear basis employed by \textcite{bouwmeesterClassificationDynamicVulnerable2025} to isolate cross-polarized micro-Doppler signatures across the gait cycle.
+The diagonal basis is in fact common in automotive hardware: \textcite{tinti45degLinearlyPolarized2023} built a $12 \times 16$ \gls{mimo} system at \qty{79}{GHz} from $\pm\ang{45}$ linearly polarized arrays, and the dual-linear receive ports of \textcite{hambergerMixedCircularLinear2019} are likewise slanted by $\pm\ang{45}$.
 
 In this doctoral work, the horizontal-vertical linear polarization basis $(\H, \V)$ is selected as the primary physical measurement baseline ($1 \equiv \H, 2 \equiv \V$).
 Crucially, acquiring the full complex monostatic backscattering matrix $\vec S$ in any given basis incurs no loss of generality: any alternative polarization basis $\vec S'$ (such as circular or diagonal) can be synthesized offline through a unitary basis transformation,
@@ -121,6 +122,7 @@ Crucially, acquiring the full complex monostatic backscattering matrix $\vec S$ 
 \end{equation}
 where $\vec U$ is the complex unitary transformation matrix linking the respective polarization state vectors~\parencite{leePolarimetricRadarImaging2017}.
 This mathematical property ensures complete analytical flexibility during signal post-processing without necessitating physical hardware modifications.
+The flexibility presupposes, however, that the relative phases between the polarimetric channels are calibrated, since $\vec U$ combines the complex entries of $\vec S$; measuring physically in a second basis, discussed in \cref{sec:stokes-poincare}, is the alternative that avoids this requirement.
 Furthermore, fundamental target spectral properties introduced later -- such as polarimetric entropy, anisotropy, and total backscattered power (span) -- remain strictly invariant under unitary transformations.
 Consequently, while basic wave electrodynamics in \cref{sec:polarimetry-fundamentals} are expressed in an arbitrary orthogonal basis $(1, 2)$, all subsequent target scattering models, canonical primitives, second-order operators ($\vec T, \vec C$), and target descriptors are expressed in this $(\H, \V)$ linear basis.
 
@@ -233,6 +235,17 @@ In the following sections, these decomposition theorems are utilized to extract 
     \label{fig:poincare-sphere}
 \end{figure}
 
+\paragraph{Polarimetry from power measurements.}
+Because the Stokes parameters are power quantities, the polarimetric response of a target can also be measured without access to phase.
+The target is then described by a real $4 \times 4$ matrix mapping the Stokes vector of the incident wave onto that of the scattered wave -- the Mueller matrix or, in the \gls{bsa} convention, the Kennaugh matrix $\vec K$~\parencite{guissardMuellerKennaughMatrices1994}.
+The power received in a polarization state $q$ while transmitting a state $p$ is a linear combination of the entries of $\vec K$, weighted by the Stokes vectors of the two states; illuminating the target with several transmit states and analysing the echo with several receive states therefore yields a linear system for $\vec K$.
+For a reciprocal monostatic target, $\vec K$ carries nine independent real parameters, as many as the reciprocal $3 \times 3$ target coherency matrix $\vec T$ introduced in \cref{sec:cloude-pottier-decomposition}, so that a sufficiently diverse set of power measurements contains the full second-order polarimetric information.
+At a minimum, this requires states that are not all confined to one plane of the Poincaré sphere: if every transmit and receive state is linear -- that is, lies on the equator of the sphere in \cref{fig:poincare-sphere} -- only the upper-left $3 \times 3$ block of $\vec K$ is recovered, a configuration known in optics as \emph{partial Mueller polarimetry}~\parencite{tyoDesignOptimizationPartial2010}.
+
+Such power-only, or \emph{non-coherent}, polarimetry has radar precedent.
+\textcite{meadComparisonCoherentNoncoherent1996} measured Mueller matrices at \qty{95}{GHz} both coherently, via covariances of the scattering matrix elements, and noncoherently, via the scattered Stokes vectors for a set of transmit polarizations; the noncoherent approach proved unaffected by the rapid signal decorrelation that can corrupt coherent covariance estimates at millimetre wavelengths, at the cost of a transmitter generating multiple polarizations.
+Between the two extremes lies \emph{compact polarimetry}, developed for spaceborne \gls{sar}: a single transmitted polarization -- slanted linear in the $\uppi/4$ mode of \textcite{souyrisCompactPolarimetryBased2005} or circular in the hybrid-polarity architecture of \textcite{raneyHybridPolaritySARArchitecture2007} -- is received coherently in two orthogonal linear channels, from which the Stokes vector of the backscattered wave is formed.
+
 
 \subsection{Polarimetric target decomposition}
 \label{sec:target-decomposition}
@@ -252,7 +265,8 @@ These methods can be broadly categorized into four fundamental classes of theore
 \begin{enumerate}
     \item \textit{Coherent decompositions:} Operating directly on the complex Sinclair scattering matrix $\vec S$ of deterministic targets, these methods aim to express backscattering as a linear combination of elementary canonical mechanisms (e.g. Pauli, Krogager, Cameron).
     \item \textit{Kennaugh matrix decompositions:} This class exploits the dichotomy of the Kennaugh matrix
-        \footnote{The Kennaugh matrix is a $4 \times 4$ real matrix derived from the Stokes parameters for monostatic backscattering radar operating under the \gls{bsa} convention, which relates the transmitted wave to the received voltage via the radar power equation~\parencite{guissardMuellerKennaughMatrices1994}.}
+        \footnote{The Kennaugh matrix is a $4 \times 4$ real matrix derived from the Stokes parameters for monostatic backscattering radar operating under the \gls{bsa} convention, which relates the transmitted wave to the received voltage via the radar power equation~\parencite{guissardMuellerKennaughMatrices1994}.
+        Its measurement from power observations is outlined in \cref{sec:stokes-poincare}.}
     to separate target responses into pure single-target components and N-target depolarizing residue.
     Examples of such decompositions, which will not be further elaborated, include those by Huynen and Barnes.
     \item \textit{Eigenvalue spectral decompositions:} Utilizing statistical matrix diagonalization and spectral analysis of the coherency matrix $\vec T$, some of the most successful methods, first introduced by~\textcite{cloudeConceptPolarizationEntropy1995}, extract orthogonal scattering modes and entropy without pre-assumed physical models.
@@ -333,6 +347,13 @@ In its native circular basis, the scattering matrix of a left-handed or right-ha
 \end{equation}
 When transformed into the linear $(\H, \V)$ basis via unitary basis transformation, this response manifests as equal-amplitude co-polar and cross-polar returns with a $\pm \uppi/2$ phase shift in the cross-polarized channels, where the positive sign corresponds to LHC and the negative sign to RHC, in line with standard \gls{ieee} radar polarimetry conventions.
 This non-reflection-symmetric, complex cross-channel phase shift provides the physical foundation for chiral target detection and volume-helix decompositions.
+
+\paragraph{Material dependence.}
+The canonical matrices above assume perfectly conducting surfaces.
+For dielectric surfaces, such as wood or foliage, the Fresnel reflection coefficients differ for the field components perpendicular and parallel to the plane of incidence, and the parallel component passes through a (pseudo-)Brewster minimum at oblique incidence.
+At normal incidence, a dielectric plate still yields $S_\HH = S_\VV$, differing from a metallic one only in magnitude -- a contrast that is indistinguishable from a change in size.
+Polarimetric material contrast therefore arises at oblique incidence and in multiple-bounce geometries: for a dihedral formed by lossy dielectric faces, the co-polar amplitudes become unequal, and their phase difference departs from $\uppi$, which is precisely what the complex ratio $\alpha$ of the double-bounce model in \cref{sec:model-based-decompositions} parametrizes.
+The same physics underlies polarization-based material classification in optics, where \textcite{wolffPolarizationbasedMaterialClassification1990} separated metallic from dielectric surfaces by the Fresnel ratio of specular reflections, measured with a rotating polarizer, that is, from powers alone.
 
 
 \subsubsection{Coherent decomposition}
@@ -580,7 +601,7 @@ In dynamic driving scenarios, tracking these physical power components across ra
 \subsubsection{Simple polarimetric descriptors}
 \label{sec:simple-polarimetric-descriptors}
 
-While the target decomposition theorems discussed in~\cref{sec:target-decomposition} offer rigorous physical interpretations of the scattering mechanisms, their computational complexity -- requiring eigenvalue decomposition of the $3\times3$ coherency matrix for every resolution cell -- can be prohibitive for real-time automotive applications constrained by embedded hardware resources.
+While the target decomposition theorems discussed in~\cref{sec:target-decomposition} offer rigorous physical interpretations of the scattering mechanisms, their computational complexity -- requiring eigenvalue decomposition of the $3\times3$ coherency matrix for every resolution cell -- is demanding for real-time automotive processing on embedded hardware, although not a fundamental obstacle.
 Consequently, simple polarimetric descriptors -- originally developed for hydrometeor classification~\parencite{bringiPolarimetricDopplerWeather2001} based on power ratios and correlation coefficients -- can offer low-complexity proxies for target classification.
 However, the translation of these metrics from meteorological bands (S/C/X-band) to automotive millimetre-wave frequencies (\qtyrange{77}{81}{GHz}) requires careful consideration of wavelength-scale roughness and system limitations.
 

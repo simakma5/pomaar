@@ -16,7 +16,7 @@ Finally, \cref{sec:research-questions} translates these combined challenges into
 \label{sec:gaps-identified}
 
 Although individual aspects of millimetre-wave radar, \gls{mimo} virtual aperture synthesis, and polarimetric decomposition have been studied independently, their intersection remains largely unmapped.
-This section summarizes the three critical gaps identified in current literature: the lack of Doppler-resolved spatial scattering models, the absence of algorithm-driven front-end requirements, and the omission of polarization purity in \gls{mimo} topology synthesis.
+This section summarizes the four critical gaps identified in current literature: the lack of Doppler-resolved spatial scattering models, the absence of algorithm-driven front-end requirements, the omission of polarization purity in \gls{mimo} topology synthesis, and the unexamined choice between coherent and power-only polarimetric measurement.
 
 
 \subsection{Gaps in polarimetric models}
@@ -82,6 +82,18 @@ As far as the current literature indicates, apart from preliminary investigation
 Currently, no established array topology exists that is mathematically optimized from its inception to preserve the fidelity of the full scattering matrix while simultaneously maximizing spatial resolution and multiplexing feasibility.
 
 
+\subsection{Gaps in incoherent and multi-basis polarimetry}
+\label{sec:gaps-incoherent}
+
+All automotive polarimetric systems reviewed in \cref{chap:literature-review} estimate the scattering matrix coherently and rely on calibrated phases between the polarimetric channels -- the very quantities that phase-centre displacement, polarization squint, and \gls{tdm} motion corrupt.
+Power-only polarimetry, established in optics and demonstrated for radar at \qty{95}{GHz}~\parencite{meadComparisonCoherentNoncoherent1996}, avoids these phases altogether, at the cost of measuring in more than one polarization basis.
+In a \gls{mimo} radar, every additional polarization state claims transmit or receive channels and thus angular resolution.
+As far as the current literature indicates, no study has weighed power measurements in several linear bases against coherent full-polarimetric measurement for a fixed channel budget, nor established which classification features survive the exchange.
+
+A related gap concerns the targets themselves.
+Material-dependent polarimetric contrast, such as that separating metallic lamp posts and guardrails from trees and wooden posts, is rooted in Fresnel reflection physics (\cref{sec:canonical-scatterers}), yet it has not been characterized for automotive millimetre-wave radar at a spatial resolution sufficient to isolate individual roadside objects -- the same objects from which \glspl{vru} must be separated.
+
+
 \section{Domain transfer challenges}
 \label{sec:domain-transfer}
 
@@ -124,6 +136,23 @@ Building upon the literature gaps and domain transfer challenges established abo
         \item {How can \gls{mimo} topologies be optimized specifically for polarimetric fidelity to mitigate the detrimental effects of phase centre displacement and cross-polar coupling?}
     \end{enumerate}
 \end{custombox}
+
+\paragraph{Intermediate research questions.}
+Two further questions, raised by the external supervisor, lie on the path towards these research questions.
+They address the gaps of \cref{sec:gaps-incoherent} and can be answered with static targets at X-band, before Doppler-resolved measurements in the automotive band:
+
+\begin{custombox}{Intermediate research questions}
+    \begin{enumerate}[label=\Alph*.]
+        \item {Can polarimetric features separate metallic from dielectric roadside objects -- such as lamp posts and trees -- at high spatial resolution, beyond what a single-polarized system of the same aperture achieves? \hfill \textit{(feeds RQ\,1 and RQ\,2)}}
+        \item {Does adding diagonal ($\pm\ang{45}$) linear polarization states to the $(\H, \V)$ states recover, from power measurements alone, the polarimetric information required for classification, and how does it compare with coherent $(\H, \V)$ polarimetry for a fixed channel budget and realistic hardware errors? \hfill \textit{(feeds RQ\,2, RQ\,3, and RQ\,4)}}
+    \end{enumerate}
+\end{custombox}
+
+\paragraph{The basic frame and beyond.}
+Not every part of the four research questions is needed to reach the overarching objective of RQ\,1.
+The \emph{basic frame} of this project comprises RQ\,1 and RQ\,2 together with the intermediate questions, the mapping of antenna figures of merit onto algorithm sensitivity within RQ\,3, and the study of established uniform layouts -- dual-polarized against interleaved single-polarized elements, and the allocation of polarization states -- within RQ\,4.
+The formal derivation of fundamental lower bounds (RQ\,3), the formulation of dedicated objective functions for polarimetry-first layouts (RQ\,4), and two extensions of intermediate question~B -- completing the power-only measurement with a circular polarization state, and polarization-agile antenna elements -- are pursued \emph{beyond the basic frame}, as the progress of the core work allows.
+\Cref{chap:research-planning} assigns every topic to one of these tiers.
 
 \paragraph{Conclusion.}
 These research questions establish a direct bridge to the technical methodology and preliminary feasibility studies presented in \cref{chap:feasibility-study}.

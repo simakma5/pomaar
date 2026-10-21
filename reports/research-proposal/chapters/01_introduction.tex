@@ -7,6 +7,7 @@ Among environmental perception modalities, millimetre-wave \gls{fmcw} radar oper
 However, while contemporary sensors excel at estimating target range, velocity, and angle, their target classification capability remains fundamentally limited.
 Present commercial systems rely predominantly on single-polarized scalar \gls{mimo} arrays, optimized for geometric point-cloud generation but unequipped for detailed electromagnetic scattering characterization.
 Consequently, distinguishing \glspl{vru} -- such as pedestrians, cyclists, and e-scooter riders -- from surrounding urban clutter and roadside infrastructure remains a critical bottleneck for high-level scene understanding~\parencite{tillyRoadUserClassification2021}.
+Part of this bottleneck is the roadside infrastructure itself: metallic structures such as lamp posts and guardrails and dielectric objects such as trees and wooden posts may return comparable scalar echoes, yet they respond differently to polarized illumination.
 
 In contrast to scalar systems, radar polarimetry captures the full vector nature of electromagnetic waves by measuring the transformation of polarization states upon target interaction.
 Encoded within the complex $2 \times 2$ Sinclair scattering matrix $\vec S$, polarimetric responses reveal intrinsic structural, geometric, and material scatterer properties.
@@ -16,25 +17,29 @@ Resolving polarimetry across the Doppler domain enables the dynamic limb motion 
 
 Despite its proven efficacy in remote sensing, radar polarimetry cannot be directly ingested into automotive radar without addressing severe domain transfer challenges.
 The operational realities of dynamic driving environments -- grazing incidence propagation near the ground plane, low-altitude multipath, non-rigid target kinematics, mutual coupling, and phase-centre displacement across the array manifold -- systematically violate classical remote sensing assumptions.
-A fundamental research gap exists: an absence of algorithm-driven hardware specification bounds, a lack of polarimetry-first \gls{mimo} topologies optimized for W-band, and a need for hybrid simulation frameworks and empirical campaigns capable of validating Doppler-resolved polarimetric models.
+A fundamental research gap exists: an absence of algorithm-driven hardware specification bounds, a lack of polarimetry-first \gls{mimo} topologies optimized for W-band, a need for hybrid simulation frameworks and empirical campaigns capable of validating Doppler-resolved polarimetric models, and an open question of how much of the polarimetric information is actually required for classification -- and whether it must be measured coherently at all.
 
 To resolve these challenges, this doctoral project establishes a top-down, algorithm-driven engineering methodology that bridges front-end antenna design, virtual array synthesis, and polarimetric signal processing.
-The central goal of this research proposal is to investigate, formalize, and demonstrate polarimetric \gls{mimo} array architectures tailored for automotive radar.
+The central goal of this research proposal is to investigate, formalize, and demonstrate polarimetric \gls{mimo} array architectures tailored for automotive radar, with the overarching objective of showing that Doppler-resolved polarimetry on a large-aperture \gls{mimo} radar improves \gls{vru} classification.
+To keep this programme achievable, the hardware builds on established technology -- series-fed patch sub-arrays and uniform \gls{mimo} layouts -- so that the research effort concentrates on polarimetric processing and the hardware requirements it imposes.
 To achieve this goal, the project is structured around five primary methodological pillars:
 \begin{enumerate}
-    \item \textit{Derivation of fundamental hardware bounds.} Execute perturbation analyses on decomposition algorithms to map breakdown points into minimum antenna specification bounds.
+    \item \textit{Sensitivity-driven hardware specification.} Execute perturbation analyses on decomposition algorithms to map their breakdown points onto minimum antenna specifications.
     \item \textit{Development of a hybrid simulation platform.} Construct an electromagnetic simulation framework linking full-wave antenna patterns with ray-tracing physics and radar signal synthesis.
-    \item \textit{Synthesis of polarimetry-first MIMO topologies.} Formulate array optimization strategies that minimize phase-centre disparity and polarization squint across 2D virtual apertures.
-    \item \textit{Design of high-purity W-band front-ends.} Develop planar and integrated antenna structures at \qty{79}{\giga\hertz} with high polarization purity and port isolation.
+    \item \textit{Polarimetric MIMO topologies within established layouts.} Evaluate dual-polarized and interleaved single-polarized uniform arrangements and the allocation of polarization states that limits phase-centre disparity and polarization squint across 2D virtual apertures.
+    \item \textit{Design of high-purity W-band front-ends.} Develop planar antenna structures at \qty{79}{\giga\hertz} with high polarization purity and port isolation in two iterations: aperture-coupled, buried-stripline-fed sub-arrays first, followed by a \gls{siw} stack-up.
     \item \textit{Algorithm formulation and experimental validation.} Formulate Doppler-resolved feature extraction algorithms and validate target models through empirical measurement campaigns.
 \end{enumerate}
+Two intermediate questions, raised by the external supervisor, lie on the path towards the overarching objective: whether polarimetric features separate metallic from dielectric roadside objects at high spatial resolution, and whether power measurements in an additional, diagonal ($\pm\ang{45}$) linear basis can stand in for coherent $(\H, \V)$ polarimetry.
+Both are answered at X-band before the system is scaled to the automotive band.
+The formal derivation of fundamental hardware bounds and the optimization of dedicated polarimetry-first layouts are retained as research questions beyond this basic frame.
 
 \paragraph{Synopsis of the research proposal.}
 The remainder of this research proposal is organized into five main chapters, mirroring the progression from theoretical foundations to operational execution.
 \textbf{\Cref{chap:literature-review}} synthesizes the state of the art across radar polarimetry, high-performance W-band front-end antennas, and \gls{mimo} array multiplexing schemes.
-\textbf{\Cref{chap:research-gap-analysis}} details the physical domain transfer challenges, categorizes identified literature gaps, and formalizes the four central research questions governing this doctoral work.
+\textbf{\Cref{chap:research-gap-analysis}} details the physical domain transfer challenges, categorizes identified literature gaps, and formalizes the four central research questions governing this doctoral work, complemented by two intermediate questions.
 \textbf{\Cref{chap:feasibility-study}} outlines the proposed technical methodology while presenting preliminary feasibility results validating polarimetric ray tracing and W-band antenna array synthesis.
-\textbf{\Cref{chap:research-planning}} establishes a four-year operational execution roadmap, mapping publishable topics to targeted venues alongside the formal doctoral education plan.
+\textbf{\Cref{chap:research-planning}} establishes a four-year operational execution roadmap that separates a core frame from extensions beyond it, sets go/no-go decision points, and maps publishable topics to targeted venues alongside the formal doctoral education plan.
 Finally, the proposal is concluded with a reflection on the candidate's research progress, methodology, and doctoral development.
 
 
