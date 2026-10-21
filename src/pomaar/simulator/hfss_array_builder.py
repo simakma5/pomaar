@@ -295,6 +295,13 @@ class MimoHfssBuilder:
         """Attaches to the running AEDT GUI session (`connect_live_session`)."""
         self.desktop_session = connect_live_session()
 
+    def _project_design_names(self):
+        """The project's design names, opening the project in the session if needed."""
+        name = os.path.splitext(os.path.basename(self.project_path))[0]
+        if name not in self.desktop_session.project_list:
+            self.desktop_session.odesktop.OpenProject(self.project_path)
+        return list(self.desktop_session.odesktop.SetActiveProject(name).GetTopDesignList())
+
     def _open_design(self, design_name, project=None):
         """Opens (and activates) a design of the project as its own Hfss app."""
         return Hfss(
@@ -547,6 +554,16 @@ class MimoHfssBuilder:
             print(f"Note: layout metadata '{key}' is no longer used and is ignored.")
 
         print(f"Loading project: {self.project_path}")
+        # Opening a design that does not exist would silently create an empty one
+        unit_cell_names = {self.source_design_name, *self.unit_cells.values()}
+        unit_cell_names |= {str(e["unit_cell"]) for e in elements_list if e.get("unit_cell")}
+        designs = self._project_design_names()
+        missing = sorted(unit_cell_names - set(designs))
+        if missing:
+            raise LayoutError(
+                f"The layout's unit cell(s) {', '.join(missing)} are not designs of "
+                f"{os.path.basename(self.project_path)} (designs: {', '.join(designs)})."
+            )
         self.source_design_app = self._open_design(self.source_design_name)
 
         # Centre frequency of the primary unit cell's setup (the array copies that setup): it
