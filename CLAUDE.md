@@ -64,7 +64,13 @@ There are three stages, each a class re-exported by `pomaar.simulator`:
    the antenna source (only a discrete sweep that saves fields; see "Linked far fields" below),
    sets Tx/Rx pairs, copies that sweep's ranges, creates reports and optionally solves.
    SBR+ total = `_Incident` (direct Tx/Rx coupling) + `_Scattered` (target); read targets from
-   `Setup : Sweep_Scattered`.
+   `<setup> : <sweep>_Scattered`. The scene's boresight is +x by default (ISO 8855: x forward,
+   y left, z up; H along y, V along z), with `AntennaCS` turning the linked antenna's +z
+   boresight onto +x; `--boresight z` keeps the HFSS frame. `TargetCS` takes `targetRange`,
+   `targetAzimuth`, `targetElevation` and `targetRoll`. `--scene-only` rebuilds just
+   `TargetCS` and the target of an existing SBR+ design (e.g. parametric-beam antennas). Setup
+   and sweep names are read back from the design (`analysis_solution`), never assumed, since
+   AEDT de-duplicates them (`Setup1`).
 3. **`MimoPolarimetryProcessor`** (`polarimetry_processor.py`). It is pure NumPy, needs no AEDT,
    and works from `.npz` sweeps exported by `sbr_results.py` (scattered solution by default). It
    runs a plain MIMO radar chain, one method each: frequency window, IFFT to range profiles

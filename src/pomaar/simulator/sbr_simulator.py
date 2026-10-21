@@ -51,8 +51,13 @@ FIELD_TYPES = ("farfield", "nearfield")
 # Defaults for 79 GHz (lambda = 3.8 mm). 'size' is the sphere radius or the dihedral/trihedral
 # edge length. A 40 mm target has 2 D^2 / lambda <= 3.4 m for all three types (D = 2a, a*sqrt(3)
 # and a*sqrt(2)), so a 4 m range keeps it in its own far field.
-DEFAULT_TARGET_DISTANCE = "4m"
+DEFAULT_TARGET_RANGE = "4m"
 DEFAULT_TARGET_SIZE = "40mm"
+
+# Antenna boresight in the SBR+ scene: 'x' (ISO 8855 radar convention, the default: x forward,
+# y left, z up) or 'z' (the HFSS antenna frame, the earlier default)
+BORESIGHT_AXES = ("x", "z")
+DEFAULT_BORESIGHT = "x"
 
 ANTENNA_CS = "AntennaCS"
 TARGET_CS = "TargetCS"
@@ -60,6 +65,14 @@ TARGET_CS = "TargetCS"
 # back from the design (`analysis_solution`)
 SETUP_NAME = "Setup"
 SWEEP_NAME = "Sweep"
+# Objects of the canonical targets, each with a '<name>PerfectE' boundary
+TARGET_OBJECTS = {
+    "sphere": "TargetSphere",
+    "dihedral": "TargetDihedral",
+    "trihedral": "TargetTrihedral",
+}
+# Earlier name of targetRange, removed when the target scene of an existing design is rebuilt
+LEGACY_RANGE_VARIABLE = "targetDistance"
 
 # Boundaries whose objects only bound the full-wave solution space; they are left out of the
 # linked antenna's Model Visualization. The builder's radiation box is called 'Airbox'.
@@ -106,15 +119,21 @@ class SbrSimulationManager:
     Builds an SBR+ design that links a solved HFSS antenna design (same project) as the source and
     places a canonical PEC target on a sphere around the antenna.
 
-    Geometry and variables of the SBR+ design:
-    * AntennaCS sits at the global origin; the linked antenna is placed in it (boresight +z).
-    * TargetCS is defined in AntennaCS at the spherical position
-      (targetDistance, targetAzimuth, targetElevation), with targetElevation the polar angle off
-      boresight: X = d cos(az) sin(el), Y = d sin(az) sin(el), Z = d cos(el).
-    * TargetCS is rotated by Euler angles ZYZ (targetAzimuth, targetElevation,
-      targetRoll - targetAzimuth), which turn the local z axis radially outward without twisting
-      it: the target always faces the antenna and targetRoll is a pure rotation about the line of
-      sight. Edit the TargetCS angles directly for other orientations.
+    Geometry and variables of the SBR+ design, with the default x boresight (ISO 8855: x forward,
+    y left, z up; H along y, V along z):
+    * AntennaCS sits at the global origin, turned by Euler angles ZYZ (0, 90, 90) deg so that the
+      linked antenna's own frame (boresight +z, H along x, V along y) radiates along +x with H
+      along +y and V along +z.
+    * TargetCS is defined in the global CS at range targetRange, azimuth targetAzimuth (from +x
+      towards +y) and elevation targetElevation (above the xy plane):
+      X = R cos(el) cos(az), Y = R cos(el) sin(az), Z = R sin(el).
+    * TargetCS is rotated by Euler angles ZYZ (targetAzimuth, 90 deg - targetElevation,
+      90 deg + targetRoll): its local z axis points radially away from the antenna and, at zero
+      roll, its local x axis lies along H (horizontal) and its local y axis along V, at any
+      azimuth and elevation; targetRoll is a pure rotation about the line of sight.
+    * With `boresight='z'` (the HFSS antenna frame), AntennaCS is the global CS, TargetCS sits in
+      it at X = R cos(az) sin(el), Y = R sin(az) sin(el), Z = R cos(el) with targetElevation the
+      polar angle off boresight, and its Euler angles are (az, el, roll - az).
     * All targets face the antenna along local -z, scale with targetSize and carry a Perfect E
       boundary: the PEC sphere (radius) is centred at TargetCS; the dihedral seam (seam length =
       sheet depth = targetSize, along local x, i.e. parallel to H) and the trihedral corner (edge
@@ -123,10 +142,15 @@ class SbrSimulationManager:
       uses the names AEDT actually gave them (`analysis_solution`).
     """
 
-    def __init__(self, project_path, source_design_name, sbr_design_name=None):
+    def __init__(
+        self, project_path, source_design_name, sbr_design_name=None, boresight=DEFAULT_BORESIGHT
+    ):
+        if boresight not in BORESIGHT_AXES:
+            raise ValueError(f"boresight must be one of {BORESIGHT_AXES}, not '{boresight}'")
         self.project_path = os.path.abspath(project_path)
         self.source_design_name = source_design_name
         self.sbr_design_name = sbr_design_name if sbr_design_name else f"Linked{source_design_name}"
+        self.boresight = boresight
 
         self.desktop_session = None
         self.source_app = None
@@ -155,7 +179,7 @@ class SbrSimulationManager:
         target_size=DEFAULT_TARGET_SIZE,
         target_roughness=0.0,
         target_height_deviation=0.0,
-        target_distance=DEFAULT_TARGET_DISTANCE,
+        target_range=DEFAULT_TARGET_RANGE,
         target_azimuth="0deg",
         target_elevation="0deg",
         target_roll="0deg",
@@ -179,7 +203,7 @@ class SbrSimulationManager:
         target_roughness, target_height_deviation : float, optional
             SBR+ surface roughness and surface height standard deviation (mm) of the target's
             Perfect E boundary; both 0 (smooth) by default.
-        target_distance, target_azimuth, target_elevation, target_roll : str or float
+        target_range, target_azimuth, target_elevation, target_roll : str or float
             Initial values of the TargetCS design variables (floats are m and deg).
         field_type : str, optional
             'farfield' or 'nearfield'; asked interactively when None.
@@ -201,7 +225,7 @@ class SbrSimulationManager:
         self.source_solution = self.linkable_solution(source_solution)
         self.create_sbr_design(overwrite=overwrite)
         self.create_coordinate_systems(
-            target_distance=target_distance,
+            target_range=target_range,
             target_azimuth=target_azimuth,
             target_elevation=target_elevation,
             target_roll=target_roll,
@@ -223,6 +247,76 @@ class SbrSimulationManager:
         self.create_reports()
         self.sbr_app.save_project()
         self.run_solve(simulate=simulate)
+
+    def rebuild_target_scene(
+        self,
+        target_type="dihedral",
+        target_size=DEFAULT_TARGET_SIZE,
+        target_roughness=0.0,
+        target_height_deviation=0.0,
+        target_range=DEFAULT_TARGET_RANGE,
+        target_azimuth="0deg",
+        target_elevation="0deg",
+        target_roll="0deg",
+        overwrite=None,
+    ):
+        """
+        Rebuilds only TargetCS and the target of the existing SBR+ design `sbr_design_name`
+        (e.g. one with parametric-beam antennas), as `setup_sbr_design` builds them; its
+        antennas, Tx/Rx pairs, setup and reports are kept. The canonical target objects (with
+        their Perfect E boundaries), TargetCS and the legacy variable targetDistance are
+        replaced after confirmation (`overwrite` presets it). Saves the project.
+        """
+        if not self.desktop_session:
+            self.connect_desktop()
+        print(f"Loading project: {self.project_path}")
+        self.sbr_app = Hfss(
+            project=self.project_path,
+            design=self.sbr_design_name,
+            new_desktop=False,
+            close_on_exit=False,
+        )
+        app = self.sbr_app
+        if app.solution_type != "SBR+":
+            raise ValueError(f"'{self.sbr_design_name}' is not an SBR+ design.")
+
+        modeler = app.modeler
+        objects = [name for name in TARGET_OBJECTS.values() if name in modeler.object_names]
+        has_cs = TARGET_CS in [cs.name for cs in modeler.coordinate_systems]
+        replaced = objects + ([TARGET_CS] if has_cs else [])
+        if replaced:
+            question = f"Replace {', '.join(replaced)} in '{self.sbr_design_name}'?"
+            if not _confirm(question, preset=overwrite, default=False):
+                raise BuildAbortedError(f"Kept the target scene of '{self.sbr_design_name}'.")
+        boundaries = {f"{name}PerfectE" for name in objects}
+        stale = [b.name for b in app.boundaries if b.name in boundaries]
+        if stale:
+            app.oboundary.DeleteBoundaries(stale)
+        if objects:
+            modeler.delete(objects)
+        if has_cs:
+            modeler.set_working_coordinate_system("Global")
+            next(cs for cs in modeler.coordinate_systems if cs.name == TARGET_CS).delete()
+        print(f"Removed: {', '.join(stale + replaced) or 'nothing'}")
+
+        self.create_coordinate_systems(
+            target_range=target_range,
+            target_azimuth=target_azimuth,
+            target_elevation=target_elevation,
+            target_roll=target_roll,
+            create_antenna_cs=False,
+        )
+        if LEGACY_RANGE_VARIABLE in app.variable_manager.variables:
+            app.variable_manager.delete_variable(LEGACY_RANGE_VARIABLE)
+            print(f"Removed the variable {LEGACY_RANGE_VARIABLE} (now targetRange).")
+        self.create_target(
+            target_type=target_type,
+            size=target_size,
+            roughness=target_roughness,
+            height_deviation=target_height_deviation,
+        )
+        self.check_target_far_field(target_type)
+        app.save_project()
 
     # ------------------------------------------------------------------------------------------
     # Steps
@@ -276,15 +370,19 @@ class SbrSimulationManager:
 
     def create_coordinate_systems(
         self,
-        target_distance=DEFAULT_TARGET_DISTANCE,
+        target_range=DEFAULT_TARGET_RANGE,
         target_azimuth="0deg",
         target_elevation="0deg",
         target_roll="0deg",
+        create_antenna_cs=True,
     ):
-        """(a) AntennaCS at the global origin; (b) spherically placed, ZYZ-rotated TargetCS."""
+        """
+        (a) AntennaCS at the global origin, turned so that the linked antenna's boresight lies
+        along the scene's boresight axis; (b) the spherically placed, ZYZ-rotated TargetCS.
+        """
         app = self.sbr_app
         variables = [
-            ("targetDistance", _aedt_length(target_distance, "meter")),
+            ("targetRange", _aedt_length(target_range, "meter")),
             ("targetAzimuth", _with_unit(target_azimuth, "deg")),
             ("targetElevation", _with_unit(target_elevation, "deg")),
             ("targetRoll", _with_unit(target_roll, "deg")),
@@ -293,26 +391,43 @@ class SbrSimulationManager:
             app[name] = value
 
         editor = app.modeler.oeditor
-        print(f"Creating {ANTENNA_CS} at the global origin...")
+        # CreateRelativeCS references the working CS
         app.modeler.set_working_coordinate_system("Global")
-        editor.CreateRelativeCS(
-            _euler_zyz_cs_args(["0mm", "0mm", "0mm"], ["0deg", "0deg", "0deg"]),
-            ["NAME:Attributes", "Name:=", ANTENNA_CS],
-        )
+        if self.boresight == "x":
+            # Rz(0) Ry(90) Rz(90): antenna frame x (H) -> y, y (V) -> z, z (boresight) -> x
+            antenna_angles = ["0deg", "90deg", "90deg"]
+            target_origin = [
+                "targetRange*cos(targetElevation)*cos(targetAzimuth)",
+                "targetRange*cos(targetElevation)*sin(targetAzimuth)",
+                "targetRange*sin(targetElevation)",
+            ]
+            # Rz(az) Ry(90 - el) Rz(90 + roll): local z radially outward, local x along H
+            target_angles = ["targetAzimuth", "90deg-targetElevation", "90deg+targetRoll"]
+            target_reference = "Global"
+        else:
+            antenna_angles = ["0deg", "0deg", "0deg"]
+            target_origin = [
+                "targetRange*cos(targetAzimuth)*sin(targetElevation)",
+                "targetRange*sin(targetAzimuth)*sin(targetElevation)",
+                "targetRange*cos(targetElevation)",
+            ]
+            # Rz(az) Ry(el) Rz(roll - az): local z radially outward, no twist at roll = 0
+            target_angles = ["targetAzimuth", "targetElevation", "targetRoll - targetAzimuth"]
+            target_reference = ANTENNA_CS
 
-        # CreateRelativeCS references the working CS, so TargetCS is created from AntennaCS
-        print(f"Creating {TARGET_CS} in {ANTENNA_CS} (spherical position, Euler ZYZ rotation)...")
-        app.modeler.set_working_coordinate_system(ANTENNA_CS)
+        if create_antenna_cs:
+            print(f"Creating {ANTENNA_CS} at the global origin (boresight +{self.boresight})...")
+            editor.CreateRelativeCS(
+                _euler_zyz_cs_args(["0mm", "0mm", "0mm"], antenna_angles),
+                ["NAME:Attributes", "Name:=", ANTENNA_CS],
+            )
+        print(
+            f"Creating {TARGET_CS} in {target_reference} (boresight +{self.boresight}, spherical "
+            "position, Euler ZYZ rotation)..."
+        )
+        app.modeler.set_working_coordinate_system(target_reference)
         editor.CreateRelativeCS(
-            _euler_zyz_cs_args(
-                [
-                    "targetDistance*cos(targetAzimuth)*sin(targetElevation)",
-                    "targetDistance*sin(targetAzimuth)*sin(targetElevation)",
-                    "targetDistance*cos(targetElevation)",
-                ],
-                # Rz(az) Ry(el) Rz(roll - az): local z radially outward, no twist at roll = 0
-                ["targetAzimuth", "targetElevation", "targetRoll - targetAzimuth"],
-            ),
+            _euler_zyz_cs_args(target_origin, target_angles),
             ["NAME:Attributes", "Name:=", TARGET_CS],
         )
         app.modeler.set_working_coordinate_system("Global")
@@ -339,15 +454,16 @@ class SbrSimulationManager:
         print(f"Creating {target_type} target (targetSize = {app['targetSize']})...")
         modeler.set_working_coordinate_system(TARGET_CS)
         a = "targetSize"
+        name = TARGET_OBJECTS[target_type]
         if target_type == "sphere":
-            target = modeler.create_sphere([0, 0, 0], a, name="TargetSphere", material="pec")
+            target = modeler.create_sphere([0, 0, 0], a, name=name, material="pec")
         else:
             if target_type == "dihedral":
                 # Square sheet on the local xy plane with its seam edge on the x axis; tilted by
                 # -45 deg about x it runs from the seam towards the antenna (-z), and its copy at
                 # 180 deg about the symmetry axis z closes the 90 deg fold
                 target = modeler.create_rectangle(
-                    Plane.XY, [f"-{a}/2", "0mm", "0mm"], [a, a], name="TargetDihedral"
+                    Plane.XY, [f"-{a}/2", "0mm", "0mm"], [a, a], name=name
                 )
                 modeler.rotate(target.name, "X", -45)
                 axis, angle, clones = "Z", 180, 2
@@ -361,7 +477,7 @@ class SbrSimulationManager:
                     [["0mm", "0mm", "0mm"], e1, e2],
                     close_surface=True,
                     cover_surface=True,
-                    name="TargetTrihedral",
+                    name=name,
                 )
                 axis, angle, clones = "Z", 120, 3
             success, copies = modeler.duplicate_around_axis(target.name, axis, angle, clones)
@@ -602,7 +718,7 @@ class SbrSimulationManager:
         wavelength_mm = SPEED_OF_LIGHT_MM_S / (centre_ghz * 1e9)
         size_mm = _length_mm(self.sbr_app, self.sbr_app["targetSize"])
         # _length_mm reads AEDT's 'meter' as well as m/metre(s)
-        distance_mm = _length_mm(self.sbr_app, self.sbr_app["targetDistance"])
+        distance_mm = _length_mm(self.sbr_app, self.sbr_app["targetRange"])
         aperture_mm = {
             "sphere": 2.0 * size_mm,
             "dihedral": math.sqrt(3.0) * size_mm,
@@ -849,9 +965,35 @@ def main(argv=None):
         )
     )
     parser.add_argument("project_path", help="Path to the AEDT project (.aedt)")
-    parser.add_argument("source_design_name", help="Solved HFSS antenna design in that project")
     parser.add_argument(
-        "--design", default=None, help="SBR+ design name (default: Linked<source_design_name>)"
+        "source_design_name",
+        help=(
+            "Solved HFSS antenna design in that project (with --scene-only: the existing SBR+ "
+            "design whose target scene is rebuilt)"
+        ),
+    )
+    parser.add_argument(
+        "--scene-only",
+        action="store_true",
+        help=(
+            "Rebuild only TargetCS and the target of an existing SBR+ design (e.g. with "
+            "parametric-beam antennas); antennas, Tx/Rx pairs, setup and reports are kept"
+        ),
+    )
+    parser.add_argument(
+        "--boresight",
+        choices=BORESIGHT_AXES,
+        default=DEFAULT_BORESIGHT,
+        help=(
+            "Antenna boresight axis of the scene: x (ISO 8855: x forward, y left, z up; "
+            "default) or z (the HFSS antenna frame)"
+        ),
+    )
+    parser.add_argument(
+        "--output-design",
+        default=None,
+        metavar="NAME",
+        help="Name of the SBR+ design to create (default: Linked<source_design_name>)",
     )
     parser.add_argument(
         "--target", choices=TARGET_TYPES, default="dihedral", help="Target type (default: dihedral)"
@@ -877,16 +1019,27 @@ def main(argv=None):
         help="SBR+ surface height standard deviation in mm of that boundary (default: 0)",
     )
     parser.add_argument(
+        "--range",
         "--distance",
-        default=DEFAULT_TARGET_DISTANCE,
+        dest="range",
+        default=DEFAULT_TARGET_RANGE,
         help=(
-            "Target distance from AntennaCS, in metres unless another unit is given "
-            f"(e.g. 4, 4m, 4 metres, 4 meters, 400mm; default: {DEFAULT_TARGET_DISTANCE})"
+            "Target range from the antenna origin (targetRange), in metres unless another unit "
+            f"is given (e.g. 4, 4m, 4 metres, 4 meters, 400mm; default: {DEFAULT_TARGET_RANGE})"
         ),
     )
-    parser.add_argument("--azimuth", default="0deg", help="Target azimuth (default: 0deg)")
     parser.add_argument(
-        "--elevation", default="0deg", help="Target polar angle off boresight (default: 0deg)"
+        "--azimuth",
+        default="0deg",
+        help="Target azimuth, from boresight towards +y (x boresight; default: 0deg)",
+    )
+    parser.add_argument(
+        "--elevation",
+        default="0deg",
+        help=(
+            "Target elevation above the xy plane (x boresight), or polar angle off boresight "
+            "(z boresight); default: 0deg"
+        ),
     )
     parser.add_argument(
         "--roll", default="0deg", help="Target roll about the line of sight (default: 0deg)"
@@ -933,27 +1086,35 @@ def main(argv=None):
     manager = SbrSimulationManager(
         project_path=args.project_path,
         source_design_name=args.source_design_name,
-        sbr_design_name=args.design,
+        # With --scene-only the named design is the SBR+ design itself
+        sbr_design_name=args.source_design_name if args.scene_only else args.output_design,
+        boresight=args.boresight,
     )
+    target = {
+        "target_type": args.target,
+        "target_size": args.size,
+        "target_roughness": args.roughness,
+        "target_height_deviation": args.height_deviation,
+        "target_range": args.range,
+        "target_azimuth": args.azimuth,
+        "target_elevation": args.elevation,
+        "target_roll": args.roll,
+    }
     try:
         manager.connect_desktop()
-        manager.setup_sbr_design(
-            target_type=args.target,
-            target_size=args.size,
-            target_roughness=args.roughness,
-            target_height_deviation=args.height_deviation,
-            target_distance=args.distance,
-            target_azimuth=args.azimuth,
-            target_elevation=args.elevation,
-            target_roll=args.roll,
-            field_type=args.field_type,
-            mapped_variables=args.map_variables,
-            source_solution=args.source_solution,
-            ray_density=args.ray_density,
-            max_bounces=args.max_bounces,
-            overwrite=args.overwrite,
-            simulate=args.simulate,
-        )
+        if args.scene_only:
+            manager.rebuild_target_scene(**target, overwrite=args.overwrite)
+        else:
+            manager.setup_sbr_design(
+                **target,
+                field_type=args.field_type,
+                mapped_variables=args.map_variables,
+                source_solution=args.source_solution,
+                ray_density=args.ray_density,
+                max_bounces=args.max_bounces,
+                overwrite=args.overwrite,
+                simulate=args.simulate,
+            )
     except BuildAbortedError as e:
         print(f"[INFO] {e}")
         return 0
