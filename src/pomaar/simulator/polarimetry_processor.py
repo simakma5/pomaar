@@ -149,6 +149,91 @@ def port_sign_matrix(quad_ports, signs):
     return np.outer(rx, tx)
 
 
+class IncompleteSweepError(ValueError):
+    """Raised when some variations of an export lack data at some frequencies (NaN or inf)."""
+
+
+def check_complete_sweep(s, frequencies_hz, sweep_values, sweep_variable=None):
+    """
+    Checks that every variation of `s` (n_variations, n_channels, n_frequencies) holds finite
+    data at every frequency, and raises `IncompleteSweepError` otherwise, naming each incomplete
+    variation with how many frequencies it has and their step.
+
+    AEDT returns all variations on the union of their frequency grids and marks missing samples
+    as NaN, so a variation that was solved on another grid (e.g. an old sweep), or not at all,
+    shows up here.
+    """
+    s = np.asarray(s)
+    frequencies_hz = np.asarray(frequencies_hz, dtype=float)
+    valid = np.all(np.isfinite(s), axis=1)  # (n_variations, n_frequencies)
+    incomplete = np.flatnonzero(~valid.all(axis=-1))
+    if incomplete.size == 0:
+        return
+    name = sweep_variable or "variation"
+    values = np.arange(s.shape[0]) if sweep_values is None else np.asarray(sweep_values)
+
+    def describe(index):
+        solved = frequencies_hz[valid[index]]
+        if solved.size == 0:
+            return "no data at all"
+        steps = np.unique(np.round(np.diff(solved) / 1e6, 6)) if solved.size > 1 else []
+        step = f"step {steps[0]:g} MHz" if len(steps) == 1 else "irregular steps"
+        return f"{solved.size} of {len(frequencies_hz)} frequencies ({step})"
+
+    lines = [f"  {name} = {values[i]:g}: {describe(i)}" for i in incomplete]
+    complete = [f"{values[i]:g}" for i in range(s.shape[0]) if i not in incomplete]
+    raise IncompleteSweepError(
+        f"{len(incomplete)} of {s.shape[0]} values of {name} lack data at some of the "
+        f"{len(frequencies_hz)} frequencies, i.e. they were solved on another frequency grid or "
+        "not at all:\n"
+        + "\n".join(lines)
+        + (f"\n  complete: {', '.join(complete)}" if complete else "")
+        + "\nRe-solve every variation (the parametric sweep, not only the nominal setup) and "
+        "export again."
+    )
+
+
+def identical_variations(s, sweep_values, sweep_variable=None, rtol=1e-9):
+    """
+    A warning naming the variations of `s` (n_variations, n_channels, n_frequencies) whose data
+    equal those of another variation (to `rtol` of the export's largest magnitude), or None.
+
+    Different values of a swept variable that give the same solution mean the variable changed
+    nothing in the solved geometry, e.g. an SBR+ variable that is not mapped to the linked
+    antenna. The data stay usable, so this only warns.
+    """
+    s = np.asarray(s)
+    if s.shape[0] < 2:
+        return None
+    tolerance = rtol * np.max(np.abs(s))
+    name = sweep_variable or "variation"
+    values = np.arange(s.shape[0]) if sweep_values is None else np.asarray(sweep_values)
+    groups, assigned = [], set()
+    for i in range(s.shape[0]):
+        if i in assigned:
+            continue
+        group = [i] + [
+            j
+            for j in range(i + 1, s.shape[0])
+            if j not in assigned and np.max(np.abs(s[j] - s[i])) <= tolerance
+        ]
+        if len(group) > 1:
+            groups.append(group)
+            assigned.update(group)
+    if not groups:
+        return None
+    if len(groups) == 1 and len(groups[0]) == s.shape[0]:
+        return (
+            f"All {s.shape[0]} values of {name} give identical data: the sweep changed nothing "
+            f"in the solution (is {name} mapped to the linked antenna?)."
+        )
+    listed = "; ".join(", ".join(f"{values[i]:g}" for i in group) for group in groups)
+    return (
+        f"Some values of {name} give identical data ({listed}): those variations changed "
+        "nothing in the solution."
+    )
+
+
 # ----------------------------------------------------------------------------------------------
 # (b)-(f) Radar processing
 # ----------------------------------------------------------------------------------------------
@@ -501,6 +586,9 @@ class MimoPolarimetryProcessor:
             else np.asarray(sweep_values, dtype=float)
         )
         self.metadata = metadata or {}
+        check_complete_sweep(
+            self.s, self.frequencies_hz, self.sweep_values, self.metadata.get("sweep_variable")
+        )
         self._raw = {
             "s": self.s.copy(),
             "frequencies_hz": self.frequencies_hz.copy(),

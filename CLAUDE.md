@@ -134,7 +134,7 @@ and V ports) and `attach_port_table`.
 * `sbr_simulator` skips `_Load` ports, builds its reports from the scattered solution (one
   total-field report for reference), per quad for VV/HH and cross-pol, and sign-corrects the VV/HH
   phase from the source design's `_ports.json`.
-* `sbr_results` exports `Setup : Sweep_Scattered` by default and attaches the matching
+* `sbr_results` exports the design's `<setup> : <sweep>_Scattered` by default and attaches the matching
   `_ports.json` (found next to the project, or `--port-table`) to the `.npz` metadata as `ports`.
 * `MimoPolarimetryProcessor.from_npz` keeps every channel (or one `quad=`), removes the port
   signs (`correct_signs`) and takes the virtual positions from the port phase centres

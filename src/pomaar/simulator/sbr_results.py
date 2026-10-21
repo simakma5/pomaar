@@ -6,7 +6,7 @@ SBR+ result export: pulls the swept S-parameters of a solved (parametric) SBR+ d
 Run inside the AEDT container, attached to the running GUI session:
 
     ansys-vnc exec sbr_results <project> <design> <out.npz> \
-        [--setup "Setup : Sweep_Scattered"] [--sweep-variable copolarSpacingLambda] \
+        [--setup "<setup> : <sweep>_Scattered"] [--sweep-variable copolarSpacingLambda] \
         [--port-table <ArrayDesign>_ports.json]
 
 The scattered (target-only) solution is the default; see the README on why it is the
@@ -28,8 +28,50 @@ from pomaar.simulator.hfss_array_builder import (
     NoLiveSessionError,
     connect_live_session,
 )
+from pomaar.simulator.polarimetry_processor import (
+    IncompleteSweepError,
+    check_complete_sweep,
+    identical_variations,
+)
 
-SCATTERED_SOLUTION = "Setup : Sweep_Scattered"
+SCATTERED_SUFFIX = "_Scattered"
+
+
+def scattered_solution(app):
+    """
+    The design's scattered (target-only) solution '<setup> : <sweep>_Scattered', with the names
+    AEDT gave the setup and sweep (they may be de-duplicated, e.g. 'Setup1'): the design's only
+    setup and its only sweep, or the first ones with a warning.
+    """
+    analysis = app.oanalysis
+    setups = list(analysis.GetSetups())
+    if not setups:
+        raise RuntimeError(f"Design '{app.design_name}' has no analysis setup.")
+    sweeps = list(analysis.GetSweeps(setups[0]))
+    if not sweeps:
+        raise RuntimeError(f"Setup '{setups[0]}' of '{app.design_name}' has no frequency sweep.")
+    if len(setups) > 1 or len(sweeps) > 1:
+        print(f"Warning: setups {setups}, sweeps {sweeps}; using '{setups[0]} : {sweeps[0]}'.")
+    return f"{setups[0]} : {sweeps[0]}{SCATTERED_SUFFIX}"
+
+
+def resolve_output_path(output_path):
+    """
+    The absolute .npz path of `output_path` (relative paths resolve against the current
+    directory), checked before any AEDT work: its folder must exist and be writable.
+    """
+    path = os.path.abspath(os.path.expanduser(str(output_path)))
+    if not path.endswith(".npz"):
+        path += ".npz"  # np.savez would append it anyway
+    folder = os.path.dirname(path)
+    if not os.path.isdir(folder):
+        raise FileNotFoundError(
+            f"Output folder {folder} does not exist (the output path '{output_path}' is resolved "
+            f"against the current directory {os.getcwd()}). Create it, or give another path."
+        )
+    if not os.access(folder, os.W_OK):
+        raise PermissionError(f"Output folder {folder} is not writable.")
+    return path
 
 
 def find_port_table(expressions, search_dir, ports_path=None):
@@ -58,14 +100,14 @@ def find_port_table(expressions, search_dir, ports_path=None):
 
 
 def export_sbr_parametric_sweep(
-    app, output_path, setup_sweep=SCATTERED_SOLUTION, sweep_variable=None, ports_path=None
+    app, output_path, setup_sweep=None, sweep_variable=None, ports_path=None
 ):
     """
     Writes every S-parameter of `setup_sweep` for all solved values of `sweep_variable`.
 
-    A solved SBR+ design offers 'Setup : Sweep' (total fields), 'Setup : Sweep_Incident' (direct
-    Tx->Rx coupling only) and 'Setup : Sweep_Scattered' (target only, the default); target
-    signatures need the scattered one.
+    A solved SBR+ design offers '<setup> : <sweep>' (total fields), '<setup> : <sweep>_Incident'
+    (direct Tx->Rx coupling only) and '<setup> : <sweep>_Scattered' (target only, the default,
+    `scattered_solution`); target signatures need the scattered one.
 
     S is read as AEDT's real and imaginary parts and stored complex: that is AEDT's own form,
     exact, and free of the -inf dB of a zero channel and of phase wrapping (magnitude/phase data
@@ -80,8 +122,14 @@ def export_sbr_parametric_sweep(
     port, role, polarization, field sign and phase centre (mm, at build time), which
     `MimoPolarimetryProcessor` uses to correct the signs and as virtual-channel positions.
     The result data must exist: an SBR+ design whose results were invalidated (e.g. by an edit
-    of the linked source) reports "No Data Available" until it is re-solved.
+    of the linked source) reports "No Data Available" until it is re-solved. Every variation must
+    be solved on the same frequency grid; otherwise nothing is written
+    (`polarimetry_processor.check_complete_sweep`). Variations with identical data are written
+    with a warning (`polarimetry_processor.identical_variations`).
     """
+    output_path = resolve_output_path(output_path)
+    setup_sweep = setup_sweep or scattered_solution(app)
+    print(f"Reading '{setup_sweep}' of '{app.design_name}'...")
     expressions = app.post.available_report_quantities(
         solution=setup_sweep, quantities_category="S Parameter"
     )
@@ -117,6 +165,11 @@ def export_sbr_parametric_sweep(
     # PyAEDT returns the primary sweep in the report's unit (GHz for SBR+ sweeps)
     frequency_unit = solution_data.units_sweeps.get("Freq") or "GHz"
     scale = {"Hz": 1.0, "kHz": 1e3, "MHz": 1e6, "GHz": 1e9, "THz": 1e12}[frequency_unit]
+    # AEDT returns all variations on the union of their frequency grids, with NaN where a
+    # variation has no solution; such an export is refused rather than written
+    check_complete_sweep(s, frequencies * scale, sweep_values, sweep_variable)
+    if warning := identical_variations(s, sweep_values, sweep_variable):
+        print(f"  Warning: {warning}")
     metadata = {
         "project": app.project_name,
         "design": app.design_name,
@@ -150,8 +203,11 @@ def main():
     parser.add_argument("output", help="Output .npz path")
     parser.add_argument(
         "--setup",
-        default=SCATTERED_SOLUTION,
-        help=f"Setup and sweep name (default: '{SCATTERED_SOLUTION}', the target only)",
+        default=None,
+        help=(
+            "Setup and sweep name (default: the design's '<setup> : <sweep>_Scattered', the "
+            "target only)"
+        ),
     )
     parser.add_argument("--sweep-variable", default=None, help="Parametric variable to export")
     parser.add_argument(
@@ -164,6 +220,12 @@ def main():
     )
     args = parser.parse_args()
 
+    # Fail on a bad output path before attaching to AEDT and reading the whole solution
+    try:
+        output_path = resolve_output_path(args.output)
+    except (FileNotFoundError, PermissionError) as e:
+        sys.exit(f"[ERROR] {e}")
+    print(f"Exporting to {output_path}")
     try:
         desktop = connect_live_session()
     except (NativeAedtRefusedError, NoLiveSessionError) as e:
@@ -171,8 +233,10 @@ def main():
     try:
         app = Hfss(project=args.project, design=args.design, new_desktop=False, close_on_exit=False)
         export_sbr_parametric_sweep(
-            app, args.output, args.setup, args.sweep_variable, ports_path=args.port_table
+            app, output_path, args.setup, args.sweep_variable, ports_path=args.port_table
         )
+    except IncompleteSweepError as e:
+        sys.exit(f"[ERROR] Nothing written. {e}")
     finally:
         desktop.release_desktop(close_projects=False, close_on_exit=False)
 

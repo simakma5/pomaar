@@ -4,7 +4,7 @@ Bistaticity study: polarimetric signatures of one target against a swept variabl
 Tx-Rx spacing), from an SBR+ sweep exported by `sbr_results` (scattered solution).
 
     bistaticity_analysis data/interim/bistatic_sweep/<sweep>.npz \
-        [--out data/processed/bistaticity] [--azimuth DEG] [--elevation DEG] [--quad NAME]
+        [--out <folder>] [--azimuth DEG] [--elevation DEG] [--quad NAME]
 
 All processing is `CanonicalTargetProcessor`'s: the target's scattering matrices beamformed
 towards (azimuth, elevation) (boresight by default, where no geometry is needed), range profiles
@@ -17,6 +17,7 @@ target, no thresholds, no classification. Figures and a CSV land in --out; the R
 import argparse
 import csv
 import os
+import sys
 
 import matplotlib
 
@@ -24,15 +25,19 @@ matplotlib.use("Agg")
 import matplotlib.pyplot as plt  # noqa: E402
 import numpy as np  # noqa: E402
 
+from pomaar.config import PROCESSED_DATA_DIR  # noqa: E402
 from pomaar.simulator.polarimetry_processor import (  # noqa: E402
     POLARIMETRIC_CHANNELS,
     CanonicalTargetProcessor,
+    IncompleteSweepError,
     channel_powers,
     db10,
+    identical_variations,
     pauli_powers,
     total_power,
 )
 
+DEFAULT_OUTPUT_ROOT = PROCESSED_DATA_DIR / "bistaticity"
 SERIES_COLOURS = ["#2a78d6", "#eb6834", "#1baf7a", "#eda100"]
 INK, MUTED, GRID = "#222222", "#6b6b6b", "#e4e4e4"
 PAULI_NAMES = ["k₁ ∝ HH+VV", "k₂ ∝ HH−VV", "k₃ ∝ HV+VH", "k₄ ∝ j(HV−VH)"]
@@ -217,7 +222,14 @@ def write_csv(out_dir, features, x, x_label, centre_index):
 def main(argv=None):
     parser = argparse.ArgumentParser(description=__doc__.split("\n\n")[0])
     parser.add_argument("sweep", help=".npz written by pomaar.simulator.sbr_results")
-    parser.add_argument("--out", default="data/processed/bistaticity")
+    parser.add_argument(
+        "--out",
+        default=str(DEFAULT_OUTPUT_ROOT),
+        help=(
+            "Parent folder; the results go to <out>/<export file name>/ "
+            f"(default: {DEFAULT_OUTPUT_ROOT})"
+        ),
+    )
     parser.add_argument(
         "--azimuth", type=float, default=0.0, help="Steering azimuth (deg, towards +x)"
     )
@@ -231,12 +243,31 @@ def main(argv=None):
         "--window", default="hann", help="Frequency window of the range profiles (default: hann)"
     )
     args = parser.parse_args(argv)
-    os.makedirs(args.out, exist_ok=True)
 
-    processor = CanonicalTargetProcessor.from_npz(args.sweep, quad=args.quad)
+    # Check the input and the output folder before any processing
+    sweep = os.path.abspath(os.path.expanduser(args.sweep))
+    # One folder per export, so that analysing another data set never overwrites results
+    stem = os.path.splitext(os.path.basename(sweep))[0]
+    out = os.path.join(os.path.abspath(os.path.expanduser(args.out)), stem)
+    if not os.path.isfile(sweep):
+        sys.exit(f"[ERROR] No export at {sweep} (relative paths resolve against {os.getcwd()}).")
+    try:
+        os.makedirs(out, exist_ok=True)
+    except OSError as e:
+        sys.exit(f"[ERROR] Cannot create the output folder {out} ({e}).")
+    if not os.access(out, os.W_OK):
+        sys.exit(f"[ERROR] The output folder {out} is not writable.")
+    args.sweep, args.out = sweep, out
+
+    try:
+        processor = CanonicalTargetProcessor.from_npz(args.sweep, quad=args.quad)
+    except IncompleteSweepError as e:
+        sys.exit(f"[ERROR] {os.path.basename(sweep)}: {e}")
     frequencies = processor.frequencies_hz
     x_label = processor.metadata.get("sweep_variable") or "variation"
     x = processor.sweep_values
+    if warning := identical_variations(processor.raw()["s"], x, x_label):
+        print(f"Warning: {warning}")
     if np.all(np.isnan(x)):
         x = np.arange(len(x), dtype=float)
     centre_index = len(frequencies) // 2

@@ -11,15 +11,18 @@ from pomaar.simulator.polarimetry_processor import (
     REFERENCE_SPHERE,
     SPEED_OF_LIGHT,
     CanonicalTargetProcessor,
+    IncompleteSweepError,
     MimoPolarimetryProcessor,
     alpha_angle,
     assemble_scattering_matrix,
     calibrate_with_sphere,
     channel_powers,
+    check_complete_sweep,
     cloude_pottier,
     coherency_matrix,
     complex_from_db_deg,
     copolar_ratio,
+    identical_variations,
     pauli_power_fractions,
     pauli_powers,
     pauli_vector,
@@ -404,3 +407,44 @@ def test_port_table_signs_and_positions(tmp_path):
     # Without a port table there is nothing to correct or place
     bare = MimoPolarimetryProcessor.from_npz(builder_export(tmp_path, measured, CLUSTER_PORTS))
     assert not bare.signs_corrected and not bare.positions_known
+
+
+# --- incomplete sweeps --------------------------------------------------------------------------
+
+
+def test_incomplete_sweeps_are_refused_with_the_variations_named():
+    frequencies = np.linspace(74e9, 84e9, 1001)
+    s = np.ones((3, 4, len(frequencies)), dtype=complex)
+    # Variations 0 and 2 were solved on the old 201-point grid: NaN elsewhere (as AEDT returns)
+    old_grid = np.isin(np.arange(len(frequencies)), np.arange(0, 1001, 5))
+    s[[0, 2]] = np.where(old_grid, 1.0, np.nan)
+    with pytest.raises(IncompleteSweepError) as error:
+        check_complete_sweep(s, frequencies, [1.41, 1.66, 2.41], "copolarSpacingLambda")
+    message = str(error.value)
+    assert "2 of 3 values of copolarSpacingLambda" in message
+    assert "copolarSpacingLambda = 1.41: 201 of 1001 frequencies (step 50 MHz)" in message
+    assert "complete: 1.66" in message
+    with pytest.raises(IncompleteSweepError):
+        MimoPolarimetryProcessor(s, frequencies, EXPRESSIONS, [1.41, 1.66, 2.41])
+    check_complete_sweep(s[[1]], frequencies, [1.66])  # a complete export passes
+
+
+def test_unsolved_variation_and_inf_are_incomplete():
+    s = np.ones((2, 4, 5), dtype=complex)
+    s[1] = np.nan
+    s[0, 2, 3] = np.inf
+    with pytest.raises(IncompleteSweepError, match="no data at all"):
+        check_complete_sweep(s, np.linspace(1e9, 2e9, 5), None)
+
+
+def test_identical_variations_are_named():
+    rng = np.random.default_rng(1)
+    s = rng.standard_normal((3, 4, 5)) + 1j * rng.standard_normal((3, 4, 5))
+    assert identical_variations(s, [1.0, 2.0, 3.0], "spacing") is None
+    same = np.repeat(s[:1], 3, axis=0)
+    assert "All 3 values of spacing give identical data" in identical_variations(
+        same, [1.0, 2.0, 3.0], "spacing"
+    )
+    s[2] = s[0]
+    assert "(1, 3)" in identical_variations(s, [1.0, 2.0, 3.0], "spacing")
+    assert identical_variations(s[:1], [1.0]) is None

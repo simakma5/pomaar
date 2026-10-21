@@ -148,6 +148,7 @@ sbr_simulator <path_to_project.aedt> <hfss_design_name> [--target dihedral] [--s
 
   `SbrSimulationManager.export_results(path, sweep_variable)` writes the solved scattered solution to an `.npz` for Module 3 (via `sbr_results.py`, which is also a standalone CLI; see §4.2).
 
+* **Setup and sweep names are read back.** The setup and sweep are requested as `Setup` and `Sweep`, but AEDT may de-duplicate names (`Setup1`, …). The reports, the solve and `export_results` use the names AEDT actually gave them (`analysis_solution`): the setup created in this run, else the design's only (or first) setup and its first sweep. `sbr_results` likewise defaults to the design's own `<setup> : <sweep>_Scattered`. The examples below write `Setup : Sweep`.
 * **Only discrete sweeps are linked.** SBR+ receives the linked antenna's far fields only at the frequencies where the HFSS design saved fields, and interpolates them in between. Linking `Setup : LastAdaptive` gives fields at the adaptive frequencies only; an interpolating sweep gives them at its basis frequencies only, which it picks by bisecting the band. Both put ripple into every SBR+ result, with slope breaks exactly at the solved frequencies: the dihedral export of §4 peaked at 77, 79 and 81 GHz (its link was `LastAdaptive`), and the sphere export at 75.25, 76.5, …, 82.75 GHz (an interpolating sweep), with curvature 100–250 times the median at those frequencies. `sbr_simulator` therefore links only a discrete sweep that saves fields (all fields or the radiated ones) and refuses anything else, naming each candidate and why. It reads the sweeps from the saved project file after saving the project, since PyAEDT 1.1 reports every loaded sweep as interpolating. A hand-built HFSS design needs a discrete sweep with saved fields over the SBR+ band.
 * **The scattered field is the default, everywhere.** SBR+ splits its total solution `Setup : Sweep` into `Setup : Sweep_Incident`, the direct Tx→Rx coupling between the linked antenna's ports (the line-of-sight path that never touches the target), and `Setup : Sweep_Scattered`, everything that reached the receiver via the target (total = incident + scattered). The reports above, `export_results` and `sbr_results` all use the scattered part. This is the simulation's counterpart of what every practical radar measurement does to the antenna coupling: the direct Tx→Rx leakage arrives at (almost) zero range, well ahead of any target, and is removed by range gating, i.e. by keeping only the target's cells of the range (delay) profile, or equivalently by subtracting an empty-scene background measurement. SBR+ makes the same separation exactly, by bookkeeping of the rays instead of by delay, so it needs no window, loses no bandwidth or resolution, and still works when the frequency step folds the target's delay next to the coupling (§4.4). Because the coupling is 30–60 dB above the target at short Tx/Rx spacings, reading the total field means reading the coupling. The total field stays visible in `S-parameters dB (total)` and exportable with `sbr_results --setup "Setup : Sweep"` for debugging; the processor and the analysis assume the scattered solution.
 
@@ -227,16 +228,18 @@ The routines are the functions of `polarimetry_processor.py` (pure NumPy, no AED
 sbr_results mimo_polarimetry \
     LinkedDualPolHornCluster data/interim/bistatic_sweep/sphere_boresight_3m.npz \
     --sweep-variable copolarSpacingLambda
-# 2. Analyse (host or container); figures + CSV go to --out
-bistaticity_analysis \
-    data/interim/bistatic_sweep/sphere_boresight_3m.npz \
-    --out data/processed/bistaticity
+# 2. Analyse (host or container); figures + CSV go to data/processed/bistaticity/sphere_boresight_3m/
+bistaticity_analysis data/interim/bistatic_sweep/sphere_boresight_3m.npz
 ```
 
 `bistaticity_analysis` options: `--azimuth`/`--elevation` (deg) steer towards an off-boresight
 target; `--quad` keeps one polarimetric quad (default: every channel); `--window` is the frequency
-window of the range profiles. Its outputs make no assumption about the target or the scene: no
-reference target, no thresholds or "ideal" lines, no classification. It writes:
+window of the range profiles; `--out` is the parent output folder (default: the project's
+`data/processed/bistaticity`, whatever the current directory). Every export gets its own
+subfolder named after the `.npz` file, created if needed, so analysing other data sets never
+overwrites earlier results (re-running the same export does). Its outputs make no assumption about
+the target or the scene: no reference target, no thresholds or "ideal" lines, no classification.
+It writes:
 
 * `signatures_vs_sweep.png` and `signatures_vs_sweep.csv`: the signatures of §4.5 against the
   swept variable; per-frequency quantities as a line at the centre frequency with a band spanning
@@ -246,6 +249,10 @@ reference target, no thresholds or "ideal" lines, no classification. It writes:
   polarimetric channel towards the target;
 * `azimuth_elevation_maps.png`: total power and Pauli powers at the target range, only for arrays
   with several virtual channels per polarization (a cluster has no angular resolution).
+
+Both `sbr_results` and the analysis warn when several values of the swept variable give
+identical data, e.g. an SBR+ variable that does not reach the linked antenna (a stale link
+re-created from scratch fixed one such case); the data are still written and analysed.
 
 Off boresight, the steering needs the virtual channel positions; they come from the builder's port
 table in the export (a hand-built design such as the horn cluster has none, so it is analysed at
@@ -321,6 +328,15 @@ AEDT.
 > If `get_solution_data` returns *"No Data Available"*, the SBR+ results were invalidated (e.g.
 > by an edit of the linked source design). Re-solve the SBR+ design; the exporter then works.
 
+**Checks.** `sbr_results` checks the output folder before it attaches to AEDT (relative paths
+resolve against the current directory, which the `ansys-vnc` wrapper keeps). It refuses to write
+an export in which some variations lack data at some frequencies: AEDT returns all variations on
+the union of their frequency grids, with NaN where a variation was solved on another grid (e.g. a
+re-solved nominal next to old parametric results) or not at all. The error lists every
+incomplete variation with its number of frequencies and their step; re-solve the parametric sweep
+and export again. The processor (`check_complete_sweep`) and `bistaticity_analysis` apply the
+same check on load, and the analysis checks its input file and output folder first.
+
 **Convention.** Scattering matrices are indexed `S[..., rx, tx]` with 0 = H and 1 = V, so
 `S_HV` = receive H, transmit V = AEDT `S(...RxH, ...TxV)`.
 
@@ -353,7 +369,7 @@ gated total-field cross-pol came out at −30…−41 dB at 79 GHz, whereas the 
 gives −36…−57 dB (§4.7). That gating chain has been removed.
 
 > [!IMPORTANT]
-> **Remove the coupling at its source.** Export `Setup : Sweep_Scattered` (the default).
+> **Remove the coupling at its source.** Export `<setup> : <sweep>_Scattered` (the default).
 > The processor and the analysis assume it and do no background subtraction of their own.
 
 ### 4.5 Signatures (panels of `signatures_vs_sweep.png`)

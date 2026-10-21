@@ -56,6 +56,8 @@ DEFAULT_TARGET_SIZE = "40mm"
 
 ANTENNA_CS = "AntennaCS"
 TARGET_CS = "TargetCS"
+# Requested names only: AEDT may de-duplicate them (Setup1, ...), so the names in use are read
+# back from the design (`analysis_solution`)
 SETUP_NAME = "Setup"
 SWEEP_NAME = "Sweep"
 
@@ -64,9 +66,9 @@ SWEEP_NAME = "Sweep"
 RADIATION_BOUNDARY_TYPES = ("Radiation", "FE-BI", "PML", "Hybrid")
 RADIATION_OBJECT_NAMES = ("Airbox",)
 
-# SBR+ splits the solution 'Setup : Sweep' into '_Incident' (the direct Tx -> Rx coupling between
-# the proxy ports) and '_Scattered' (the target return); target signatures use the latter
-SCATTERED_SWEEP_NAME = f"{SWEEP_NAME}_Scattered"
+# SBR+ splits the solution '<setup> : <sweep>' into '_Incident' (the direct Tx -> Rx coupling
+# between the proxy ports) and '_Scattered' (the target return); target signatures use the latter
+SCATTERED_SUFFIX = "_Scattered"
 
 # The scattered (target-only) solution is the default everywhere; the total one is kept for
 # reference only (see the README on why this equals range gating in a measurement)
@@ -117,6 +119,8 @@ class SbrSimulationManager:
       boundary: the PEC sphere (radius) is centred at TargetCS; the dihedral seam (seam length =
       sheet depth = targetSize, along local x, i.e. parallel to H) and the trihedral corner (edge
       length targetSize) of the sheet targets sit at TargetCS.
+    * The analysis setup and sweep are requested as 'Setup' and 'Sweep', but every later step
+      uses the names AEDT actually gave them (`analysis_solution`).
     """
 
     def __init__(self, project_path, source_design_name, sbr_design_name=None):
@@ -532,7 +536,9 @@ class SbrSimulationManager:
             f"range(s) copied from '{self.source_solution}', ray density {ray_density}, "
             f"{max_bounces} bounces, creeping waves)..."
         )
-        self.sbr_app.oanalysis.InsertSetup(
+        analysis = self.sbr_app.oanalysis
+        existing = set(analysis.GetSetups())
+        analysis.InsertSetup(
             "HfssDriven",
             [
                 f"NAME:{SETUP_NAME}",
@@ -548,6 +554,40 @@ class SbrSimulationManager:
                 "ComputeFarFields:=", False,
             ],
         )  # fmt: skip
+        # AEDT may have de-duplicated the requested names (Setup1, ...)
+        created = sorted(set(analysis.GetSetups()) - existing)
+        if len(created) != 1:
+            raise RuntimeError(f"AEDT did not create the SBR+ setup '{SETUP_NAME}'.")
+        self.setup_name, self.sweep_name = created[0], None
+        self.analysis_solution()
+        print(f"  Created '{self.setup_name} : {self.sweep_name}'.")
+
+    def analysis_solution(self, part=""):
+        """
+        The SBR+ solution '<setup> : <sweep><part>' ('' for the total solution, '_Incident' or
+        '_Scattered'), with the names AEDT gave the setup and its sweep. They are read from the
+        design the first time they are needed (and kept): the setup created here, else the
+        design's only setup (the first one, with a warning, when there are several) and that
+        setup's first sweep.
+        """
+        analysis = self.sbr_app.oanalysis
+        if self.setup_name is None:
+            setups = list(analysis.GetSetups())
+            if not setups:
+                raise RuntimeError(f"SBR+ design '{self.sbr_design_name}' has no analysis setup.")
+            if len(setups) > 1:
+                print(f"  Warning: several analysis setups {setups}; using '{setups[0]}'.")
+            self.setup_name = setups[0]
+        if self.sweep_name is None:
+            sweeps = list(analysis.GetSweeps(self.setup_name))
+            if not sweeps:
+                raise RuntimeError(f"SBR+ setup '{self.setup_name}' has no frequency sweep.")
+            if len(sweeps) > 1:
+                print(
+                    f"  Warning: several sweeps {sweeps} in '{self.setup_name}'; using the first."
+                )
+            self.sweep_name = sweeps[0]
+        return f"{self.setup_name} : {self.sweep_name}{part}"
 
     def check_target_far_field(self, target_type):
         """Warns when the target range is shorter than the target's own far-field distance."""
@@ -584,8 +624,8 @@ class SbrSimulationManager:
         S_HV/S_VV (Tx V). With the builder's port table, the VV/HH phase is corrected for the
         port field signs. One reference report shows |S| of the total solution.
         """
-        total = f"{SETUP_NAME} : {SWEEP_NAME}"
-        scattered = f"{SETUP_NAME} : {SCATTERED_SWEEP_NAME}"
+        total = self.analysis_solution()
+        scattered = self.analysis_solution(SCATTERED_SUFFIX)
         pairs = [f"S({rx},{tx})" for tx in self.tx_ports for rx in self.rx_ports]
         reports = {
             REPORT_S_DB: (scattered, [f"dB({s})" for s in pairs]),
@@ -640,8 +680,9 @@ class SbrSimulationManager:
         if not _confirm(question, preset=simulate, default=False):
             print("Simulation not started.")
             return
-        print(f"Solving SBR+ design '{self.sbr_design_name}'...")
-        self.sbr_app.analyze_setup(SETUP_NAME)
+        self.analysis_solution()
+        print(f"Solving SBR+ design '{self.sbr_design_name}' ({self.setup_name})...")
+        self.sbr_app.analyze_setup(self.setup_name)
         self.sbr_app.save_project()
 
     # ------------------------------------------------------------------------------------------
@@ -749,7 +790,7 @@ class SbrSimulationManager:
 
         if not self.sbr_app:
             raise RuntimeError("SBR+ design is not set up.")
-        solution = solution or f"{SETUP_NAME} : {SCATTERED_SWEEP_NAME}"
+        solution = solution or self.analysis_solution(SCATTERED_SUFFIX)
         output_path = os.path.abspath(output_path)
         print(f"Exporting '{solution}' to {output_path}...")
         return export_sbr_parametric_sweep(
