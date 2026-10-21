@@ -68,7 +68,10 @@ def add_unit_cell_arguments(parser):
         "-o",
         "--output",
         default=None,
-        help="Output YAML file (default: <UnitCell>_<topology>.yaml next to the generator)",
+        help=(
+            "Output YAML file, relative to the current directory (default: "
+            "<UnitCell>_<topology>.yaml next to the generator)"
+        ),
     )
 
 
@@ -92,9 +95,12 @@ def unit_cell_metadata(parser, args):
 
 
 def layout_filename(args, topology, tag=""):
-    """The output file: -o as given, else '<UnitCell>_<topology><tag>.yaml'."""
+    """
+    The output file: -o as given (relative to the current directory), else the relative name
+    '<UnitCell>_<topology><tag>.yaml', which `write_layout` puts next to the generator.
+    """
     if args.output:
-        path = Path(args.output)
+        path = Path(args.output).resolve()
         if tag and not path.stem.endswith(tag):
             path = path.with_name(f"{path.stem}{tag}{path.suffix}")
         return path
@@ -102,7 +108,7 @@ def layout_filename(args, topology, tag=""):
 
 
 def write_layout(layout_data, output, script_file):
-    """Writes the layout YAML (relative paths next to the generator) and returns its path."""
+    """Writes the layout YAML (the default relative name next to the generator); its path."""
     output_path = Path(output)
     if not output_path.is_absolute():
         output_path = Path(script_file).resolve().parent / output_path
