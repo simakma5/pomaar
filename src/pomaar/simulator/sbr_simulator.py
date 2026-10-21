@@ -40,6 +40,7 @@ from pomaar.simulator.hfss_array_builder import (
     _find_by_spelling,
     _length_mm,
     connect_live_session,
+    require_designs,
     saved_setups,
 )
 from pomaar.simulator.scene_frames import (
@@ -273,6 +274,7 @@ class SbrSimulationManager:
         if not self.desktop_session:
             self.connect_desktop()
         print(f"Loading project: {self.project_path}")
+        require_designs(self.desktop_session, self.project_path, [self.sbr_design_name])
         self.sbr_app = Hfss(
             project=self.project_path,
             design=self.sbr_design_name,
@@ -329,7 +331,10 @@ class SbrSimulationManager:
         """Opens the HFSS source design (once)."""
         if self.source_app:
             return
+        if not self.desktop_session:
+            self.connect_desktop()
         print(f"Loading project: {self.project_path}")
+        require_designs(self.desktop_session, self.project_path, [self.source_design_name])
         self.source_app = Hfss(
             project=self.project_path,
             design=self.source_design_name,

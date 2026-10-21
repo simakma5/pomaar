@@ -24,9 +24,11 @@ import numpy as np
 
 from pomaar.simulator.array_templates import attach_port_table, s_parameter_ports
 from pomaar.simulator.hfss_array_builder import (
+    MissingDesignError,
     NativeAedtRefusedError,
     NoLiveSessionError,
     connect_live_session,
+    require_designs,
 )
 from pomaar.simulator.polarimetry_processor import (
     IncompleteSweepError,
@@ -231,12 +233,15 @@ def main():
     except (NativeAedtRefusedError, NoLiveSessionError) as e:
         sys.exit(f"[ERROR] {e}")
     try:
+        require_designs(desktop, args.project, [args.design])
         app = Hfss(project=args.project, design=args.design, new_desktop=False, close_on_exit=False)
         export_sbr_parametric_sweep(
             app, output_path, args.setup, args.sweep_variable, ports_path=args.port_table
         )
     except IncompleteSweepError as e:
         sys.exit(f"[ERROR] Nothing written. {e}")
+    except MissingDesignError as e:
+        sys.exit(f"[ERROR] {e}")
     finally:
         desktop.release_desktop(close_projects=False, close_on_exit=False)
 

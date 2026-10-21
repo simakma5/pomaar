@@ -92,6 +92,44 @@ class NoLiveSessionError(RuntimeError):
     """Raised when no AEDT GUI session is running to attach to."""
 
 
+class MissingDesignError(ValueError):
+    """Raised when a design named by the user is not in the project."""
+
+
+def project_design_names(desktop, project):
+    """
+    The design names of `project`: a .aedt path (opened in the session if needed) or the name
+    of a project open in the session.
+    """
+    if str(project).lower().endswith(".aedt"):
+        name = os.path.splitext(os.path.basename(str(project)))[0]
+        if name not in desktop.project_list:
+            desktop.odesktop.OpenProject(os.path.abspath(str(project)))
+    else:
+        name = str(project)
+        if name not in desktop.project_list:
+            raise MissingDesignError(
+                f"Project '{name}' is not open in the AEDT session (open: "
+                f"{', '.join(desktop.project_list) or 'none'}); pass its .aedt path."
+            )
+    return list(desktop.odesktop.SetActiveProject(name).GetTopDesignList())
+
+
+def require_designs(desktop, project, names):
+    """
+    Raises MissingDesignError unless every design in `names` exists in `project`. Run it before
+    opening a design by name: PyAEDT's Hfss(design=...) silently creates a missing one.
+    """
+    designs = project_design_names(desktop, project)
+    missing = [name for name in names if name not in designs]
+    if missing:
+        raise MissingDesignError(
+            f"No design {', '.join(repr(m) for m in missing)} in {os.path.basename(str(project))} "
+            f"(designs: {', '.join(designs)})."
+        )
+    return designs
+
+
 def connect_live_session():
     """
     Attaches to the running AEDT GUI session, the pipeline's only mode of operation, and returns
@@ -294,13 +332,6 @@ class MimoHfssBuilder:
     def connect_desktop(self):
         """Attaches to the running AEDT GUI session (`connect_live_session`)."""
         self.desktop_session = connect_live_session()
-
-    def _project_design_names(self):
-        """The project's design names, opening the project in the session if needed."""
-        name = os.path.splitext(os.path.basename(self.project_path))[0]
-        if name not in self.desktop_session.project_list:
-            self.desktop_session.odesktop.OpenProject(self.project_path)
-        return list(self.desktop_session.odesktop.SetActiveProject(name).GetTopDesignList())
 
     def _open_design(self, design_name, project=None):
         """Opens (and activates) a design of the project as its own Hfss app."""
@@ -557,7 +588,7 @@ class MimoHfssBuilder:
         # Opening a design that does not exist would silently create an empty one
         unit_cell_names = {self.source_design_name, *self.unit_cells.values()}
         unit_cell_names |= {str(e["unit_cell"]) for e in elements_list if e.get("unit_cell")}
-        designs = self._project_design_names()
+        designs = project_design_names(self.desktop_session, self.project_path)
         missing = sorted(unit_cell_names - set(designs))
         if missing:
             raise LayoutError(
