@@ -7,10 +7,10 @@ Working notes of the sandboxed investigation behind the task note "Bistaticity a
 
 | What | Where |
 | --- | --- |
-| Branch | `sandbox/bistaticity` (git worktree `~/Repositories/pomaar-sandbox`; `main` and its working tree untouched) |
-| Baseline | `9dfe44b`: the uncommitted simulator state of `main` on 2026-10-20 |
+| Branch | `sandbox/bistaticity`, worked in a git worktree `~/Repositories/pomaar-sandbox` (`main` and its working tree untouched); merged into `main` and the worktree removed on 2026-10-21 |
+| Baseline | the uncommitted simulator state of `main` on 2026-10-20, first one commit (`9dfe44b`), then split into six topical commits on `main` (`d1af11f` ... `7ac4186`) onto which the branch was rebased |
 | AEDT project | `~/Repositories/pomaar/data/interim/sandbox/bistaticity/bistaticity_sandbox.aedt`, a copy of `~/Projects/AEDT/bistaticity-analysis/bistaticity_analysis.aedt` (12:21), open in the GUI session next to the original |
-| Scripts | `src/pomaar/simulator/investigation/` (run with `ansys-vnc exec python ...` from the worktree, so its `.venv` and code are used); they refuse any project but the sandbox copy |
+| Scripts | `src/pomaar/simulator/investigation/` (run with `ansys-vnc exec python ...` from the repository root); they refuse any project but the sandbox copy |
 | Data | `~/Repositories/pomaar/data/interim/sandbox/bistaticity/` (exports, figures) |
 
 ## Current action point
@@ -311,6 +311,13 @@ Working notes of the sandboxed investigation behind the task note "Bistaticity a
   at 3 m" assumed the beta / beta_0 scaling and is wrong. Interpolated between 80 and 160 mm, a
   15 cm trihedral's bistatic cross-pol at 1 deg is about -55 dB re span (PTD + UTD; about
   10 dB lower in physical optics), well below a real antenna's cross-pol.
+
+### 2026-10-21
+
+* Merged: `main`'s uncommitted simulator changes became six topical commits (linked discrete
+  sweeps, mapped variables, builder presets, robust exports, x boresight, co/cross signatures),
+  the branch was rebased onto them (same final tree) and merged; the worktree was removed.
+  `SANDBOX_DIR` now follows `pomaar.config.INTERIM_DATA_DIR` instead of a home-relative path.
 
 ## Distillation (for the task note)
 

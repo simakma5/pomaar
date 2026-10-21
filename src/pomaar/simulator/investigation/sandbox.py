@@ -8,9 +8,10 @@ from pathlib import Path
 
 from ansys.aedt.core import Hfss
 
+from pomaar.config import INTERIM_DATA_DIR
 from pomaar.simulator.hfss_array_builder import connect_live_session
 
-SANDBOX_DIR = Path.home() / "Repositories/pomaar/data/interim/sandbox/bistaticity"
+SANDBOX_DIR = INTERIM_DATA_DIR / "sandbox" / "bistaticity"
 PROJECT_NAME = "bistaticity_sandbox"
 PROJECT_PATH = SANDBOX_DIR / f"{PROJECT_NAME}.aedt"
 ORIGINAL_PATH = Path.home() / "Projects/AEDT/bistaticity-analysis/bistaticity_analysis.aedt"
