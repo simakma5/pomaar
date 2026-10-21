@@ -30,10 +30,13 @@ import matplotlib.pyplot as plt  # noqa: E402
 import numpy as np  # noqa: E402
 
 from pomaar.config import PROCESSED_DATA_DIR  # noqa: E402
+from pomaar.simulator.array_templates import polarimetric_quads  # noqa: E402
 from pomaar.simulator.polarimetry_processor import (  # noqa: E402
     POLARIMETRIC_CHANNELS,
     CanonicalTargetProcessor,
     IncompleteSweepError,
+    bistatic_angle_deg,
+    channel_ports,
     channel_powers,
     db10,
     identical_variations,
@@ -173,7 +176,9 @@ def plot_maps(out_dir, maps, index, x_label, x_value):
     plt.close(fig)
 
 
-def plot_signatures(out_dir, features, x, x_label, centre_index, frequencies, title):
+def plot_signatures(
+    out_dir, features, x, x_label, centre_index, frequencies, title, name="signatures_vs_sweep"
+):
     """
     Target-agnostic signatures against the swept variable: a line at the centre frequency and,
     for per-frequency quantities, the min-max band over the sweep (around the line for phases).
@@ -259,7 +264,7 @@ def plot_signatures(out_dir, features, x, x_label, centre_index, frequencies, ti
         x=0.01,
         ha="left",
     )
-    fig.savefig(os.path.join(out_dir, "signatures_vs_sweep.png"), dpi=150)
+    fig.savefig(os.path.join(out_dir, f"{name}.png"), dpi=150)
     plt.close(fig)
 
 
@@ -277,7 +282,9 @@ def finite_limits(*arrays):
     return (finite.min(), finite.max()) if finite.size else (-1.0, 1.0)
 
 
-def plot_signature_maps(out_dir, features, x, x_label, frequencies, title):
+def plot_signature_maps(
+    out_dir, features, x, x_label, frequencies, title, name="signatures_vs_frequency"
+):
     """
     Every per-frequency signature as a frequency x swept-variable map: the unsummarized data
     behind the bands of `plot_signatures`. Every panel has its own colour scale over its data's
@@ -349,22 +356,25 @@ def plot_signature_maps(out_dir, features, x, x_label, frequencies, title):
         x=0.01,
         ha="left",
     )
-    fig.savefig(os.path.join(out_dir, "signatures_vs_frequency.png"), dpi=150)
+    fig.savefig(os.path.join(out_dir, f"{name}.png"), dpi=150)
     plt.close(fig)
 
 
-def write_csv(out_dir, features, x, x_label, centre_index):
+def write_csv(out_dir, features, x, x_label, centre_index, name="signatures_vs_sweep", extra=None):
     """
     Every signature: per-frequency ones at the centre frequency and their band min/max (for
-    phases, the line plus the min/max of the wrapped deviation from it, as plotted).
+    phases, the line plus the min/max of the wrapped deviation from it, as plotted). `extra`
+    ({column: values}) adds columns after the first, e.g. where each row comes from.
     """
+    extra = extra or {}
     per_frequency = [k for k, v in features.items() if np.ndim(v) == 2]
     per_variation = [k for k, v in features.items() if np.ndim(v) == 1]
     bands = {k: band_limits(features[k], centre_index, k in PHASE_KEYS) for k in per_frequency}
-    with open(os.path.join(out_dir, "signatures_vs_sweep.csv"), "w", newline="") as handle:
+    with open(os.path.join(out_dir, f"{name}.csv"), "w", newline="") as handle:
         writer = csv.writer(handle)
         writer.writerow(
             [x_label]
+            + list(extra)
             + [f"{k}@f0" for k in per_frequency]
             + [f"{k}_band_{e}" for k in per_frequency for e in ("min", "max")]
             + [f"pauli_k{i}_fraction_db@f0" for i in range(1, 5)]
@@ -373,11 +383,77 @@ def write_csv(out_dir, features, x, x_label, centre_index):
         for index, value in enumerate(x):
             writer.writerow(
                 [value]
+                + [column[index] for column in extra.values()]
                 + [features[k][index, centre_index] for k in per_frequency]
                 + [bands[k][e][index] for k in per_frequency for e in (0, 1)]
                 + list(features["pauli_fractions_db"][index, centre_index])
                 + [features[k][index] for k in per_variation]
             )
+
+
+def receiver_bistatic_angles(metadata, quad_ports):
+    """
+    Bistatic angle (deg) of one polarimetric quad per variation, from the scene geometry in the
+    export's metadata (`positions_m` per port and `target_m`, per variation, in metres): the
+    angle at the target between the mean Tx and the mean Rx position of the quad. None when the
+    export carries no geometry.
+    """
+    positions, target = metadata.get("positions_m"), metadata.get("target_m")
+    if not positions or not target:
+        return None
+    tx = np.mean([positions[quad_ports["TxH"]], positions[quad_ports["TxV"]]], axis=0)
+    rx = np.mean([positions[quad_ports["RxH"]], positions[quad_ports["RxV"]]], axis=0)
+    return bistatic_angle_deg(tx, rx, target)
+
+
+def pool_receivers(path, azimuth=0.0, elevation=0.0, tolerance_deg=1e-6):
+    """
+    The signatures of every receiver (polarimetric quad) and variation of an export, pooled and
+    sorted by bistatic angle: (features, angles, receivers, sweep values). Points of equal angle
+    (within `tolerance_deg`, e.g. the monostatic receiver at every variation) are kept once; the
+    largest difference of their per-frequency signatures is reported as a consistency check.
+    """
+    expressions = np.load(path)["expressions"]
+    quads = polarimetric_quads([port for pair in channel_ports(expressions) for port in pair])
+    rows, angles, receivers, sweep_values = [], [], [], []
+    for quad, quad_ports in quads.items():
+        processor = CanonicalTargetProcessor.from_npz(path, quad=quad)
+        beta = receiver_bistatic_angles(processor.metadata, quad_ports)
+        if beta is None:
+            sys.exit(
+                f"[ERROR] {os.path.basename(path)} has no scene geometry (metadata positions_m "
+                "and target_m), so receivers cannot be placed by bistatic angle."
+            )
+        rows.append(processor.signatures(matrices=processor.target_matrices(azimuth, elevation)))
+        angles.append(beta)
+        receivers += [quad.split("/")[0]] * len(beta)
+        sweep_values.append(processor.sweep_values)
+    features = {k: np.concatenate([r[k] for r in rows]) for k in rows[0]}
+    angles, sweep_values = np.concatenate(angles), np.concatenate(sweep_values)
+    order = np.argsort(angles, kind="stable")
+    keep, spread = [], 0.0
+    per_frequency = [k for k, v in features.items() if np.ndim(v) == 2]
+    for index in order:
+        if keep and abs(angles[index] - angles[keep[-1]]) < tolerance_deg:
+            for k in per_frequency:
+                difference = np.abs(features[k][index] - features[k][keep[-1]])
+                if "phase" in k:
+                    difference = np.abs(wrap_deg(difference))
+                spread = max(spread, float(np.nanmax(difference)))
+            continue
+        keep.append(index)
+    print(
+        f"{len(quads)} receivers x {len(order) // len(quads)} variations -> {len(keep)} distinct "
+        f"bistatic angles ({angles[keep].min():g} ... {angles[keep].max():g} deg); largest "
+        f"difference between points of equal angle: {spread:.3g} (dB or deg)"
+    )
+    keep = np.asarray(keep)
+    return (
+        {k: v[keep] for k, v in features.items()},
+        angles[keep],
+        [receivers[i] for i in keep],
+        sweep_values[keep],
+    )
 
 
 def main(argv=None):
@@ -402,6 +478,14 @@ def main(argv=None):
     )
     parser.add_argument(
         "--window", default="hann", help="Frequency window of the range profiles (default: hann)"
+    )
+    parser.add_argument(
+        "--per-receiver",
+        action="store_true",
+        help=(
+            "Treat every receiver (polarimetric quad) separately and plot all of them, pooled, "
+            "against their bistatic angle (needs the scene geometry in the export's metadata)"
+        ),
     )
     args = parser.parse_args(argv)
 
@@ -445,6 +529,32 @@ def main(argv=None):
             "Warning: the export has no port positions (builder port table), so the channels "
             "are not steered off boresight."
         )
+
+    if args.per_receiver:
+        features, angles, receivers, values = pool_receivers(
+            args.sweep, args.azimuth, args.elevation
+        )
+        title = (
+            f"{design}, every receiver at its bistatic angle, steered to ({args.azimuth:g}°, "
+            f"{args.elevation:g}°)"
+        )
+        label = "bistatic angle (deg)"
+        name = "signatures_vs_bistatic_angle"
+        plot_signatures(args.out, features, angles, label, centre_index, frequencies, title, name)
+        plot_signature_maps(
+            args.out, features, angles, label, frequencies, title, f"{name}_and_frequency"
+        )
+        write_csv(
+            args.out,
+            features,
+            angles,
+            label,
+            centre_index,
+            name,
+            extra={"receiver": receivers, x_label: values},
+        )
+        print(f"Figures and CSV written to {args.out}")
+        return
 
     matrices = processor.target_matrices(args.azimuth, args.elevation)
     features = processor.signatures(matrices=matrices)

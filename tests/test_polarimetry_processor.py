@@ -15,6 +15,7 @@ from pomaar.simulator.polarimetry_processor import (
     MimoPolarimetryProcessor,
     alpha_angle,
     assemble_scattering_matrix,
+    bistatic_angle_deg,
     calibrate_with_sphere,
     channel_powers,
     check_complete_sweep,
@@ -508,3 +509,12 @@ def test_analysis_writes_its_figures_and_warns_on_identical_variations(tmp_path,
         "signatures_vs_sweep.csv",
         "range_profiles.png",
     } <= written
+
+
+def test_bistatic_angle_is_the_angle_at_the_target():
+    target = [4.0, 0.0, 0.0]
+    assert bistatic_angle_deg([0, 0, 0], [0, 0, 0], target) == pytest.approx(0.0)
+    rx = [0.0, 4.0 * np.tan(np.radians(3.0)), 0.0]
+    assert bistatic_angle_deg([0, 0, 0], rx, target) == pytest.approx(3.0)
+    angles = bistatic_angle_deg(np.zeros((2, 3)), [[0, 0, 0], rx], [target, target])
+    np.testing.assert_allclose(angles, [0.0, 3.0])

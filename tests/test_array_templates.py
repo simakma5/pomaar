@@ -352,6 +352,16 @@ def test_s_parameter_ports():
     assert s_parameter_ports("dB(S(a,b))") is None
 
 
+def test_parse_port_strips_the_port_suffix_of_native_sbr_antennas():
+    assert parse_port("Rx_1_H_p1") == ("Rx", "H", "Rx_1_")
+    assert parse_port("Rx_1_H1_p1") == ("Rx", "H", "Rx_1_")
+    assert parse_port("Tx_V1_p1:1") == ("Tx", "V", "Tx_")
+    assert parse_port("TxV1_p1") == ("Tx", "V", "Tx")
+    ports = [f"{site}_{pol}1_p1" for site in ("Tx", "Rx_0", "Rx_1", "Rx_2") for pol in "HV"]
+    assert list(polarimetric_quads(ports)) == ["Rx_0/Tx", "Rx_1/Tx", "Rx_2/Tx"]
+    assert polarimetric_quads(ports)["Rx_2/Tx"]["RxV"] == "Rx_2_V1_p1"
+
+
 def test_polarimetric_quads():
     # Hand-built horn cluster and the builder's cluster: separate H/V elements per role
     horn = ["H1_RxH", "H1_RxV", "H1_TxH", "H1_TxV"]

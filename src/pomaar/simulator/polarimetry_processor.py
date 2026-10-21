@@ -390,6 +390,16 @@ def bistatic_path(tx_position, rx_position, target_position):
     )
 
 
+def bistatic_angle_deg(tx_position, rx_position, target_position):
+    """Angle (deg) at the target between its directions to Tx and Rx; 0 when monostatic."""
+    to_tx = np.asarray(tx_position, dtype=float) - np.asarray(target_position, dtype=float)
+    to_rx = np.asarray(rx_position, dtype=float) - np.asarray(target_position, dtype=float)
+    cosine = np.sum(to_tx * to_rx, axis=-1) / (
+        np.linalg.norm(to_tx, axis=-1) * np.linalg.norm(to_rx, axis=-1)
+    )
+    return np.degrees(np.arccos(np.clip(cosine, -1.0, 1.0)))
+
+
 def plane_wave_phase(frequencies_hz, tx_position, rx_position, direction):
     """
     Linear (plane-wave) MIMO phase term exp(+j k (p_tx + p_rx) . r_hat) of one Tx/Rx pair: the
