@@ -107,13 +107,13 @@ What disappears is the phase \emph{between} polarization pairs, and with it the 
 The costs are threefold.
 First, every polarization pair forms its own virtual array: with $12 \times 16$ channels, two states on each side leave $6 \times 8 = 48$ virtual channels per pair, three states about 20, and four states $3 \times 4 = 12$ -- the resolution criticized in \cref{sec:gaps-models}.
 Second, \cref{eq:pauli-powers-from-powers} subtracts measured powers, which amplifies noise and gain errors.
-Third, amplitude balance and the orientation accuracy and \gls{xpd} of the antenna elements become the critical hardware specifications in place of phase balance.
+Third, amplitude balance and the polarization-orientation accuracy and \gls{xpd} of the antenna elements become the critical hardware specifications in place of phase balance.
 
 The benefit also requires that the diagonal states be defined physically.
 Synthesizing them by combining the two ports of a dual-polarized element reproduces coherent $(\H, \V)$ polarimetry followed by a basis change, with the same phase calibration, and inherits any phase-centre offset between the ports; \textcite{hambergerMixedCircularLinear2019} measured that a \qty{0.6}{mm} offset of this kind lets the synthesized phase difference vary between \ang{45} and \ang{135} within the main beam.
 Two architectures are therefore compared:
 \begin{enumerate}[label=\Alph*.]
-    \item single-polarized elements in four orientations (\ang{0}, \ang{45}, \ang{90}, \ang{135}), realized as rotated copies of one element design and evaluated from powers;
+    \item single-polarized elements for linear polarization states in multiple bases -- $(\H, \V)$ and one or both diagonal states (\cref{tab:recoverable-parameters}) -- evaluated from powers, i.e.\ partial Mueller polarimetry;
     \item dual-polarized $(\H, \V)$ elements evaluated coherently, with the diagonal basis synthesized via \cref{eq:basis-transformation}.
 \end{enumerate}
 The comparison starts in the simulation platform of \cref{sec:simulation-platform}, where the coherent $(\H, \V)$ scattering matrices already available are transformed into diagonal-basis powers, and is decided at the first go/no-go point of \cref{chap:research-planning}.
@@ -223,8 +223,9 @@ To align with this objective, the following design decisions have been establish
     By starting with a known baseline -- series-fed patch sub-arrays, here aperture-coupled to shield the feed -- the research ensures a stable platform for initial data collection and algorithm development, allowing the focus to remain on the signal processing challenges of high-fidelity polarimetric measurements resolved in Doppler.
     The second design then serves to de-risk the system iteratively, folding in the lessons of the first measurement campaigns rather than adding scope.
 
-    \item \textbf{Polarization states from element orientation.}
-    Polarization states other than $\H$ and $\V$, such as the diagonal states of \cref{sec:multibasis-polarimetry}, are obtained from rotated orientations of the same element -- a rotated patch and slot in the stripline design, inclined slots in \gls{siw} -- so that each platform requires a single element design.
+    % \item \textbf{Single-polarized elements per polarization state.}
+    % Each polarization state, $\H$, $\V$ and the diagonal states of \cref{sec:multibasis-polarimetry}, is radiated by a single-polarized element of its own.
+    % These elements need not be, and ideally are not, rotated copies of one design: the sub-arrays keep a common array axis, so that their beams coincide, and the elements are matched instead in pattern, amplitude balance and polarization orientation across the field of view.
 \end{itemize}
 
 In summary, while the literature points toward \gls{gw} and \gls{med} as the future of automotive electromagnetics, this research purposefully selects established planar implementations to prioritize system-level reliability and the integrity of the polarimetric signal processing pipeline.
