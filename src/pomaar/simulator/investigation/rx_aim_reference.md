@@ -8,6 +8,7 @@ Every polarimetric descriptor is invariant under S -> g S, so aiming changes the
 nothing else.
 
 **Argument.**
+
 1. Invariance (exact, by construction). Every descriptor of `signatures` other than the span is a
    channel ratio, a phase difference, a span-normalized fraction (Pauli) or a function of the
    span-normalized coherency matrix (H, A, mean alpha), so g cancels.
@@ -40,6 +41,7 @@ beams have identical H and V patterns and no cross-pol, and because the displace
 principal plane, where the antenna's polarization basis is not rotated. For real antennas the
 receive side becomes S_meas = P_Rx(theta) S P_Tx(0). P_Rx(theta) is the 2 x 2 polarization
 matrix of the receive pattern at the off-axis angle theta = beta, and aiming changes it:
+
 * the E- and H-plane gains differ (in the azimuth plane the H element sees its E-plane pattern,
   the V element its H-plane pattern), which scales |VV / HH|;
 * the pattern's own cross-pol at theta leaks co-pol into cross-pol;

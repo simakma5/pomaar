@@ -23,12 +23,14 @@ from pomaar.simulator.polarimetry_processor import (
     coherency_matrix,
     complex_from_db_deg,
     copolar_ratio,
+    diagonal_basis_matrix,
     identical_variations,
     pauli_power_fractions,
     pauli_powers,
     pauli_vector,
     plane_wave_phase,
     polarimetric_fidelity,
+    power_only_pauli_powers,
     reference_dihedral,
     span,
     spatial_window,
@@ -101,6 +103,41 @@ def test_fidelity_and_alpha_of_canonical_targets():
     assert np.angle(copolar_ratio(REFERENCE_DIHEDRAL), deg=True) == pytest.approx(180.0)
     # A dihedral rolled by 45 deg is purely cross-polar and symmetric
     np.testing.assert_allclose(reference_dihedral(45.0), [[0, 1], [1, 0]], atol=1e-12)
+
+
+def test_diagonal_basis_of_canonical_targets():
+    # A sphere stays co-polar in the +-45 deg basis; an aligned dihedral turns purely cross-polar
+    np.testing.assert_allclose(diagonal_basis_matrix(REFERENCE_SPHERE), np.eye(2), atol=1e-12)
+    np.testing.assert_allclose(
+        diagonal_basis_matrix(REFERENCE_DIHEDRAL), [[0, 1], [1, 0]], atol=1e-12
+    )
+    s = random_matrices((3,))
+    plus, minus = np.array([1, 1]) / np.sqrt(2), np.array([1, -1]) / np.sqrt(2)
+    np.testing.assert_allclose(diagonal_basis_matrix(s)[..., 1, 0], minus @ s @ plus)
+
+
+@pytest.mark.parametrize("cross_pol", ["one", "both"])
+def test_power_only_pauli_powers_are_exact_for_reciprocal_matrices(cross_pol):
+    s = random_matrices((50,))
+    s[..., 1, 0] = s[..., 0, 1]
+    estimate = power_only_pauli_powers(
+        np.abs(s) ** 2, np.abs(diagonal_basis_matrix(s)) ** 2, cross_pol
+    )
+    np.testing.assert_allclose(estimate, np.abs(pauli_vector(s, bistatic=False)) ** 2)
+
+
+def test_power_only_pauli_powers_with_both_cross_pols_leak_only_the_antisymmetric_power():
+    s = random_matrices((50,))
+    coherent = np.abs(pauli_vector(s)) ** 2
+    estimate = power_only_pauli_powers(np.abs(s) ** 2, np.abs(diagonal_basis_matrix(s)) ** 2)
+    d = coherent[..., 3]
+    np.testing.assert_allclose(estimate - coherent[..., :3], np.stack([-d, d, d], axis=-1))
+    one = power_only_pauli_powers(np.abs(s) ** 2, np.abs(diagonal_basis_matrix(s)) ** 2, "one")
+    k = pauli_vector(s)
+    # one cross-pol channel: first-order cross term, |b|^2 + |d|^2 - 2 Im(b d*)
+    np.testing.assert_allclose(
+        one[..., 1], coherent[..., 1] + d - 2 * np.imag(k[..., 1] * np.conj(k[..., 3]))
+    )
 
 
 def test_cloude_pottier_of_one_target_and_of_white_coherency():

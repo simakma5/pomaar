@@ -21,18 +21,16 @@ htmlcov/
 .venv/
 .venv_container/
 .env
+.claude/*
+/sandbox/*
+!/sandbox/.gitkeep
 
 # --- Documentation ---
 site/
 
-# --- Project data ---
-# Ignore all data content but keep the folder structure
+# --- Project data --
 data/*
 !data/**/*.gitkeep
-
-# Agent scratch space (logs, screenshots, throwaway exports); AEDT projects go to ~/Projects/AEDT
-/sandbox/*
-!/sandbox/.gitkeep
 
 # --- Jupyter ---
 .ipynb_checkpoints
@@ -59,11 +57,13 @@ data/*
 *.bcf-SAVE-ERROR
 
 # --- Temporary files & outputs ---
-.claude/*
-**/papers/*
-*_notes.md
-# Symlinks to the Obsidian task notes
-src/pomaar/simulator/bistaticity_analysis.md
-src/pomaar/simulator/polarimetric_simulator.md
+**/references/*
 src/pomaar/simulator/examples/*_layout.yaml
 src/pomaar/simulator/examples/*_layout.json
+reports/**/*.png
+reports/**/*.csv
+
+# --- Symlinks to Obsidian notes ---
+*_notes.md
+src/pomaar/simulator/bistaticity_analysis.md
+src/pomaar/simulator/polarimetric_simulator.md

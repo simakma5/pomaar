@@ -14,6 +14,7 @@ count' or a single value); the variations are their Cartesian product.
 import argparse
 import time
 
+from pomaar.simulator.hfss_array_builder import SolveFailedError
 from pomaar.simulator.investigation.project import add_project_argument, open_project, release
 from pomaar.simulator.sbr_results import scattered_solution
 
@@ -78,7 +79,10 @@ def main(argv=None):
         app.save_project()
         if args.solve:
             start = time.time()
-            app.analyze_setup(args.name)
+            if not app.analyze_setup(args.name):
+                raise SolveFailedError(
+                    f"'{args.name}' failed or was aborted; see AEDT's message window."
+                )
             print(f"Solved '{args.name}' in {(time.time() - start) / 60:.1f} min")
             app.save_project()
     finally:

@@ -11,8 +11,9 @@ array does to polarimetry (task note "Bistaticity analysis"; paper topic 4.1). 2
 | `rx_aim_reference.md` | the argument that receiver aiming changes only the span |
 | `project.py` | the AEDT project and the data folders (below) |
 | `build_scene.py`, `mesh.py`, `sweep.py`, `solve.py`, `export_sweep.py`, `reopen.py` | AEDT side: scenes, parametric sweeps, solves, exports |
-| `run_production.sh`, `run_scaling.sh`, `run_extension.sh` | the runs behind the log |
-| `summarize.py`, `pairs.py`, `scaling.py`, `aim_check.py`, `trust_checks.py` | host side (NumPy only): summaries, split pairs, scaling, receiver aiming, trust checks |
+| `run_production.sh`, `run_scaling.sh`, `run_extension.sh`, `run_split_pairs.sh` | the runs behind the log |
+| `summarize.py`, `pairs.py`, `single_pol_power_only.py`, `scaling.py`, `aim_check.py`, `trust_checks.py` | host side (NumPy only): summaries, split pairs, architecture A (single-pol, power-only Pauli powers), scaling, receiver aiming, trust checks |
+| `slides.py` | host side: the presentation figures (one message each) in `reports/bistaticity-analysis/parametric_beams/` |
 | `validation/` | the pipeline validation harness (separate project copy; its own README) |
 
 ## Scope: what "parametric beams" leaves out
@@ -59,7 +60,8 @@ limitations are listed in the log's "Limitations" section.
 | --- | --- | --- |
 | AEDT project (16 designs, 18 GB with results) | `~/Projects/AEDT/bistaticity-parametric-beams/bistaticity_parametric_beams.aedt` (`project.PROJECT_PATH`; `--project` takes another) | no |
 | Exports (.npz) and run logs (`logs/`) | `data/interim/bistaticity/parametric_beams/` (`EXPORTS_DIR`) | no |
-| Results: `summary/`, `pairs/`, `scaling/`, `rx_aim/` (figures and CSVs), `per_export/` (per-export analyses) | `data/processed/bistaticity/parametric_beams/` (`RESULTS_DIR`) | no |
+| Results: `summary/`, `pairs/`, `single_pol_power_only/`, `scaling/`, `rx_aim/` (figures and CSVs), `per_export/` (per-export analyses) | `data/processed/bistaticity/parametric_beams/` (`RESULTS_DIR`) | no |
+| Presentation figures, outline and slide-deck source (`slides.py`; horn-cluster analyses in `horn_cluster_*/`; the deck's source in `slides/`) | `reports/bistaticity-analysis/` | yes |
 
 The `parametric_beams` layer sits next to the full-wave cluster results in `data/*/bistaticity/`.
 The results are regenerable from the exports with the host-side scripts.
@@ -67,7 +69,8 @@ The results are regenerable from the exports with the host-side scripts.
 | Results folder | What | Script |
 | --- | --- | --- |
 | `summary/` | signatures against β per target family (`dihedral`, `trihedral`, `sphere_plate`), receivers aimed (`aim1`) or on boresight (`aim0`); change from monostatic; aim difference; departure tables (CSV) | `summarize.py --aim 1`, `--aim 0` |
-| `pairs/` | Z_DR and ∠(S_HH S_VV*) from split pairs against a co-located pair | `pairs.py` |
+| `pairs/` | the supervisor's split pairs only: Z_DR and ∠(S_HH S_VV*) from TxV–RxV and TxH–RxH against a co-located dual-polarized pair of the same base (split-pair scene alone) | `pairs.py` |
+| `single_pol_power_only/` | power-only Pauli fractions of architecture A (single-pol: H, V, ±45° elements) against B (dual-pol: coherent co-located pairs) in the three-receiver scenes, A's powers from the same pair as B's; sphere, plate, dihedral 0/22.5/45°, trihedral 0/45/90°, one figure per target design | `single_pol_power_only.py` |
 | `scaling/` | trihedral 40–160 mm at 1–16 m, dihedral 160 mm: β₀ and cross-pol against β and β/β₀ | `scaling.py <stems>` (stems in the log) |
 | `rx_aim/` | the scalar fit behind `rx_aim_reference.md` | `aim_check.py` |
 | `per_export/` | `bistaticity_analysis --per-receiver` of every `MultiRx*` export | see below |
@@ -79,8 +82,8 @@ appear only in the departure CSVs.
 
 Run everything from the repository root.
 
-* **AEDT side** (in the container): `run_production.sh`, `run_scaling.sh` and
-  `run_extension.sh` build, sweep, solve and export.
+* **AEDT side** (in the container): `run_production.sh`, `run_scaling.sh`,
+  `run_extension.sh` and `run_split_pairs.sh` build, sweep, solve and export.
 * **Host side**: `python src/pomaar/simulator/investigation/<script>.py` rewrites the results
   folders.
 * **Per-export analyses**: run

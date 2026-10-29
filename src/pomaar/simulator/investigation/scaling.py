@@ -14,8 +14,8 @@ Outputs (in <results>/scaling/):
   beta / beta_0;
 * `scaling.csv`: per export, beta_0, the far-field distance 2 D^2 / lambda of the target's
   aperture against its range, the power-law fit of the cross-pol over FIT_RANGE_DEG (slope in
-  dB per decade and level at 1 deg) and the departure angles of `summarize.DEPARTURES` in deg
-  and in units of beta_0.
+  dB per doubling of beta and level at 1 deg) and the departure angles of
+  `summarize.DEPARTURES` in deg and in units of beta_0.
 """
 
 import argparse
@@ -81,11 +81,11 @@ def first_null(angles, span_db):
 
 
 def power_law(angles, values, defined):
-    """Slope (dB per decade) and level at 1 deg of `values` over FIT_RANGE_DEG where defined."""
+    """Slope (dB per doubling of beta) and level at 1 deg of `values` over FIT_RANGE_DEG."""
     use = (angles >= FIT_RANGE_DEG[0] - 1e-6) & (angles <= FIT_RANGE_DEG[1] + 1e-6) & defined
     if use.sum() < 3:
         return None, None
-    slope, level = np.polyfit(np.log10(angles[use]), values[use], 1)
+    slope, level = np.polyfit(np.log2(angles[use]), values[use], 1)
     return float(slope), float(level)
 
 
@@ -127,7 +127,7 @@ def main(argv=None):
             values = features[f"power_{channel}_db"][:, centre] - reference
             # the emerging part: 10 dB above the channel's monostatic value (its floor here)
             slope, level = power_law(angles, values, values > values[0] + EMERGED_DB)
-            row[f"{channel}_slope_db_per_decade"] = None if slope is None else round(slope, 1)
+            row[f"{channel}_slope_db_per_doubling"] = None if slope is None else round(slope, 1)
             row[f"{channel}_at_1deg_db"] = None if level is None else round(level, 1)
         for descriptor, key, kind, levels in DEPARTURES:
             values = features[key]
@@ -147,7 +147,8 @@ def main(argv=None):
         series.append((label, features, angles, centre, null, reference))
         print(
             f"{label}: beta_0 {row['first_null_deg']} deg, far field {far_field:.1f} m; "
-            f"HV {row['hv_slope_db_per_decade']} dB/decade, {row['hv_at_1deg_db']} dB at 1 deg"
+            f"HV {row['hv_slope_db_per_doubling']} dB per doubling, "
+            f"{row['hv_at_1deg_db']} dB at 1 deg"
         )
 
     with open(out / "scaling.csv", "w", newline="") as handle:

@@ -228,7 +228,7 @@ def main(argv=None):
     parser.add_argument("--gap-ratio", default="0", help="gapRatio (pairs; default: 0)")
     parser.add_argument("--bistatic-angle", default="1deg", help="bistaticAngle (default: 1deg)")
     parser.add_argument("--rx-aim", type=int, choices=(0, 1), default=1, help="rxAim (default: 1)")
-    parser.add_argument("--spacing-hv", default="0mm", help="spacingHV (default: 0mm, type 2)")
+    parser.add_argument("--spacing-hv", default="0mm", help="spacingHV (default: 0mm, dual-pol)")
     parser.add_argument("--beam-width", default="60deg", help="Both beam widths (default: 60deg)")
     parser.add_argument("--start", default="74GHz")
     parser.add_argument("--stop", default="84GHz")

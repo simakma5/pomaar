@@ -476,6 +476,65 @@ def pauli_vector(scattering_matrix, bistatic=True):
     return np.stack(components, axis=-1) / np.sqrt(2.0)
 
 
+def linear_state(orientation_deg):
+    """Jones vector (H, V) of the linear state turned by `orientation_deg` from H towards V."""
+    angle = np.radians(orientation_deg)
+    return np.array([np.cos(angle), np.sin(angle)])
+
+
+# The diagonal states p_+- = (e_H +- e_V) / sqrt(2) as the columns of U: p_- lies at -45 deg, the
+# 135 deg element up to a sign that no power sees
+DIAGONAL_BASIS = np.stack([linear_state(45.0), linear_state(-45.0)], axis=-1)
+
+
+def diagonal_basis_matrix(scattering_matrix):
+    """
+    S' = U^T S U in the diagonal basis U = [p_+, p_-], p_+- = (e_H +- e_V) / sqrt(2):
+    [[V_++, V_+-], [V_-+, V_--]] with V_qp = p_q^T S p_p the voltage received in state q while
+    transmitting state p (BSA), i.e. what single-polarized +-45 deg elements measure.
+    """
+    return DIAGONAL_BASIS.T @ scattering_matrix @ DIAGONAL_BASIS
+
+
+# Power-only Pauli powers |a|^2, |b|^2, |c|^2 as sums of measured powers, (weight, basis, rx, tx)
+# per term, basis 'hv' for |S_pq|^2 and 'diagonal' for |V_qp|^2 (indices 0 = + and 1 = -).
+# 'one': the research proposal's formulas, one cross-pol channel of each basis (V_-+ and S_HV);
+# 'both': both cross-pol channels of each basis (V_-+ and V_+-, S_HV and S_VH), which a
+# power-only array that measures every state pair has. Both are exact for reciprocal S. For
+# non-reciprocal S (bistatic), with d the antisymmetric Pauli component, 'both' gives
+# |a|^2 - |d|^2, |b|^2 + |d|^2 and |c|^2 + |d|^2, while 'one' adds a cross term of first order in d
+# (e.g. -2 Im(b d*) to |b|^2).
+POWER_ONLY_PAULI_TERMS = {
+    "one": (
+        ((1.0, "diagonal", 0, 0), (1.0, "diagonal", 1, 1), (-2.0, "hv", 0, 1)),
+        ((2.0, "diagonal", 1, 0),),
+        ((2.0, "hv", 0, 1),),
+    ),
+    "both": (
+        ((1.0, "diagonal", 0, 0), (1.0, "diagonal", 1, 1), (-1.0, "hv", 0, 1), (-1.0, "hv", 1, 0)),
+        ((1.0, "diagonal", 1, 0), (1.0, "diagonal", 0, 1)),
+        ((1.0, "hv", 0, 1), (1.0, "hv", 1, 0)),
+    ),
+}
+
+
+def power_only_pauli_powers(hv_powers, diagonal_powers, cross_pol="both"):
+    """
+    Pauli powers (|a|^2, |b|^2, |c|^2), shape (..., 3), from received powers alone: |S_pq|^2
+    (`hv_powers`) and |V_qp|^2 (`diagonal_powers`), both (..., 2, 2) indexed [rx, tx]
+    (`POWER_ONLY_PAULI_TERMS`; research proposal, eq. pauli-powers-from-powers). The
+    differences of powers can make |a|^2 negative.
+    """
+    powers = {"hv": np.asarray(hv_powers), "diagonal": np.asarray(diagonal_powers)}
+    return np.stack(
+        [
+            sum(w * powers[basis][..., rx, tx] for w, basis, rx, tx in terms)
+            for terms in POWER_ONLY_PAULI_TERMS[cross_pol]
+        ],
+        axis=-1,
+    )
+
+
 def pauli_power_fractions(scattering_matrix):
     """Fractions of the span in the four bistatic Pauli components (they sum to 1)."""
     power = np.abs(pauli_vector(scattering_matrix, bistatic=True)) ** 2
